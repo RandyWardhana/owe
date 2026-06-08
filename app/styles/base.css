@@ -1,0 +1,99 @@
+* {
+  box-sizing: border-box;
+}
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+}
+
+body {
+  font-family: "Manrope", system-ui, -apple-system, sans-serif;
+  background: var(--bg-2);
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+}
+input,
+textarea,
+select {
+  font-family: inherit;
+  color: inherit;
+}
+input {
+  font-size: 16px;
+}
+
+.tnum {
+  font-feature-settings: "tnum" 1;
+  font-variant-numeric: tabular-nums;
+}
+.disp {
+  font-family: var(--font-display);
+  letter-spacing: -0.02em;
+}
+
+.hr {
+  height: 1px;
+  background: var(--line);
+  border: 0;
+  margin: 0;
+}
+
+.label {
+  font-size: 11.5px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  margin: 0 0 10px;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+}
+.between {
+  justify-content: space-between;
+}
+.muted {
+  color: var(--ink-3);
+}
+.dim {
+  color: var(--ink-2);
+}
+.dim-strong {
+  font-weight: 800;
+}
+.center {
+  text-align: center;
+}
+.grow {
+  flex: 1;
+  min-width: 0;
+}
+.truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tappable {
+  transition: transform 0.12s;
+}
+.tappable:active {
+  transform: scale(0.97);
+}
+.pad {
+  padding: 8px 18px 26px;
+}
+.col-gap {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}

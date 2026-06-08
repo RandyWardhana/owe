@@ -1,0 +1,98 @@
+.viewfinder {
+  position: relative;
+  width: 100%;
+  height: clamp(260px, 54vh, 460px);
+  border-radius: var(--radius-xl);
+  background: var(--card-2);
+  border: 1px solid var(--line);
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+.vf-corner {
+  position: absolute;
+  width: 26px;
+  height: 26px;
+  border: 3px solid var(--accent);
+}
+.vf-corner.tl {
+  top: 16px;
+  left: 16px;
+  border-right: 0;
+  border-bottom: 0;
+  border-top-left-radius: 8px;
+}
+.vf-corner.tr {
+  top: 16px;
+  right: 16px;
+  border-left: 0;
+  border-bottom: 0;
+  border-top-right-radius: 8px;
+}
+.vf-corner.bl {
+  bottom: 16px;
+  left: 16px;
+  border-right: 0;
+  border-top: 0;
+  border-bottom-left-radius: 8px;
+}
+.vf-corner.br {
+  bottom: 16px;
+  right: 16px;
+  border-left: 0;
+  border-top: 0;
+  border-bottom-right-radius: 8px;
+}
+.vf-scanline {
+  position: absolute;
+  left: 10%;
+  right: 10%;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--accent);
+  box-shadow: 0 0 16px 2px var(--accent);
+  animation: scanline 2.2s ease-in-out infinite;
+}
+[data-anim="off"] .vf-scanline {
+  animation: none;
+  top: 50%;
+}
+.vf-hint {
+  text-align: center;
+  color: var(--ink-2);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 0 26px;
+}
+.vf-hint .disp {
+  font-size: 18px;
+  color: var(--ink);
+}
+.vf-privacy {
+  font-size: 12.5px;
+  margin: 0;
+  max-width: 26ch;
+}
+.vf-status {
+  text-align: center;
+  width: 72%;
+}
+.vf-pct {
+  font-size: 34px;
+}
+.vf-bar {
+  margin-top: 12px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--line-strong);
+  overflow: hidden;
+}
+.vf-bar i {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  border-radius: 999px;
+  transition: width 0.3s;
+}

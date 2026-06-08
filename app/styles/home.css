@@ -1,0 +1,58 @@
+.hero {
+  padding: 8px 0 16px;
+}
+.hero__title {
+  font-size: 34px;
+  line-height: 1.04;
+  font-weight: 800;
+  margin: 0;
+}
+.hero__sub {
+  font-size: 15px;
+  margin: 12px 0 0;
+  max-width: 30ch;
+}
+
+.resume {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 15px 16px;
+  width: 100%;
+}
+.resume__title {
+  font-size: 16px;
+  font-weight: 700;
+}
+.resume__meta {
+  font-size: 13px;
+  margin-top: 2px;
+}
+
+.hist {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 14px;
+  width: 100%;
+}
+.hist__avatars {
+  display: flex;
+}
+.hist__av {
+  width: 34px;
+  height: 34px;
+  font-size: 12px;
+  border: 2px solid var(--card);
+}
+.hist__title {
+  font-size: 15px;
+  font-weight: 700;
+}
+.hist__meta {
+  font-size: 12.5px;
+  margin-top: 1px;
+}
+.hist__total {
+  font-size: 17px;
+}

@@ -1,0 +1,136 @@
+@keyframes rise {
+  from {
+    transform: translateY(16px);
+  }
+  to {
+    transform: none;
+  }
+}
+@keyframes pop {
+  0% {
+    transform: scale(0.8);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.06);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+@keyframes sheetUp {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+@keyframes fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+@keyframes scanline {
+  0% {
+    top: 16%;
+  }
+  50% {
+    top: 84%;
+  }
+  100% {
+    top: 16%;
+  }
+}
+@keyframes routeIn {
+  from {
+    transform: translateY(12px);
+  }
+  to {
+    transform: none;
+  }
+}
+@keyframes routeBack {
+  from {
+    transform: translateY(12px);
+  }
+  to {
+    transform: none;
+  }
+}
+
+.rise {
+  animation: rise 0.42s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.pop {
+  animation: pop 0.3s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.stagger > * {
+  animation: rise 0.46s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  animation-delay: calc(var(--i, 0) * 55ms);
+}
+.route-enter {
+  animation: routeIn 0.34s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.route-back {
+  animation: routeBack 0.34s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+[data-anim="off"] .rise,
+[data-anim="off"] .pop,
+[data-anim="off"] .stagger > *,
+[data-anim="off"] .route-enter,
+[data-anim="off"] .route-back {
+  animation: none !important;
+}
+
+.skel {
+  position: relative;
+  overflow: hidden;
+  background: var(--bg-2);
+  border-radius: 8px;
+}
+.skel::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.45),
+    transparent
+  );
+  animation: shimmer 1.3s infinite;
+}
+[data-theme="dark"] .skel::after {
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.06),
+    transparent
+  );
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::after,
+  *::before {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+.theme-switching,
+.theme-switching * {
+  transition: none !important;
+}

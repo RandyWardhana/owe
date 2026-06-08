@@ -1,0 +1,157 @@
+.hero-total {
+  padding: 20px;
+  text-align: center;
+}
+.grand {
+  font-size: 40px;
+  margin-top: 4px;
+  line-height: 1;
+}
+.grand__sub {
+  font-size: 13px;
+  margin-top: 8px;
+}
+
+.pp {
+  padding: 12px 14px;
+}
+.pp__av {
+  width: 40px;
+  height: 40px;
+  font-size: 13px;
+}
+.pp__name {
+  font-size: 15.5px;
+  font-weight: 700;
+}
+.pp__meta {
+  font-size: 12.5px;
+  margin-top: 1px;
+}
+.pp__total {
+  font-size: 17px;
+}
+.pp__total.is-payer {
+  color: var(--pos);
+}
+
+.pp--row {
+  width: 100%;
+  display: block;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+}
+.pp.is-paid {
+  opacity: 0.62;
+}
+.pp.is-paid .pp__total.is-struck {
+  text-decoration: line-through;
+  color: var(--ink-3);
+}
+
+.settle {
+  padding: 16px;
+}
+.settle__q {
+  font-size: 14px;
+  font-weight: 700;
+}
+.settle__hint {
+  font-size: 13px;
+  margin: 14px 0 0;
+}
+
+.owe-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--card-2);
+  border-radius: var(--radius-md);
+  padding: 11px 13px;
+  transition: opacity 0.2s;
+}
+.owe-check {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px solid var(--line-strong);
+  background: transparent;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  flex-shrink: 0;
+  transition: background 0.15s, border-color 0.15s, transform 0.12s;
+}
+.owe-check:active {
+  transform: scale(0.88);
+}
+.owe-check[aria-pressed="true"] {
+  background: var(--pos);
+  border-color: transparent;
+}
+.owe-row__name {
+  font-weight: 700;
+  font-size: 14.5px;
+}
+.owe-row__sub {
+  font-size: 12px;
+  margin-top: 1px;
+}
+.owe-row__amt {
+  font-size: 16px;
+  margin-left: auto;
+}
+.owe-row.is-paid {
+  opacity: 0.6;
+}
+.owe-row.is-paid .owe-row__amt {
+  text-decoration: line-through;
+}
+
+.pay-via {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 4px;
+}
+.card.pay-via {
+  padding: 12px;
+}
+
+.share-link {
+  margin-top: 12px;
+  background: var(--card-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  padding: 11px 13px;
+  font-size: 12px;
+  color: var(--ink-2);
+  word-break: break-all;
+}
+.share-foot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 12.5px;
+  margin-top: 16px;
+}
+
+.shared-mark {
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+.shared-title {
+  font-size: 20px;
+  margin: 0 0 2px;
+}
+.shared-foot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 12px;
+  margin-top: 24px;
+}

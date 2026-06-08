@@ -1,0 +1,125 @@
+.title-field {
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 12px;
+}
+
+.item {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 6px 8px;
+  align-items: center;
+  padding: 12px 14px;
+}
+.item__name {
+  grid-column: 1;
+  border: 0;
+  background: transparent;
+  font-size: 15.5px;
+  font-weight: 700;
+  color: var(--ink);
+  outline: none;
+  padding: 2px 0;
+  width: 100%;
+}
+.item__del {
+  grid-column: 2;
+  grid-row: 1;
+}
+.item__nums {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.qtybox,
+.pricebox {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--card-2);
+  border: 1.5px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  padding: 7px 10px;
+}
+.qtybox__x {
+  color: var(--ink-3);
+  font-weight: 700;
+}
+.qtybox__in {
+  width: 32px;
+  border: 0;
+  background: transparent;
+  outline: none;
+  color: var(--ink);
+  font-weight: 700;
+  font-size: 15px;
+  text-align: center;
+}
+.pricebox {
+  flex: 1;
+  min-width: 0;
+}
+.pricebox span {
+  font-size: 12px;
+  white-space: nowrap;
+}
+.pricebox__in {
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  outline: none;
+  color: var(--ink);
+  font-weight: 700;
+  font-size: 15px;
+}
+.item__line {
+  font-size: 15px;
+  white-space: nowrap;
+}
+
+.charges {
+  padding: 2px 16px;
+}
+.charge {
+  padding: 13px 0;
+}
+.charge__label {
+  font-weight: 700;
+  font-size: 15px;
+}
+.charge__input {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--card-2);
+  border: 1.5px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  padding: 7px 12px;
+}
+.charge__in {
+  width: 62px;
+  border: 0;
+  background: transparent;
+  outline: none;
+  text-align: right;
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--ink);
+}
+
+.totals {
+  padding: 4px 16px;
+}
+.totals__row {
+  padding: 11px 0;
+  font-size: 14.5px;
+}
+.totals__grand {
+  border-top: 1px solid var(--line);
+}
+.totals__grand .disp {
+  font-size: 19px;
+}

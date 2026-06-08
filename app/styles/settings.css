@@ -1,0 +1,143 @@
+.set-group {
+  background: var(--card);
+  border: 1.5px solid var(--line-strong);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  margin-bottom: 22px;
+}
+.set-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 13px 15px;
+  min-height: 54px;
+}
+.set-item + .set-item {
+  border-top: 1px solid var(--line);
+}
+.set-item__label {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.set-item--stack {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 11px;
+}
+
+.seg {
+  display: inline-flex;
+  background: var(--card-2);
+  border: 1.5px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  padding: 3px;
+  gap: 3px;
+}
+.seg__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  background: transparent;
+  color: var(--ink-2);
+  font-weight: 700;
+  font-size: 13.5px;
+  padding: 8px 13px;
+  border-radius: 8px;
+  transition: background 0.15s, color 0.15s;
+}
+.seg__btn.on {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+.seg--full {
+  display: flex;
+  width: 100%;
+}
+.seg--full .seg__btn {
+  flex: 1;
+  justify-content: center;
+}
+
+.swatches {
+  display: inline-flex;
+  gap: 9px;
+}
+.swatch {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 2px solid var(--line);
+  display: grid;
+  place-items: center;
+  color: #16170f;
+  transition: transform 0.12s;
+}
+.swatch:active {
+  transform: scale(0.9);
+}
+.swatch.on {
+  border-color: var(--ink);
+}
+
+.toggle {
+  width: 50px;
+  height: 30px;
+  border-radius: 999px;
+  background: var(--line-strong);
+  border: 0;
+  position: relative;
+  transition: background 0.18s;
+  flex-shrink: 0;
+}
+.toggle.on {
+  background: var(--accent);
+}
+.toggle__knob {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  transition: transform 0.18s;
+}
+.toggle.on .toggle__knob {
+  transform: translateX(20px);
+}
+
+.set-select {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+.set-select select {
+  appearance: none;
+  -webkit-appearance: none;
+  background: var(--card-2);
+  border: 1.5px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  color: var(--ink);
+  font-family: inherit;
+  font-weight: 700;
+  font-size: 14px;
+  padding: 9px 34px 9px 13px;
+  cursor: pointer;
+}
+.set-select__chev {
+  position: absolute;
+  right: 11px;
+  transform: rotate(90deg);
+  color: var(--ink-3);
+  pointer-events: none;
+}
+
+.about {
+  font-size: 12.5px;
+  margin-top: 4px;
+  line-height: 1.5;
+}

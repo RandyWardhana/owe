@@ -1,0 +1,63 @@
+@import url("https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Manrope:wght@400;500;600;700;800&display=swap");
+
+:root {
+  color-scheme: light;
+  --accent: #9be52e;
+  --on-accent: #16170f;
+  --accent-edge: color-mix(in oklab, var(--accent), #0a0c05 26%);
+  --font-display: "Bricolage Grotesque", "Manrope", system-ui, sans-serif;
+  --bg: #fbfbf7;
+  --bg-2: #f1f1ea;
+  --card: #ffffff;
+  --card-2: #f5f5ee;
+  --line: #edede4;
+  --line-strong: #deded2;
+  --ink: #16170f;
+  --ink-2: #5c5d50;
+  --ink-3: #8a8b7e;
+  --accent-soft: color-mix(in oklab, var(--accent) 22%, var(--card));
+  --accent-soft-2: color-mix(in oklab, var(--accent) 40%, var(--card));
+  --accent-deep: #46760f;
+  --pos: #2f9a66;
+  --warn: #b9722f;
+  --shadow: 0 1px 2px rgba(22, 23, 15, 0.04),
+    0 10px 26px -14px rgba(22, 23, 15, 0.18);
+  --shadow-lg: 0 2px 8px rgba(22, 23, 15, 0.06),
+    0 26px 60px -22px rgba(22, 23, 15, 0.34);
+  --btn-lip: 4px;
+  --radius-xl: 28px;
+  --radius-lg: 22px;
+  --radius-md: 16px;
+  --radius-sm: 11px;
+  --p1: #e7d5f7;
+  --p2: #fad9c8;
+  --p3: #cdeaf7;
+  --p4: #d7f0c7;
+  --p5: #fbe7b0;
+  --p6: #f7d5e3;
+  --p7: #d5e0f7;
+  --p8: #e2e7c5;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+  --accent-edge: color-mix(in oklab, var(--accent), #000 34%);
+  --bg: #15160e;
+  --bg-2: #1d1e15;
+  --card: #21221a;
+  --card-2: #292b20;
+  --line: #2f3125;
+  --line-strong: #3c3e30;
+  --ink: #fbfbf7;
+  --ink-2: #b9baac;
+  --ink-3: #888a7b;
+  --accent-soft: color-mix(in oklab, var(--accent) 20%, var(--card));
+  --accent-soft-2: color-mix(in oklab, var(--accent) 32%, var(--card));
+  --accent-deep: #b7f25a;
+  --pos: #5dba8a;
+  --warn: #d29a5c;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.34), 0 12px 32px -14px rgba(0, 0, 0, 0.6);
+  --shadow-lg: 0 2px 10px rgba(0, 0, 0, 0.4), 0 32px 72px -26px rgba(0, 0, 0, 0.74);
+}
