@@ -1,1 +1,143 @@
+<div align="center">
+
 # owe
+
+### settle up, skip the drama
+
+**Scan a receipt, split it fairly, and settle up — right from your phone.**
+`scan · split · settle`
+
+[![Next.js](https://img.shields.io/badge/Next.js-15-000000?logo=next.js&logoColor=white)](https://nextjs.org/)
+[![React](https://img.shields.io/badge/React-19-087EA4?logo=react&logoColor=white)](https://react.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![PWA](https://img.shields.io/badge/PWA-offline--first-5A0FC8?logo=pwa&logoColor=white)](#-offline-first--private)
+[![License](https://img.shields.io/badge/License-MIT-9be52e)](./LICENSE)
+
+</div>
+
+---
+
+**owe** is an offline-first PWA that takes the awkwardness out of splitting a bill. Point your camera at a receipt and it reads the items on-device, you tap who had what, and owe works out exactly who owes whom — then hands everyone a payment number to settle up. No account, no sign-up, and nothing leaves your phone unless *you* share it.
+
+## ✨ Highlights
+
+- 📷 **Scan a receipt** — on-device OCR (Tesseract.js) pulls out items, prices, tax and service. No photo ever leaves your device.
+- ✋ **Assign by tapping** — mark who had each item, or split a shared dish evenly between a few people.
+- 🧮 **Fair, itemised splits** — per-person totals with tax, service and discounts apportioned proportionally.
+- 💸 **Settle up** — see who pays whom, with each person's bank / e-wallet number ready to copy.
+- 🔗 **Share without an app** — a split packs into a single link; whoever opens it sees the totals and payment numbers in their browser.
+- 🌍 **Bilingual** — English and Bahasa Indonesia.
+- 🎨 **Make it yours** — light / dark theme, six accent colors, currency, rounding, and a motion toggle.
+- 📲 **Installable & offline** — add to your home screen and use it with no connection.
+
+## 🧭 How it works
+
+```text
+Home ──▶ Scan ──▶ Review ──▶ People ──▶ Assign ──▶ Breakdown ──▶ Share
+        (OCR)    (fix items)  (add)    (who had    (the split &
+                                        what)        settle up)
+```
+
+1. **Scan** a receipt (or load a sample / enter items by hand). OCR runs locally and extracts items, quantities, prices, tax and service charges.
+2. **Review** the parsed items and tweak anything the camera fumbled.
+3. **People** — add everyone at the table, optionally with a bank account or e-wallet so they can be paid back.
+4. **Assign** each item to the person (or people) who had it.
+5. **Breakdown** shows each person's share — items plus their proportional cut of tax, service and discounts — and who needs to pay whom.
+6. **Share** a link or copy a text summary so everyone can settle up.
+
+## 🔒 Offline-first & private
+
+owe is built to work with no network and no backend:
+
+- Receipt OCR runs **entirely on-device** with Tesseract.js.
+- Your splits, history and preferences live in `localStorage` — there's no server and no account.
+- A shared bill is encoded **into the URL itself**, so a recipient only ever sees what's in the link they were given.
+- A service worker (Serwist) precaches the app so it loads instantly and works offline once installed.
+
+## 🛠️ Tech stack
+
+| Area | Choice |
+| --- | --- |
+| Framework | [Next.js 15](https://nextjs.org/) (App Router) + [React 19](https://react.dev/) |
+| Language | [TypeScript](https://www.typescriptlang.org/) |
+| State | [Zustand](https://github.com/pmndrs/zustand) (persisted to `localStorage`) |
+| OCR | [Tesseract.js](https://tesseract.projectnaptha.com/) |
+| PWA / offline | [Serwist](https://serwist.pages.dev/) service worker |
+| Styling | Hand-written CSS with design tokens + light/dark theming |
+| Package manager | [pnpm](https://pnpm.io/) |
+
+## 🚀 Getting started
+
+**Prerequisites:** Node.js 18.18+ and [pnpm](https://pnpm.io/installation).
+
+```bash
+# install dependencies
+pnpm install
+
+# start the dev server
+pnpm dev
+```
+
+Open [http://localhost:3000](http://localhost:3000).
+
+> [!NOTE]
+> The PWA service worker is **disabled in development** and only generated for production builds. If you ever run a production build locally and later see stale assets in dev, unregister the service worker (DevTools → Application → Storage → *Clear site data*) once.
+
+### Scripts
+
+| Command | Description |
+| --- | --- |
+| `pnpm dev` | Start the development server |
+| `pnpm build` | Production build (generates the service worker) |
+| `pnpm start` | Serve the production build |
+| `pnpm lint` | Run ESLint |
+
+## 📁 Project structure
+
+```text
+app/
+  layout.tsx        # root layout + PWA metadata
+  page.tsx          # screen router (home → scan → … → breakdown)
+  sw.ts             # Serwist service worker
+  styles/           # design tokens + per-screen CSS
+components/
+  Sheet.tsx         # draggable bottom-sheet primitive
+  Settings.tsx      # theme / language / money settings
+  scan · review · people · assign · breakdown · shared   # the flow
+  ui/               # ClickSpark, AnimatedMoney, …
+lib/
+  store.ts          # Zustand store (persisted)
+  ocr.ts            # receipt parsing
+  calc.ts           # split math
+  breakdown.ts      # per-person settlement
+  currency.ts       # currencies + formatting
+  payments.ts       # payment-method catalogue
+  share.ts          # encode/decode shared splits
+  i18n/             # en + id dictionaries
+  hooks/            # composable hooks
+```
+
+## ⚙️ Settings
+
+Everything is tweakable from the in-app settings sheet:
+
+- **Theme** — light or dark (native form controls follow the theme via `color-scheme`).
+- **Accent** — six accent colors that recolor the whole UI.
+- **Animations** — a single toggle that respects `prefers-reduced-motion`.
+- **Language** — English or Bahasa Indonesia.
+- **Currency** — IDR (default), MYR, JPY, USD, SGD.
+- **Rounding** — exact, whole, or round up to the nearest 5.
+
+## 💳 Currencies & payment methods
+
+**Currencies:** IDR · MYR · JPY · USD · SGD
+
+**Payment methods:** Bank transfer · GoPay · OVO · DANA · ShopeePay · LinkAja · PayPal · Other
+
+## 📲 Install as an app
+
+owe is a full PWA. In a supporting browser, use **Add to Home Screen** (mobile) or the install icon in the address bar (desktop) to run it standalone and offline.
+
+## 📄 License
+
+[MIT](./LICENSE) © 2026 Randy Wardhana
