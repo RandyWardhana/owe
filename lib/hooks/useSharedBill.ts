@@ -30,7 +30,7 @@ export function useSharedBill() {
   }, []);
 
   const clear = () => {
-    window.history.replaceState(null, "", window.location.pathname);
+    window.history.replaceState(null, "", "/");
     setShared(null);
   };
 

@@ -10,7 +10,7 @@ export function useShareLink(payload: SharePayload) {
     let cancelled = false;
     encryptShare(payload).then((enc) => {
       if (!cancelled) {
-        setLink(`${window.location.origin}${window.location.pathname}?s=${enc}`);
+        setLink(`${window.location.origin}/s?s=${enc}`);
       }
     });
     return () => {
