@@ -8,16 +8,8 @@ import { useEscapeKey } from "@/lib/hooks";
 
 import { X } from "./icons";
 
-const DRAG_CLOSE_PX = 110; // drag at least this far down to dismiss
+const DRAG_CLOSE_PX = 110;
 
-/* Bottom-sheet primitive: a backdrop + a sheet that slides up. Animates both
-   in AND out, closes on backdrop tap / close button / Escape, and can be
-   dragged down by its grip to dismiss.
-
-   Performance: the live drag offset is written straight to the DOM as a CSS
-   variable (--drag) — no React re-render per pointer frame. State only changes
-   on open/close and drag start/end, so the (potentially heavy) sheet body
-   isn't re-rendered while you're dragging. */
 export default function Sheet({
   open,
   onClose,
@@ -43,12 +35,10 @@ export default function Sheet({
 
   useEscapeKey(onClose, open);
 
-  // Mount as soon as we're asked to open.
   useEffect(() => {
     if (open) setRender(true);
   }, [open]);
 
-  // Drive the enter / exit transition whenever open or render flips.
   useEffect(() => {
     if (!render) return;
     const reduce = window.matchMedia?.(
@@ -61,7 +51,7 @@ export default function Sheet({
         setOpenCls(true);
         return;
       }
-      // next frame, so the slide-up transition actually runs from translateY(100%)
+
       const id = requestAnimationFrame(() => setOpenCls(true));
       return () => cancelAnimationFrame(id);
     }
@@ -88,9 +78,7 @@ export default function Sheet({
     }
   };
 
-  // ---- drag-to-dismiss (from the grip / header) ----
   const onPointerDown = (e: PointerEvent) => {
-    // let the close button (and any control in the header) work normally
     if ((e.target as HTMLElement).closest("button")) return;
     startY.current = e.clientY;
     dragY.current = 0;
@@ -103,7 +91,7 @@ export default function Sheet({
     if (!draggingRef.current) return;
     const dy = Math.max(0, e.clientY - startY.current);
     dragY.current = dy;
-    // imperative — no React render this frame
+
     sheetRef.current?.style.setProperty("--drag", `${dy}px`);
     backdropRef.current?.style.setProperty(
       "--bd",
@@ -117,10 +105,10 @@ export default function Sheet({
     e.currentTarget.releasePointerCapture(e.pointerId);
     setDragging(false);
     if (dragY.current > DRAG_CLOSE_PX) {
-      setOpenCls(false); // transition from the dragged position out
+      setOpenCls(false);
       onClose();
     }
-    // else: openCls stays true → springs back to translateY(0)
+
   };
 
   const cls = (base: string) =>
