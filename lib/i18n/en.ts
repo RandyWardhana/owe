@@ -163,6 +163,13 @@ const en = {
     roundUp5: "+5",
     about: "owe — offline-first. Nothing leaves your phone unless you share it.",
   },
+  install: {
+    title: "Install owe",
+    subtitle: "Add it to your home screen for quick, offline access.",
+    action: "Install",
+    iosHint: 'Tap the Share button, then "Add to Home Screen".',
+    dismiss: "Not now",
+  },
 };
 
 export default en;

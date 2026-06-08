@@ -165,6 +165,13 @@ const id: Dict = {
     roundUp5: "+5",
     about: "owe — offline-first. Tidak ada yang keluar dari HP-mu kecuali kamu bagikan.",
   },
+  install: {
+    title: "Pasang owe",
+    subtitle: "Tambahkan ke layar utama untuk akses cepat & offline.",
+    action: "Pasang",
+    iosHint: 'Ketuk tombol Bagikan, lalu "Tambahkan ke Layar Utama".',
+    dismiss: "Nanti saja",
+  },
 };
 
 export default id;
