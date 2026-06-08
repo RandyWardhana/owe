@@ -4,10 +4,6 @@ import { useStore } from "@/lib/store";
 
 const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3);
 
-/* Animates a number towards `value`. On mount it counts up from 0; on later
-   changes it eases from whatever is currently shown to the new value. Honours
-   the global `anim` setting and prefers-reduced-motion — both short-circuit to
-   the final value with no animation. */
 export function useCountUp(value: number, duration = 650): number {
   const anim = useStore((s) => s.anim);
   const [display, setDisplay] = useState(() => (anim ? 0 : value));

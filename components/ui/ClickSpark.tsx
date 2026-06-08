@@ -12,15 +12,11 @@ interface Spark {
 }
 
 const SPARK_COUNT = 8;
-const SPARK_RADIUS = 18; // how far each line travels out
-const SPARK_LENGTH = 10; // line length at the start
+const SPARK_RADIUS = 18;
+const SPARK_LENGTH = 10;
 const DURATION = 420;
 const easeOut = (t: number) => t * (2 - t);
 
-/* Global click-spark overlay (à la reactbits). A fixed, click-through canvas
-   that bursts short lines in the accent colour from the pointer whenever a
-   <button> is tapped. Idle when there are no live sparks; respects the global
-   `anim` setting and prefers-reduced-motion. */
 export default function ClickSpark() {
   const anim = useStore((s) => s.anim);
   const animRef = useRef(anim);
