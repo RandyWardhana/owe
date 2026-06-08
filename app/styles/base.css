@@ -9,7 +9,7 @@ body {
 }
 
 body {
-  font-family: "Manrope", system-ui, -apple-system, sans-serif;
+  font-family: var(--font-sans);
   background: var(--bg-2);
   color: var(--ink);
   -webkit-font-smoothing: antialiased;

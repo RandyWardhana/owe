@@ -1,11 +1,11 @@
-@import url("https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Manrope:wght@400;500;600;700;800&display=swap");
-
 :root {
   color-scheme: light;
   --accent: #9be52e;
   --on-accent: #16170f;
   --accent-edge: color-mix(in oklab, var(--accent), #0a0c05 26%);
-  --font-display: "Bricolage Grotesque", "Manrope", system-ui, sans-serif;
+  --font-sans: var(--font-manrope), system-ui, -apple-system, sans-serif;
+  --font-display: var(--font-bricolage), var(--font-manrope), system-ui,
+    sans-serif;
   --bg: #fbfbf7;
   --bg-2: #f1f1ea;
   --card: #ffffff;
