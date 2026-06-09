@@ -1,7 +1,9 @@
 "use client";
 
+import type { TransitionEvent } from "react";
 import { useEffect, useState } from "react";
 
+import { useStore } from "@/lib/store";
 import { useT } from "@/lib/i18n";
 
 import { X } from "@/components/icons";
@@ -13,6 +15,7 @@ interface BeforeInstallPromptEvent extends Event {
 
 const DISMISS_KEY = "owe.install.dismissedAt";
 const DISMISS_MS = 3 * 24 * 60 * 60 * 1000;
+const SHOW_DELAY_MS = 2000;
 
 function dismissedRecently(): boolean {
   const raw = localStorage.getItem(DISMISS_KEY);
@@ -26,9 +29,13 @@ function dismissedRecently(): boolean {
 
 export default function InstallPrompt() {
   const t = useT();
+  const anim = useStore((s) => s.anim);
+
   const [deferred, setDeferred] = useState<BeforeInstallPromptEvent | null>(null);
   const [iosHint, setIosHint] = useState(false);
-  const [visible, setVisible] = useState(false);
+  const [ready, setReady] = useState(false);
+  const [render, setRender] = useState(false);
+  const [openCls, setOpenCls] = useState(false);
 
   useEffect(() => {
     const nav = window.navigator as Navigator & { standalone?: boolean };
@@ -36,16 +43,20 @@ export default function InstallPrompt() {
       window.matchMedia("(display-mode: standalone)").matches ||
       nav.standalone === true;
     if (standalone) return;
-
     if (dismissedRecently()) return;
+
+    let timer: ReturnType<typeof setTimeout>;
+    const showAfterDelay = () => {
+      timer = setTimeout(() => setReady(true), SHOW_DELAY_MS);
+    };
 
     const onPrompt = (e: Event) => {
       e.preventDefault();
       setDeferred(e as BeforeInstallPromptEvent);
-      setVisible(true);
+      showAfterDelay();
     };
     const onInstalled = () => {
-      setVisible(false);
+      setReady(false);
       setDeferred(null);
     };
     window.addEventListener("beforeinstallprompt", onPrompt);
@@ -56,19 +67,50 @@ export default function InstallPrompt() {
     const isSafari = /safari/i.test(ua) && !/crios|fxios|chrome|android/i.test(ua);
     if (isIOS && isSafari) {
       setIosHint(true);
-      setVisible(true);
+      showAfterDelay();
     }
 
+    if (process.env.NODE_ENV === "development") showAfterDelay();
+
     return () => {
+      clearTimeout(timer);
       window.removeEventListener("beforeinstallprompt", onPrompt);
       window.removeEventListener("appinstalled", onInstalled);
     };
   }, []);
 
-  if (!visible) return null;
+  useEffect(() => {
+    if (ready) setRender(true);
+  }, [ready]);
+
+  useEffect(() => {
+    if (!render) return;
+    const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    const instant = !anim || reduce;
+
+    if (ready) {
+      if (instant) {
+        setOpenCls(true);
+        return;
+      }
+      const id = requestAnimationFrame(() => setOpenCls(true));
+      return () => cancelAnimationFrame(id);
+    }
+
+    setOpenCls(false);
+    if (instant) setRender(false);
+  }, [ready, render, anim]);
+
+  if (!render) return null;
+
+  const reduce =
+    typeof window !== "undefined" &&
+    !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+  const instant = !anim || reduce;
+  const isDev = process.env.NODE_ENV === "development";
 
   const dismiss = () => {
-    setVisible(false);
+    setReady(false);
     try {
       localStorage.setItem(DISMISS_KEY, String(Date.now()));
     } catch {}
@@ -79,17 +121,31 @@ export default function InstallPrompt() {
     await deferred.prompt();
     await deferred.userChoice;
     setDeferred(null);
-    setVisible(false);
+    setReady(false);
   };
 
+  const onTransitionEnd = (e: TransitionEvent) => {
+    if (e.propertyName === "transform" && !openCls) setRender(false);
+  };
+
+  const cls =
+    "install-banner" +
+    (openCls ? " is-open" : "") +
+    (instant ? " is-instant" : "");
+
   return (
-    <div className="install-banner rise" role="dialog" aria-label={t("install.title")}>
+    <div
+      className={cls}
+      role="dialog"
+      aria-label={t("install.title")}
+      onTransitionEnd={onTransitionEnd}
+    >
       <img src="/icon.svg" alt="" className="install-banner__icon" />
       <div className="install-banner__text">
         <strong>{t("install.title")}</strong>
         <span>{iosHint ? t("install.iosHint") : t("install.subtitle")}</span>
       </div>
-      {!iosHint && deferred ? (
+      {!iosHint && (deferred || isDev) ? (
         <button type="button" className="install-banner__cta" onClick={install}>
           {t("install.action")}
         </button>
