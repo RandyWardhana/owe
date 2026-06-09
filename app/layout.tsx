@@ -64,6 +64,12 @@ export const viewport: Viewport = {
   ],
 };
 
+const bootScript =
+  `(function(){try{var s=JSON.parse(localStorage.getItem('owe.v1')||'{}').state||{};var d=document.documentElement;if(s.theme)d.setAttribute('data-theme',s.theme);if(s.anim===false)d.setAttribute('data-anim','off');if(s.accent)d.style.setProperty('--accent',s.accent);}catch(e){}})();` +
+  (process.env.NODE_ENV === "development"
+    ? `if('serviceWorker' in navigator){navigator.serviceWorker.getRegistrations().then(function(rs){rs.forEach(function(r){r.unregister()})}).catch(function(){});if(window.caches){caches.keys().then(function(ks){ks.forEach(function(k){caches.delete(k)})}).catch(function(){})}}`
+    : "");
+
 export default function RootLayout({
   children,
 }: {
@@ -75,12 +81,8 @@ export default function RootLayout({
       className={`${manrope.variable} ${bricolage.variable}`}
       suppressHydrationWarning
     >
-      <body>
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `(function(){try{var s=JSON.parse(localStorage.getItem('owe.v1')||'{}').state||{};var d=document.documentElement;if(s.theme)d.setAttribute('data-theme',s.theme);if(s.anim===false)d.setAttribute('data-anim','off');if(s.accent)d.style.setProperty('--accent',s.accent);}catch(e){}})();`,
-          }}
-        />
+      <body suppressHydrationWarning>
+        <script dangerouslySetInnerHTML={{ __html: bootScript }} />
         <div id="root">{children}</div>
       </body>
     </html>
