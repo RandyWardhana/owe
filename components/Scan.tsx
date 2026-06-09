@@ -4,43 +4,56 @@ import { useRef, useState } from "react";
 
 import { useStore } from "@/lib/store";
 import { useT } from "@/lib/i18n";
-import { scanReceipt, DEMO_RECEIPT } from "@/lib/ocr";
+import { scanReceipt } from "@/lib/ocr";
 import { buzz } from "@/lib/util";
-import type { ScanResult } from "@/lib/types";
 
 import Screen from "./Screen";
-import { Camera, Image as ImageIcon, Sparkle } from "./icons";
+import { Camera, Image as ImageIcon } from "./icons";
 
 export default function Scan() {
   const t = useT();
-  const lang = useStore((s) => s.lang);
   const currency = useStore((s) => s.currency);
   const applyScan = useStore((s) => s.applyScan);
+  const showToast = useStore((s) => s.showToast);
 
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [status, setStatus] = useState<"load" | "read" | "tidy">("load");
+  const [preview, setPreview] = useState<string | null>(null);
 
   const cameraRef = useRef<HTMLInputElement>(null);
   const uploadRef = useRef<HTMLInputElement>(null);
 
   const run = async (file: File) => {
     buzz(10);
+    const url = URL.createObjectURL(file);
+    setPreview(url);
     setBusy(true);
-    setProgress(0.04);
-    setStatus("load");
-    const res = await scanReceipt(
-      file,
-      (p, s) => {
-        setProgress(p);
-        if (s === "read") setStatus("read");
-        else if (s === "tidy") setStatus("tidy");
-      },
-      lang === "id" ? "ind" : "eng",
-      currency,
-    );
+    setProgress(0.08);
+
+    let p = 0.08;
+    const creep = setInterval(() => {
+      p += (0.92 - p) * 0.085;
+      setProgress(p);
+    }, 180);
+
+    const res = await scanReceipt(file, currency);
+    clearInterval(creep);
     setProgress(1);
-    setTimeout(() => applyScan(res), 250);
+
+    if (!res) {
+      showToast("scan.empty");
+      setTimeout(() => {
+        setBusy(false);
+        setProgress(0);
+        setPreview(null);
+        URL.revokeObjectURL(url);
+      }, 450);
+      return;
+    }
+    setTimeout(() => {
+      URL.revokeObjectURL(url);
+      applyScan(res);
+    }, 400);
   };
 
   const onPick = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -49,22 +62,14 @@ export default function Scan() {
     e.target.value = "";
   };
 
-  const sample = () => {
-    buzz(8);
-    const res: ScanResult = {
-      ...DEMO_RECEIPT,
-      items: DEMO_RECEIPT.items.map((i) => ({ ...i })),
-      source: "demo",
-    };
-    applyScan(res);
+  const pick = (ref: React.RefObject<HTMLInputElement | null>) => {
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      buzz(20);
+      showToast("scan.offline");
+      return;
+    }
+    ref.current?.click();
   };
-
-  const statusLabel =
-    status === "read"
-      ? t("scan.statusRead")
-      : status === "tidy"
-        ? t("scan.statusTidy")
-        : t("scan.statusLoad");
 
   return (
     <Screen title={t("scan.title")}>
@@ -92,10 +97,11 @@ export default function Scan() {
           <span className="vf-corner br" />
           {busy ? (
             <>
+              {preview ? <img className="vf-photo" src={preview} alt="" /> : null}
               <span className="vf-scanline" />
               <div className="vf-status">
                 <div className="vf-pct disp tnum">{Math.round(progress * 100)}%</div>
-                <div className="muted">{statusLabel}</div>
+                <div className="vf-status-label">{t("scan.statusRead")}</div>
                 <div className="vf-bar">
                   <i style={{ width: `${Math.round(progress * 100)}%` }} />
                 </div>
@@ -112,14 +118,11 @@ export default function Scan() {
 
         {!busy ? (
           <div className="col-gap" style={{ marginTop: 18 }}>
-            <button className="btn" onClick={() => cameraRef.current?.click()}>
+            <button className="btn" onClick={() => pick(cameraRef)}>
               <Camera size={20} /> {t("scan.takePhoto")}
             </button>
-            <button className="btn secondary" onClick={() => uploadRef.current?.click()}>
+            <button className="btn secondary" onClick={() => pick(uploadRef)}>
               <ImageIcon size={18} /> {t("scan.upload")}
-            </button>
-            <button className="btn ghost" onClick={sample}>
-              <Sparkle size={18} /> {t("scan.sample")}
             </button>
           </div>
         ) : null}

@@ -1,6 +1,6 @@
 import { defaultCache } from "@serwist/next/worker";
 import type { PrecacheEntry, SerwistGlobalConfig } from "serwist";
-import { Serwist, CacheFirst, ExpirationPlugin } from "serwist";
+import { Serwist } from "serwist";
 
 declare global {
   interface WorkerGlobalScope extends SerwistGlobalConfig {
@@ -15,23 +15,7 @@ const serwist = new Serwist({
   skipWaiting: true,
   clientsClaim: true,
   navigationPreload: true,
-  runtimeCaching: [
-    {
-      matcher: ({ url }) =>
-        /tesseract|tessdata|\.traineddata|\.wasm/i.test(url.href),
-      handler: new CacheFirst({
-        cacheName: "owe-ocr",
-        plugins: [
-          new ExpirationPlugin({
-            maxEntries: 12,
-            maxAgeSeconds: 60 * 60 * 24 * 60,
-            purgeOnQuotaError: true,
-          }),
-        ],
-      }),
-    },
-    ...defaultCache,
-  ],
+  runtimeCaching: [...defaultCache],
 });
 
 serwist.addEventListeners();

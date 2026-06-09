@@ -1,21 +1,8 @@
 import { CURRENCIES } from "./currency";
 import type { ScanResult } from "./types";
 
-export const DEMO_RECEIPT = {
-  merchant: "Corner Café",
-  currency: "USD",
-  items: [
-    { name: "Flat White", qty: 2, price: 4.5 },
-    { name: "Avocado Toast", qty: 1, price: 11.0 },
-    { name: "Blueberry Pancakes", qty: 1, price: 12.5 },
-    { name: "Fresh OJ", qty: 2, price: 5.0 },
-    { name: "Side of Bacon", qty: 1, price: 4.0 },
-  ],
-  charges: { taxPct: 8, servicePct: 10, discount: 0 },
-};
-
 const NOISE =
-  /(sub\s*total|total|tax|gst|vat|ppn|service|charge|biaya|cash|change|kembali|balance|visa|master|debit|credit|kredit|qris|gopay|ovo|dana|card|tip|round|amount|due|bayar|tunai|nontunai|qty|item|thank|terima|www|http|tel|telp|receipt|invoice|struk|table|meja|server|kasir|cashier|date|tgl|time|order|pajak|jumlah|diskon|discount|potongan|npwp)/i;
+  /(sub\s*total|total|tax|gst|vat|ppn|pb\s?1|service|charge|biaya|cash|change|kembali|balance|visa|master|debit|credit|kredit|qris|gopay|ovo|dana|card|tip|round|amount|due|bayar|tunai|nontunai|qty|item|thank|terima|www|http|tel|telp|receipt|invoice|struk|table|meja|server|kasir|cashier|date|tgl|time|order|pajak|jumlah|diskon|discount|potongan|npwp|dine\s*in|take\s*away|queue|collected|bill\s*name|sales\s*type|tender|other)/i;
 
 function parsePrice(s: string, dec: number): number | null {
   let t = s.replace(/[^\d.,]/g, "");
@@ -49,36 +36,105 @@ function titleCase(s: string): string {
     .slice(0, 40);
 }
 
+const TOTALS =
+  /^(sub\s*t|total|tax|ppn|gst|vat|tender|change|kembali|tunai|nontunai|grand|bayar|jumlah|amount|balance|service|biaya|diskon|discount|potongan|round)\b/i;
+
+function isSeparator(line: string): boolean {
+  const s = line.replace(/\s/g, "");
+  return s.length >= 5 && /^[-=_.~—–•*]+$/.test(s);
+}
+
 export function parseReceiptText(text: string, currency = "USD") {
   const dec = (CURRENCIES[currency] || CURRENCIES.USD).dec;
   const maxPrice = dec === 0 ? 100_000_000 : 100_000;
   const lines = text
     .split("\n")
-    .map((l) => l.trim())
+    .map((l) => l.replace(/(\d)[.,]\s+(\d)/g, "$1.$2").trim())
     .filter(Boolean);
+
+  const META =
+    /date|tgl|order|customer|sales\s*type|user|cashier|kasir|collected|receipt|bill\s*name|queue|invoice/i;
+  let totalsIdx = lines.findIndex((l) => TOTALS.test(l));
+  if (totalsIdx < 0) totalsIdx = lines.length;
+  const sepIdx = lines.findIndex(isSeparator);
+  let headerEnd = -1;
+  for (let i = 0; i < totalsIdx; i++) {
+    if (/:/.test(lines[i]) || META.test(lines[i])) headerEnd = i;
+  }
+  const start = Math.max(sepIdx + 1, headerEnd + 1, 0);
+
   const items: { name: string; qty: number; price: number }[] = [];
   const priceRe = /([£$€¥₹]|Rp|S\$|A\$)?\s*(\d[\d.,]*\d|\d)\s*$/;
+  const qtyLineRe = /^(\d{1,3})\s*[xX×@]\s*$/;
+  const qtyLeadRe = /^(\d{1,3})\s*[xX×@](?:\s+(.+))?$/;
 
-  for (const line of lines) {
-    if (/%/.test(line)) continue;
+  let nameParts: string[] = [];
+  let pendingQty = 0;
+  const reset = () => {
+    nameParts = [];
+    pendingQty = 0;
+  };
+  const addName = (s: string) => {
+    const cand = s.replace(/^[*.\-_·•\s]+|[*.\-_·•\s]+$/g, "").trim();
+    if (cand.length < 2) return;
+    if (/^[a-z]{1,2}$/.test(cand)) return;
+    if (NOISE.test(cand)) return;
+    nameParts.push(cand);
+    if (nameParts.length > 2) nameParts.shift();
+  };
+
+  for (let i = start; i < lines.length; i++) {
+    const line = lines[i];
+    if (isSeparator(line)) {
+      reset();
+      continue;
+    }
+    if (TOTALS.test(line)) break;
+    if (/[:%]/.test(line)) {
+      reset();
+      continue;
+    }
+
+    const ql = line.match(qtyLineRe);
+    if (ql) {
+      pendingQty = Number(ql[1]) || 1;
+      continue;
+    }
+    if (/^[iIl|]\s*[xX]\s*$/.test(line)) {
+      pendingQty = pendingQty || 1;
+      continue;
+    }
+
     const m = line.match(priceRe);
-    if (!m || m.index === undefined) continue;
+    if (!m || m.index === undefined) {
+      addName(line);
+      continue;
+    }
+
     const price = parsePrice(m[2], dec);
     if (price == null || price <= 0 || price > maxPrice) continue;
 
-    let name = line
-      .slice(0, m.index)
-      .trim()
-      .replace(/[.\-_·•\s]+$/, "");
-    let qty = 1;
-    const q = name.match(/^(\d{1,2})\s*[xX×@]?\s+(.*)$/);
-    if (q && Number(q[1]) >= 1 && Number(q[1]) <= 30) {
-      qty = Number(q[1]);
-      name = q[2].trim();
+    let qty = pendingQty || 1;
+    const lead = line.slice(0, m.index).trim().replace(/[.\-_·•\s]+$/, "");
+    if (lead) {
+      const led = lead.match(qtyLeadRe);
+      if (led && Number(led[1]) <= 99) {
+        qty = Number(led[1]);
+        const rest = led[2]?.trim();
+        if (rest && !/^@?[\d.,]+$/.test(rest)) addName(rest);
+      } else if (/^[1iIl|]{1,2}\s*[xX@]/.test(lead)) {
+        qty = pendingQty || 1;
+      } else if (!/^@?[\d.,]+$/.test(lead)) {
+        addName(lead);
+      }
     }
+
+    let name = nameParts.join(" ").replace(/\s+/g, " ").trim();
     name = name.replace(/^[xX×*@\-\s]+/, "").trim();
-    if (name.length < 2) continue;
-    if (NOISE.test(name) && !/\d/.test(name)) continue;
+    reset();
+
+    if (name.length < 2 || NOISE.test(name)) continue;
+    if (qty < 1 || qty > 99) qty = 1;
 
     items.push({
       name: titleCase(name),
@@ -87,6 +143,26 @@ export function parseReceiptText(text: string, currency = "USD") {
     });
   }
   return items;
+}
+
+export function parseReceiptCharges(text: string): {
+  taxPct: number;
+  servicePct: number;
+  discount: number;
+} {
+  let taxPct = 0;
+  let servicePct = 0;
+  for (const raw of text.split("\n")) {
+    const line = raw.trim();
+    const pm = line.match(/(\d{1,2}(?:[.,]\d)?)\s*%/);
+    if (!pm) continue;
+    const pct = Math.round(Number(pm[1].replace(",", ".")));
+    if (pct <= 0 || pct > 50) continue;
+    if (/serv|servis/i.test(line)) servicePct = pct;
+    else if (/pb\s?1|ppn|pajak|tax|gst|vat/i.test(line) || /^\W*\(?\d/.test(line))
+      taxPct = pct;
+  }
+  return { taxPct, servicePct, discount: 0 };
 }
 
 function loadImage(src: string): Promise<HTMLImageElement> {
@@ -98,40 +174,23 @@ function loadImage(src: string): Promise<HTMLImageElement> {
   });
 }
 
-async function preprocess(file: File): Promise<HTMLCanvasElement | null> {
+async function toCloudImage(file: File): Promise<string | null> {
   const url = URL.createObjectURL(file);
   try {
     const img = await loadImage(url);
     const long = Math.max(img.width, img.height) || 1;
-    const scale = Math.min(Math.max(1800 / long, 0.5), 3);
+    const scale = Math.min(1, 1600 / long);
     const w = Math.round(img.width * scale);
     const h = Math.round(img.height * scale);
     const canvas = document.createElement("canvas");
     canvas.width = w;
     canvas.height = h;
-    const ctx = canvas.getContext("2d", { willReadFrequently: true });
+    const ctx = canvas.getContext("2d");
     if (!ctx) return null;
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
     ctx.drawImage(img, 0, 0, w, h);
-
-    const image = ctx.getImageData(0, 0, w, h);
-    const d = image.data;
-    let min = 255;
-    let max = 0;
-    for (let i = 0; i < d.length; i += 4) {
-      const g = (d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114) | 0;
-      d[i] = d[i + 1] = d[i + 2] = g;
-      if (g < min) min = g;
-      if (g > max) max = g;
-    }
-    const range = Math.max(1, max - min);
-    for (let i = 0; i < d.length; i += 4) {
-      let v = ((d[i] - min) / range) * 255;
-      v = (v - 128) * 1.35 + 128;
-      v = v < 0 ? 0 : v > 255 ? 255 : v;
-      d[i] = d[i + 1] = d[i + 2] = v;
-    }
-    ctx.putImageData(image, 0, 0);
-    return canvas;
+    return canvas.toDataURL("image/jpeg", 0.7);
   } catch {
     return null;
   } finally {
@@ -139,65 +198,34 @@ async function preprocess(file: File): Promise<HTMLCanvasElement | null> {
   }
 }
 
-type ProgressFn = (p: number, status?: string) => void;
-
 export async function scanReceipt(
   file: File,
-  onProgress?: ProgressFn,
-  langs = "eng",
   currency = "USD",
-): Promise<ScanResult> {
-  const fallback = (): ScanResult => ({
-    ...DEMO_RECEIPT,
-    items: DEMO_RECEIPT.items.map((i) => ({ ...i })),
-    source: "demo",
-  });
-
-  let worker: Awaited<ReturnType<typeof import("tesseract.js").createWorker>> | null = null;
+): Promise<ScanResult | null> {
+  if (typeof navigator !== "undefined" && !navigator.onLine) return null;
   try {
-    onProgress?.(0.04, "load");
-    const Tesseract = await Promise.race([
-      import("tesseract.js"),
-      new Promise<never>((_, r) => setTimeout(() => r(new Error("timeout")), 20000)),
-    ]);
-
-    onProgress?.(0.1, "load");
-    const input = (await preprocess(file)) ?? file;
-
-    worker = await Tesseract.createWorker(langs, 1, {
-      logger: (m: { status: string; progress: number }) => {
-        if (m.status === "recognizing text") onProgress?.(0.2 + m.progress * 0.75, "read");
-      },
+    const image = await toCloudImage(file);
+    if (!image) return null;
+    const res = await fetch("/api/scan", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ image, currency }),
     });
-    await worker.setParameters({
-      tessedit_pageseg_mode: Tesseract.PSM.SINGLE_BLOCK,
-      preserve_interword_spaces: "1",
-      user_defined_dpi: "300",
-    });
-
-    onProgress?.(0.2, "read");
-    const { data } = await worker.recognize(input);
-    const items = parseReceiptText(data.text || "", currency);
-    onProgress?.(0.98, "tidy");
-
-    if (items.length >= 2) {
-      return {
-        items: items.slice(0, 40),
-        charges: { taxPct: 0, servicePct: 0, discount: 0 },
-        merchant: "Scanned receipt",
-        currency,
-        source: "ocr",
-        rawText: data.text,
-      };
-    }
+    if (!res.ok) return null;
+    const json = (await res.json()) as {
+      items?: { name: string; qty: number; price: number }[];
+      charges?: { taxPct: number; servicePct: number; discount: number };
+      currency?: string;
+    };
+    if (!json.items?.length) return null;
     return {
-      ...fallback(),
-      source: items.length ? "partial" : "demo",
-      partialItems: items,
+      items: json.items,
+      charges: json.charges || { taxPct: 0, servicePct: 0, discount: 0 },
+      merchant: "Scanned receipt",
+      currency: json.currency || currency,
+      source: "ocr",
     };
   } catch {
-    return fallback();
-  } finally {
-    await worker?.terminate().catch(() => {});
+    return null;
   }
 }
