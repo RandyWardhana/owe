@@ -42,6 +42,7 @@ export default function SharedPersonRow({
     name: i.n,
     qty: i.q,
     share: i.s,
+    split: i.sp,
   }));
   const hasItems = items.length > 0;
 

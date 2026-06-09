@@ -55,7 +55,14 @@ export function buildSharePayload(
         n: ps.name,
         t: ps.total,
         ac: (person?.accounts || []).map((acc) => ({ k: acc.key, v: acc.value })),
-        it: ps.items.map((i) => ({ n: i.name, q: i.qty, s: i.share })),
+        it: ps.items.map((i) => ({
+          n: i.name,
+          q: i.qty,
+          s: i.share,
+          // Only carry the split count when shared; keeps exclusive-item
+          // payloads (sp omitted) compact in the URL.
+          ...(i.split ? { sp: i.split } : {}),
+        })),
       };
     }),
     pd,

@@ -6,7 +6,7 @@ export default function PersonItems({
   items,
   currency,
 }: {
-  items: { name: string; qty: number; share: number }[];
+  items: { name: string; qty: number; share: number; split?: number }[];
   currency: string;
 }) {
   if (!items.length) return null;
@@ -15,7 +15,10 @@ export default function PersonItems({
       {items.map((it, k) => (
         <div className="pp__item" key={k}>
           <span className="pp__item-name truncate">
-            {it.qty > 1 ? `${it.qty}× ` : ""}
+            {/* Only prefix the quantity for items this person had to
+                themselves. Shared items show just the name — the full line
+                qty (e.g. "6×") is misleading on a single person's share. */}
+            {!it.split && it.qty > 1 ? `${it.qty}× ` : ""}
             {it.name || "—"}
           </span>
           <span className="pp__item-amt tnum">

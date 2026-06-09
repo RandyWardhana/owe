@@ -113,7 +113,7 @@ export interface SharePayload {
     n: string;
     t: number;
     ac: { k: PayMethodKey; v: string }[];
-    it?: { n: string; q: number; s: number }[];
+    it?: { n: string; q: number; s: number; sp?: number }[];
   }[];
 
   pd?: number[];
