@@ -1,6 +1,13 @@
 #root {
+  /* Pinned to the top to avoid the iOS-standalone top gap, but sized with dvh
+     so it tracks the *visible* viewport. `inset: 0`/`bottom: 0` doesn't on
+     mobile browsers with dynamic toolbars and leaves a gap at the bottom. */
   position: fixed;
-  inset: 0;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 100vh;
+  height: 100dvh;
   display: flex;
   align-items: center;
   justify-content: center;
