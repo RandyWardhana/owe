@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 
 import { useStore } from "@/lib/store";
 import { useMounted, useSharedBill, useAppliedAppearance } from "@/lib/hooks";
+import { useBillBackup } from "@/lib/hooks/useBillBackup";
 import type { Step } from "@/lib/types";
 
 import Home from "@/components/home/Home";
@@ -31,6 +32,7 @@ export default function App() {
   const mounted = useMounted();
   const { shared, clear } = useSharedBill();
   useAppliedAppearance();
+  useBillBackup();
 
   if (!mounted || shared === undefined) {
     return <div className="shell" />;

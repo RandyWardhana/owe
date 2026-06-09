@@ -44,3 +44,30 @@ begin
     alter publication supabase_realtime add table public.bills;
   end if;
 end $$;
+
+-- Per-device backup of the user's own bill history (no auth).
+--   key  — sha256(deviceId); the raw device id never reaches the server
+--   data — the user's history, AES-GCM encrypted with a key derived from the
+--          device id, so rows are opaque and only the owning device can read them
+-- The device id lives in localStorage; it is the only key to this row.
+create table if not exists public.user_bills (
+  key        text primary key,
+  data       text        not null,
+  updated_at timestamptz not null default now()
+);
+
+alter table public.user_bills enable row level security;
+
+-- Open access by design: security comes from the un-guessable key + encryption,
+-- not from SQL auth. Drop/tighten these if you later add real auth.
+drop policy if exists "user_bills public select" on public.user_bills;
+create policy "user_bills public select" on public.user_bills
+  for select using (true);
+
+drop policy if exists "user_bills public insert" on public.user_bills;
+create policy "user_bills public insert" on public.user_bills
+  for insert with check (true);
+
+drop policy if exists "user_bills public update" on public.user_bills;
+create policy "user_bills public update" on public.user_bills
+  for update using (true) with check (true);
