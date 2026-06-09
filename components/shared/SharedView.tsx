@@ -1,14 +1,17 @@
 "use client";
 
 import { useT } from "@/lib/i18n";
+import { fmtMoney } from "@/lib/currency";
 import { methodMeta } from "@/lib/payments";
-import { useClipboard } from "@/lib/hooks";
 import { useViewerPaid } from "@/lib/hooks/useViewerPaid";
 import type { SharePayload } from "@/lib/types";
 
+type SharedPerson = SharePayload["pp"][number];
+
 import Screen from "@/components/Screen";
-import { Copy, Check } from "@/components/icons";
+import { Check } from "@/components/icons";
 import AnimatedMoney from "@/components/ui/AnimatedMoney";
+import AccountRow from "@/components/ui/AccountRow";
 import SharedPersonRow from "./SharedPersonRow";
 
 export default function SharedView({
@@ -19,11 +22,30 @@ export default function SharedView({
   onMakeOwn: () => void;
 }) {
   const t = useT();
-  const copy = useClipboard();
   const [paid, togglePaid] = useViewerPaid(payload);
 
   const cur = payload.c || "USD";
   const payer = payload.py >= 0 ? payload.pp[payload.py] : null;
+
+  const personText = (person: SharedPerson, isPayer: boolean) => {
+    if (payer && !isPayer) {
+      const lines = [
+        t("breakdown.owesLine", {
+          from: person.n || "—",
+          to: payer.n || "—",
+          amount: fmtMoney(person.t, cur),
+        }),
+      ];
+      if (payer.ac.length) {
+        lines.push(t("breakdown.payVia", { name: payer.n || "—" }));
+        payer.ac.forEach((a) =>
+          lines.push(`  ${methodMeta(a.k).label}: ${a.v}`),
+        );
+      }
+      return lines.join("\n");
+    }
+    return `${person.n || "—"}: ${fmtMoney(person.t, cur)}`;
+  };
 
   return (
     <Screen
@@ -51,6 +73,26 @@ export default function SharedView({
           </div>
         </div>
 
+        {payer ? (
+          <>
+            <p className="label" style={{ marginTop: 24 }}>
+              {t("shared.paidBy")}
+            </p>
+            <div className="col-gap">
+              <SharedPersonRow
+                person={payer}
+                index={payload.py}
+                currency={cur}
+                isPayer
+                isPaid={false}
+                payerName={payer.n || "—"}
+                onToggle={() => {}}
+                copyText={personText(payer, true)}
+              />
+            </div>
+          </>
+        ) : null}
+
         <p className="label" style={{ marginTop: 24 }}>
           {t("shared.whoOwes")}
         </p>
@@ -58,18 +100,21 @@ export default function SharedView({
           {t("shared.markHint")}
         </p>
         <div className="col-gap stagger">
-          {payload.pp.map((person, i) => (
-            <SharedPersonRow
-              key={i}
-              person={person}
-              index={i}
-              currency={cur}
-              isPayer={i === payload.py}
-              isPaid={paid.has(i)}
-              payerName={payer?.n || "—"}
-              onToggle={() => togglePaid(i)}
-            />
-          ))}
+          {payload.pp.map((person, i) =>
+            i === payload.py ? null : (
+              <SharedPersonRow
+                key={i}
+                person={person}
+                index={i}
+                currency={cur}
+                isPayer={false}
+                isPaid={paid.has(i)}
+                payerName={payer?.n || "—"}
+                onToggle={() => togglePaid(i)}
+                copyText={personText(person, false)}
+              />
+            ),
+          )}
         </div>
 
         {payer && payer.ac.length ? (
@@ -78,19 +123,9 @@ export default function SharedView({
               {t("shared.sendShare", { name: payer.n || "—" })}
             </p>
             <div className="card pay-via">
-              {payer.ac.map((a, k) => {
-                const m = methodMeta(a.k);
-                return (
-                  <button key={k} className="acct acct--tap" onClick={() => copy(a.v)}>
-                    <span className="acct__dot" style={{ background: m.color }} />
-                    <div className="grow" style={{ textAlign: "left" }}>
-                      <div className="acct__label">{m.label}</div>
-                      <div className="acct__val truncate">{a.v || "—"}</div>
-                    </div>
-                    <Copy size={16} />
-                  </button>
-                );
-              })}
+              {payer.ac.map((a, k) => (
+                <AccountRow key={k} methodKey={a.k} value={a.v} />
+              ))}
             </div>
           </>
         ) : null}

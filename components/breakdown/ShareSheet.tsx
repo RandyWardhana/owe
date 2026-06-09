@@ -1,10 +1,11 @@
 "use client";
 
 import { useT } from "@/lib/i18n";
-import { useClipboard } from "@/lib/hooks";
+import { useCopyAnim } from "@/lib/hooks";
 
 import Sheet from "@/components/Sheet";
-import { Share, Copy, Wallet } from "@/components/icons";
+import CopyTick from "@/components/ui/CopyTick";
+import { Share, Wallet } from "@/components/icons";
 
 interface Props {
   open: boolean;
@@ -17,7 +18,8 @@ interface Props {
 
 export default function ShareSheet({ open, onClose, title, link, label, summary }: Props) {
   const t = useT();
-  const copy = useClipboard();
+  const linkCopy = useCopyAnim();
+  const textCopy = useCopyAnim();
 
   const shareOrCopy = async () => {
     if (!link) return;
@@ -27,7 +29,7 @@ export default function ShareSheet({ open, onClose, title, link, label, summary 
         return;
       } catch {}
     }
-    copy(link);
+    linkCopy.copy(link);
   };
 
   return (
@@ -36,14 +38,15 @@ export default function ShareSheet({ open, onClose, title, link, label, summary 
         {t("breakdown.shareBlurb")}
       </p>
       <button className="btn" disabled={!link} onClick={shareOrCopy}>
-        <Share size={18} /> {t("breakdown.copyLink")}
+        <CopyTick phase={linkCopy.phase} size={18} icon={<Share size={18} />} />{" "}
+        {t("breakdown.copyLink")}
       </button>
       <div className="share-link">{label}</div>
       <p className="label" style={{ marginTop: 18 }}>
         {t("breakdown.orCopyText")}
       </p>
-      <button className="btn secondary" onClick={() => copy(summary)}>
-        <Copy size={18} /> {t("breakdown.copyText")}
+      <button className="btn secondary" onClick={() => textCopy.copy(summary)}>
+        <CopyTick phase={textCopy.phase} size={18} /> {t("breakdown.copyText")}
       </button>
       {/* <p className="muted share-foot">
         <Wallet size={14} /> {t("breakdown.cleanResult")}

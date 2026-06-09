@@ -10,7 +10,7 @@ import { useShareLink } from "@/lib/hooks";
 import { buzz } from "@/lib/util";
 
 import Screen from "@/components/Screen";
-import { Share, Lock } from "@/components/icons";
+import { Share, Lock, Check } from "@/components/icons";
 import TotalCard from "./TotalCard";
 import PerPersonList from "./PerPersonList";
 import SettleUp from "./SettleUp";
@@ -24,6 +24,8 @@ export default function Breakdown() {
   const patchDraft = useStore((s) => s.patchDraft);
   const updateDraft = useStore((s) => s.updateDraft);
   const saveCurrent = useStore((s) => s.saveCurrent);
+  const finish = useStore((s) => s.finish);
+  const isSaved = useStore((s) => s.history.some((h) => h.id === draft.id));
 
   const [shareOpen, setShareOpen] = useState(false);
 
@@ -68,6 +70,8 @@ export default function Breakdown() {
           <button
             className="btn secondary"
             style={{ width: "auto", flex: 1 }}
+            disabled={!isSaved}
+            title={!isSaved ? t("breakdown.lockToShare") : undefined}
             onClick={() => {
               buzz(8);
               setShareOpen(true);
@@ -75,13 +79,26 @@ export default function Breakdown() {
           >
             <Share size={18} /> {t("breakdown.share")}
           </button>
-          <button
-            className="btn"
-            style={{ width: "auto", flex: 1.4 }}
-            onClick={() => saveCurrent(result, payerId)}
-          >
-            <Lock size={18} /> {t("breakdown.lockIn")}
-          </button>
+          {isSaved ? (
+            <button
+              className="btn"
+              style={{ width: "auto", flex: 1.4 }}
+              onClick={() => {
+                buzz(8);
+                finish();
+              }}
+            >
+              <Check size={18} /> {t("breakdown.done")}
+            </button>
+          ) : (
+            <button
+              className="btn"
+              style={{ width: "auto", flex: 1.4 }}
+              onClick={() => saveCurrent(result, payerId)}
+            >
+              <Lock size={18} /> {t("breakdown.lockIn")}
+            </button>
+          )}
         </div>
       }
       overlay={
@@ -97,7 +114,12 @@ export default function Breakdown() {
     >
       <div className="pad">
         <TotalCard result={result} currency={currency} />
-        <PerPersonList perPerson={result.perPerson} people={draft.people} currency={currency} />
+        <PerPersonList
+          perPerson={result.perPerson}
+          people={draft.people}
+          payer={payer}
+          currency={currency}
+        />
         <SettleUp
           people={draft.people}
           payer={payer}

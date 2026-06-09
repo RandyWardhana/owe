@@ -2,7 +2,32 @@ import { settlements } from "./calc";
 import { fmtMoney } from "./currency";
 import { methodMeta } from "./payments";
 import type { TFn } from "./i18n";
-import type { Person, SharePayload, SplitResult } from "./types";
+import type { Person, PersonSplit, SharePayload, SplitResult } from "./types";
+
+export function buildPersonText(
+  t: TFn,
+  person: PersonSplit,
+  payer: Person | null,
+  currency: string,
+): string {
+  if (payer && person.id !== payer.id) {
+    const lines = [
+      t("breakdown.owesLine", {
+        from: person.name || "—",
+        to: payer.name || "—",
+        amount: fmtMoney(person.total, currency),
+      }),
+    ];
+    if (payer.accounts.length) {
+      lines.push(t("breakdown.payVia", { name: payer.name || "—" }));
+      payer.accounts.forEach((a) =>
+        lines.push(`  ${methodMeta(a.key).label}: ${a.value}`),
+      );
+    }
+    return lines.join("\n");
+  }
+  return `${person.name || "—"}: ${fmtMoney(person.total, currency)}`;
+}
 
 export function buildSharePayload(
   title: string,
@@ -30,6 +55,7 @@ export function buildSharePayload(
         n: ps.name,
         t: ps.total,
         ac: (person?.accounts || []).map((acc) => ({ k: acc.key, v: acc.value })),
+        it: ps.items.map((i) => ({ n: i.name, q: i.qty, s: i.share })),
       };
     }),
     pd,

@@ -1,13 +1,14 @@
 "use client";
 
 import { useT } from "@/lib/i18n";
-import { methodMeta } from "@/lib/payments";
-import { useClipboard } from "@/lib/hooks";
+import { useCopyAnim } from "@/lib/hooks";
 import { initials, personColor, personInk } from "@/lib/util";
 import type { Person, Settlement } from "@/lib/types";
 
-import { Check, Copy } from "@/components/icons";
+import { Check } from "@/components/icons";
 import AnimatedMoney from "@/components/ui/AnimatedMoney";
+import CopyTick from "@/components/ui/CopyTick";
+import AccountRow from "@/components/ui/AccountRow";
 
 interface Props {
   people: Person[];
@@ -33,7 +34,7 @@ export default function SettleUp({
   onTogglePaid,
 }: Props) {
   const t = useT();
-  const copy = useClipboard();
+  const summaryCopy = useCopyAnim();
   const colorOf = (id: string) => people.findIndex((p) => p.id === id);
 
   return (
@@ -106,28 +107,18 @@ export default function SettleUp({
                 <div className="label" style={{ margin: "4px 0 8px" }}>
                   {t("breakdown.payVia", { name: payer.name || "—" })}
                 </div>
-                {payer.accounts.map((a) => {
-                  const m = methodMeta(a.key);
-                  return (
-                    <button
-                      key={a.id}
-                      className="acct acct--tap"
-                      onClick={() => copy(a.value)}
-                    >
-                      <span className="acct__dot" style={{ background: m.color }} />
-                      <div className="grow" style={{ textAlign: "left" }}>
-                        <div className="acct__label">{m.label}</div>
-                        <div className="acct__val truncate">{a.value || "—"}</div>
-                      </div>
-                      <Copy size={16} />
-                    </button>
-                  );
-                })}
+                {payer.accounts.map((a) => (
+                  <AccountRow key={a.id} methodKey={a.key} value={a.value} />
+                ))}
               </div>
             ) : null}
 
-            <button className="btn ghost" onClick={() => copy(summary)}>
-              <Copy size={16} /> {t("breakdown.copyText")}
+            <button
+              className="btn ghost"
+              onClick={() => summaryCopy.copy(summary)}
+            >
+              <CopyTick phase={summaryCopy.phase} size={16} />{" "}
+              {t("breakdown.copyText")}
             </button>
           </div>
         )}

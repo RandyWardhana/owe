@@ -79,18 +79,22 @@
 
 .toast {
   position: absolute;
-  left: 50%;
+  left: 16px;
+  right: 16px;
   bottom: calc(96px + var(--safe-bottom));
-  transform: translateX(-50%);
+  width: fit-content;
+  max-width: calc(100% - 32px);
+  margin: 0 auto;
   background: var(--ink);
   color: var(--bg);
   font-weight: 700;
   font-size: 14px;
+  line-height: 1.4;
+  text-align: center;
   padding: 11px 18px;
-  border-radius: 999px;
+  border-radius: 16px;
   z-index: 80;
   box-shadow: var(--shadow-lg);
-  white-space: nowrap;
   animation: fade 0.22s ease both;
 }
 

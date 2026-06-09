@@ -24,6 +24,13 @@ export const emptyDraft = (): Draft => ({
   paid: [],
 });
 
+// Once a bill is locked in, keep its history entry in sync with live edits
+// (payer / paid) so "Done" never drops changes.
+const syncSaved = (history: Draft[], draft: Draft): Draft[] =>
+  history.some((h) => h.id === draft.id)
+    ? history.map((h) => (h.id === draft.id ? draft : h))
+    : history;
+
 export interface Toast {
   id: string;
   msg: string;
@@ -64,6 +71,7 @@ interface State {
   applyScan: (res: ScanResult) => void;
   openHistory: (h: Draft) => void;
   saveCurrent: (result: SplitResult, payerId: string | null) => void;
+  finish: () => void;
 
   showToast: (msg: string) => void;
   clearToast: () => void;
@@ -99,8 +107,16 @@ export const useStore = create<State>()(
       setRounding: (rounding) => set({ rounding }),
       setAnim: (anim) => set({ anim }),
 
-      patchDraft: (patch) => set((s) => ({ draft: { ...s.draft, ...patch } })),
-      updateDraft: (fn) => set((s) => ({ draft: fn(s.draft) })),
+      patchDraft: (patch) =>
+        set((s) => {
+          const draft = { ...s.draft, ...patch };
+          return { draft, history: syncSaved(s.history, draft) };
+        }),
+      updateDraft: (fn) =>
+        set((s) => {
+          const draft = fn(s.draft);
+          return { draft, history: syncSaved(s.history, draft) };
+        }),
 
       go: (step) =>
         set((s) => ({
@@ -197,14 +213,14 @@ export const useStore = create<State>()(
           const without = s.history.filter((x) => x.id !== entry.id);
           return {
             history: [entry, ...without].slice(0, 30),
-            draft: emptyDraft(),
-            dir: "back",
-            stack: [],
-            view: "home",
+            draft: entry,
           };
         });
         setTimeout(() => get().showToast("breakdown.saved"), 350);
       },
+
+      finish: () =>
+        set({ draft: emptyDraft(), dir: "back", stack: [], view: "home" }),
 
       showToast: (msg) => set({ toast: { id: uid(), msg } }),
       clearToast: () => set({ toast: null }),

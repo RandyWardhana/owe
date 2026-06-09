@@ -36,13 +36,176 @@
 .pp__total.is-payer {
   color: var(--pos);
 }
+.pp__end {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.pp__right {
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.pp__copy {
+  position: relative;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  border: 0;
+  background: var(--card-2);
+  color: var(--ink-2);
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+.pp__copy:active {
+  background: var(--line-strong);
+  color: var(--ink);
+}
+.pp__copy.is-done {
+  background: color-mix(in srgb, var(--pos) 18%, var(--card-2));
+  color: var(--pos);
+}
+
+.cp-swap {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  overflow: hidden;
+  vertical-align: middle;
+  line-height: 0;
+}
+.cp-copy {
+  display: grid;
+  place-items: center;
+  opacity: 1;
+  transform: translateX(0);
+  transition: opacity 0.2s ease, transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.cp-check {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  opacity: 0;
+  transform: translateX(0);
+  transition: opacity 0.22s ease, transform 0.32s ease;
+}
+.cp-pop {
+  display: grid;
+  place-items: center;
+}
+.cp-tick path {
+  stroke-dasharray: 26;
+  stroke-dashoffset: 26;
+}
+
+.cp-swap[data-phase="copied"] .cp-copy {
+  opacity: 0;
+  transform: translateX(-70%);
+}
+.cp-swap[data-phase="copied"] .cp-check {
+  opacity: 1;
+}
+.cp-swap[data-phase="copied"] .cp-pop {
+  animation: pp-pop 0.42s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.cp-swap[data-phase="copied"] .cp-tick path {
+  animation: pp-check-draw 0.4s ease-out 0.06s forwards;
+}
+
+.cp-swap[data-phase="leaving"] .cp-copy {
+  opacity: 1;
+  transform: translateX(0);
+}
+.cp-swap[data-phase="leaving"] .cp-check {
+  opacity: 0;
+  transform: translateX(85%);
+}
+
+[data-anim="off"] .cp-copy,
+[data-anim="off"] .cp-check,
+[data-anim="off"] .cp-pop {
+  transition: none;
+  animation: none;
+}
+[data-anim="off"] .cp-tick path {
+  stroke-dashoffset: 0;
+}
+.pp__chev {
+  flex-shrink: 0;
+  color: var(--ink-2);
+  transform: rotate(90deg);
+  transition: transform 0.22s ease;
+}
+.pp__chev.open {
+  transform: rotate(-90deg);
+}
+.pp__drawer {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.25s ease;
+}
+.pp__drawer.open {
+  grid-template-rows: 1fr;
+}
+.pp__drawer > div {
+  overflow: hidden;
+}
+.pp__items {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin-top: 11px;
+  padding-top: 11px;
+  border-top: 1px solid var(--line);
+}
+.pp__item {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13.5px;
+}
+.pp__item-name {
+  color: var(--ink-2);
+  min-width: 0;
+}
+.pp__item-amt {
+  color: var(--ink);
+  flex-shrink: 0;
+}
+[data-anim="off"] .pp__drawer,
+[data-anim="off"] .pp__chev,
+[data-anim="off"] .pp__copy,
+[data-anim="off"] .pp__copy-icon {
+  transition: none;
+  animation: none;
+}
+.pp--payer {
+  border-color: color-mix(in srgb, var(--pos) 40%, var(--line));
+  background: color-mix(in srgb, var(--pos) 7%, var(--card));
+}
 
 .pp--row {
   width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.pp__tap {
+  flex: 1;
+  min-width: 0;
   display: block;
   text-align: left;
   font: inherit;
   color: inherit;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
 }
 .pp.is-paid {
   opacity: 0.62;
