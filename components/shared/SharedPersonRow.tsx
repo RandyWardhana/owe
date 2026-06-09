@@ -41,9 +41,13 @@ export default function SharedPersonRow({
       <div className="row" style={{ gap: 11, minWidth: 0 }}>
         <span
           className="avatar pp__av"
-          style={{ background: personColor(index), color: personInk(index) }}
+          style={
+            settled
+              ? { background: "var(--pos)", color: "#fff" }
+              : { background: personColor(index), color: personInk(index) }
+          }
         >
-          {settled ? <Check size={16} /> : initials(person.n)}
+          {settled ? <Check size={16} className="pp__check" /> : initials(person.n)}
         </span>
         <div style={{ minWidth: 0 }}>
           <div className="pp__name truncate">{person.n || "—"}</div>

@@ -19,6 +19,7 @@
   width: 40px;
   height: 40px;
   font-size: 13px;
+  transition: background 0.3s ease, color 0.3s ease;
 }
 .pp__name {
   font-size: 15.5px;
@@ -30,6 +31,7 @@
 }
 .pp__total {
   font-size: 17px;
+  position: relative;
 }
 .pp__total.is-payer {
   color: var(--pos);
@@ -44,10 +46,68 @@
 }
 .pp.is-paid {
   opacity: 0.62;
+  transition: opacity 0.3s ease;
 }
+
+.pp.is-paid .pp__av {
+  animation: pp-pop 0.42s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.pp__check path {
+  stroke-dasharray: 26;
+  stroke-dashoffset: 26;
+  animation: pp-check-draw 0.4s ease-out 0.08s forwards;
+}
+
 .pp.is-paid .pp__total.is-struck {
-  text-decoration: line-through;
   color: var(--ink-3);
+  transition: color 0.3s ease;
+}
+.pp.is-paid .pp__total.is-struck::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 52%;
+  height: 2px;
+  border-radius: 2px;
+  background: currentColor;
+  transform: scaleX(0);
+  transform-origin: left center;
+  animation: pp-strike 0.4s ease-out 0.12s forwards;
+}
+
+@keyframes pp-pop {
+  0% {
+    transform: scale(0.8);
+  }
+  55% {
+    transform: scale(1.1);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+@keyframes pp-check-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+@keyframes pp-strike {
+  to {
+    transform: scaleX(1);
+  }
+}
+
+[data-anim="off"] .pp.is-paid .pp__av,
+[data-anim="off"] .pp__check path,
+[data-anim="off"] .pp.is-paid .pp__total.is-struck::after {
+  animation: none;
+}
+[data-anim="off"] .pp__check path {
+  stroke-dashoffset: 0;
+}
+[data-anim="off"] .pp.is-paid .pp__total.is-struck::after {
+  transform: scaleX(1);
 }
 
 .settle {
