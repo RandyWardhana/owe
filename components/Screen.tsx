@@ -19,6 +19,7 @@ export default function Screen({
   right,
   steps,
   footer,
+  overlay,
   children,
 }: {
   title?: ReactNode;
@@ -27,6 +28,7 @@ export default function Screen({
   right?: ReactNode;
   steps?: StepsInfo;
   footer?: ReactNode;
+  overlay?: ReactNode;
   children: ReactNode;
 }) {
   const dir = useStore((s) => s.dir);
@@ -36,6 +38,7 @@ export default function Screen({
   const showBack = onBack !== undefined || stack.length > 0;
 
   return (
+    <>
     <div className={`screen ${dir === "back" ? "route-back" : "route-enter"}`}>
       {(title || showBack || right) && (
         <div className="topbar">
@@ -71,5 +74,7 @@ export default function Screen({
 
       {footer ? <div className="footer-cta">{footer}</div> : null}
     </div>
+    {overlay}
+    </>
   );
 }

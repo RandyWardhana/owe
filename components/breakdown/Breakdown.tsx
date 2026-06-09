@@ -84,6 +84,16 @@ export default function Breakdown() {
           </button>
         </div>
       }
+      overlay={
+        <ShareSheet
+          open={shareOpen}
+          onClose={() => setShareOpen(false)}
+          title={draft.title}
+          link={link}
+          label={label}
+          summary={summary}
+        />
+      }
     >
       <div className="pad">
         <TotalCard result={result} currency={currency} />
@@ -100,15 +110,6 @@ export default function Breakdown() {
           onTogglePaid={togglePaid}
         />
       </div>
-
-      <ShareSheet
-        open={shareOpen}
-        onClose={() => setShareOpen(false)}
-        title={draft.title}
-        link={link}
-        label={label}
-        summary={summary}
-      />
     </Screen>
   );
 }

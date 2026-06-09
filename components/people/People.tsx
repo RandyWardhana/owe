@@ -82,6 +82,20 @@ export default function People() {
           {t("people.next")} <ArrowRight size={20} />
         </button>
       }
+      overlay={
+        <Sheet
+          open={!!editing}
+          onClose={closePayments}
+          title={editing ? t("payment.howToPay", { name: editing.name || "—" }) : ""}
+        >
+          {editing ? (
+            <PaymentEditor
+              person={editing}
+              onChange={(accounts) => setPerson(editing.id, { accounts })}
+            />
+          ) : null}
+        </Sheet>
+      }
     >
       <div className="pad">
         {people.length === 0 ? (
@@ -128,19 +142,6 @@ export default function People() {
           <Plus size={18} /> {t("people.addName")}
         </button>
       </div>
-
-      <Sheet
-        open={!!editing}
-        onClose={closePayments}
-        title={editing ? t("payment.howToPay", { name: editing.name || "—" }) : ""}
-      >
-        {editing ? (
-          <PaymentEditor
-            person={editing}
-            onChange={(accounts) => setPerson(editing.id, { accounts })}
-          />
-        ) : null}
-      </Sheet>
     </Screen>
   );
 }

@@ -45,9 +45,9 @@ export default function ShareSheet({ open, onClose, title, link, label, summary 
       <button className="btn secondary" onClick={() => copy(summary)}>
         <Copy size={18} /> {t("breakdown.copyText")}
       </button>
-      <p className="muted share-foot">
+      {/* <p className="muted share-foot">
         <Wallet size={14} /> {t("breakdown.cleanResult")}
-      </p>
+      </p> */}
     </Sheet>
   );
 }
