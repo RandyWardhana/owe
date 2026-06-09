@@ -11,6 +11,7 @@ export const CURRENCIES: Record<string, CurrencyDef> = {
   JPY: { sym: "¥", code: "JPY", dec: 0, locale: "ja-JP" },
   USD: { sym: "$", code: "USD", dec: 2, locale: "en-US" },
   SGD: { sym: "S$", code: "SGD", dec: 2, locale: "en-SG" },
+  TWD: { sym: "NT$", code: "TWD", dec: 0, locale: "zh-TW" },
 };
 
 export function fmtMoney(
