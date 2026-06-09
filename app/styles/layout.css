@@ -13,6 +13,13 @@
   justify-content: center;
 }
 
+@media all and (display-mode: standalone) {
+  #root {
+    bottom: 0;
+    height: auto;
+  }
+}
+
 .shell {
   position: relative;
   width: 100%;
