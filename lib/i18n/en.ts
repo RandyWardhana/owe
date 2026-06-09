@@ -175,6 +175,7 @@ const en = {
     dismiss: "Not now",
   },
   offline: "You're offline",
+  backOnline: "You're back online",
 };
 
 export default en;

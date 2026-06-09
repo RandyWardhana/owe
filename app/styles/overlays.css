@@ -189,6 +189,10 @@
 .offline-bar.is-shown {
   transform: translateY(0);
 }
+.offline-bar.is-online {
+  background: var(--pos);
+  color: #fff;
+}
 [data-anim="off"] .offline-bar {
   transition: none;
 }

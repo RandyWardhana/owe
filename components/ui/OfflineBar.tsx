@@ -1,25 +1,31 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { useT } from "@/lib/i18n";
-import { WifiOff } from "@/components/icons";
+import { Wifi, WifiOff } from "@/components/icons";
 
 /* Thin bar pinned to the very top (above the header) while the device is
    offline. Slides in and out, and flags <html data-offline> so the screen
-   content shifts down (also animated) to make room. Accent background, dark
-   on-accent text. */
+   content shifts down (also animated) to make room. When the connection
+   comes back it briefly switches to a "back online" confirmation, then slides
+   away. Accent background offline, positive background when back online. */
 export default function OfflineBar() {
   const t = useT();
-  const [offline, setOffline] = useState(false);
+  const [mode, setMode] = useState<"offline" | "online" | null>(null);
   const [render, setRender] = useState(false); // stays mounted through exit
   const [shown, setShown] = useState(false); // slid-in state
+  const wasOffline = useRef(false);
 
   useEffect(() => {
     const update = () => {
-      const off = !navigator.onLine;
-      setOffline(off);
-      document.documentElement.toggleAttribute("data-offline", off);
+      if (!navigator.onLine) {
+        wasOffline.current = true;
+        setMode("offline");
+      } else if (wasOffline.current) {
+        wasOffline.current = false;
+        setMode("online");
+      }
     };
     update();
     window.addEventListener("online", update);
@@ -31,32 +37,55 @@ export default function OfflineBar() {
     };
   }, []);
 
-  // drive the slide-in / slide-out
+  // keep the content offset in sync with the bar's visibility
   useEffect(() => {
-    if (offline) {
+    document.documentElement.toggleAttribute("data-offline", shown);
+  }, [shown]);
+
+  // fallback unmount for when the slide-out transition won't fire (motion off)
+  useEffect(() => {
+    if (shown || !render) return;
+    const id = setTimeout(() => {
+      setRender(false);
+      setMode(null);
+    }, 360);
+    return () => clearTimeout(id);
+  }, [shown, render]);
+
+  // drive slide-in → (hold, if back online) → slide-out
+  useEffect(() => {
+    if (mode === "offline") {
       setRender(true);
       const id = requestAnimationFrame(() => setShown(true));
       return () => cancelAnimationFrame(id);
     }
-    setShown(false); // triggers slide-out
-    // unmount on transition end, with a fallback for when motion is disabled
-    const id = setTimeout(() => setRender(false), 320);
-    return () => clearTimeout(id);
-  }, [offline]);
+    if (mode === "online") {
+      setRender(true);
+      setShown(true);
+      const id = setTimeout(() => setShown(false), 1800);
+      return () => clearTimeout(id);
+    }
+    return;
+  }, [mode]);
 
   if (!render) return null;
 
+  const online = mode === "online";
+
   return (
     <div
-      className={`offline-bar ${shown ? "is-shown" : ""}`}
+      className={`offline-bar ${online ? "is-online" : ""} ${shown ? "is-shown" : ""}`}
       role="status"
       aria-live="polite"
       onTransitionEnd={() => {
-        if (!shown) setRender(false);
+        if (!shown) {
+          setRender(false);
+          setMode(null);
+        }
       }}
     >
-      <WifiOff size={15} />
-      <span>{t("offline")}</span>
+      {online ? <Wifi size={15} /> : <WifiOff size={15} />}
+      <span>{online ? t("backOnline") : t("offline")}</span>
     </div>
   );
 }

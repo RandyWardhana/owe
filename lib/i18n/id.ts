@@ -177,6 +177,7 @@ const id: Dict = {
     dismiss: "Nanti saja",
   },
   offline: "Kamu sedang offline",
+  backOnline: "Kamu kembali online",
 };
 
 export default id;
