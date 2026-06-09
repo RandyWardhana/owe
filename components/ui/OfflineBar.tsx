@@ -77,15 +77,23 @@ export default function OfflineBar() {
       className={`offline-bar ${online ? "is-online" : ""} ${shown ? "is-shown" : ""}`}
       role="status"
       aria-live="polite"
-      onTransitionEnd={() => {
-        if (!shown) {
+      onTransitionEnd={(e) => {
+        if (e.target === e.currentTarget && !shown) {
           setRender(false);
           setMode(null);
         }
       }}
     >
-      {online ? <Wifi size={15} /> : <WifiOff size={15} />}
-      <span>{online ? t("backOnline") : t("offline")}</span>
+      <span className="ob-flip">
+        <span className="ob-line ob-line--off">
+          <WifiOff size={15} />
+          {t("offline")}
+        </span>
+        <span className="ob-line ob-line--on">
+          <Wifi size={15} />
+          {t("backOnline")}
+        </span>
+      </span>
     </div>
   );
 }
