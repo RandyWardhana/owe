@@ -29,10 +29,14 @@ export interface Item {
   _new?: boolean;
 }
 
+export type ChargeMode = "pct" | "amt";
+
 export interface Charges {
   taxPct: number;
   servicePct: number;
   discount: number;
+  taxMode?: ChargeMode;
+  serviceMode?: ChargeMode;
 }
 
 export type ScanSource = "ocr" | "demo" | "partial" | "manual" | null;

@@ -23,8 +23,8 @@ export function computeSplit(
   { rounding = "none" as Rounding } = {},
 ): SplitResult {
   const { items = [], people = [], charges } = state;
-  const taxPct = Number(charges?.taxPct) || 0;
-  const servicePct = Number(charges?.servicePct) || 0;
+  const taxVal = Number(charges?.taxPct) || 0;
+  const serviceVal = Number(charges?.servicePct) || 0;
   const discount = Number(charges?.discount) || 0;
 
   const itemsSubtotal = items.reduce((s, it) => s + lineTotal(it), 0);
@@ -59,8 +59,12 @@ export function computeSplit(
 
   const assignedSubtotal = people.reduce((s, p) => s + base[p.id].subtotal, 0);
 
-  const tax = (itemsSubtotal * taxPct) / 100;
-  const service = (itemsSubtotal * servicePct) / 100;
+  const tax =
+    charges?.taxMode === "amt" ? taxVal : (itemsSubtotal * taxVal) / 100;
+  const service =
+    charges?.serviceMode === "amt"
+      ? serviceVal
+      : (itemsSubtotal * serviceVal) / 100;
   const grandTotal = itemsSubtotal + tax + service - discount;
 
   const perPerson: PersonSplit[] = people.map((p) => {

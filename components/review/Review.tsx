@@ -5,11 +5,12 @@ import { useT } from "@/lib/i18n";
 import { fmtMoney, CURRENCIES } from "@/lib/currency";
 import { computeSplit, lineTotal } from "@/lib/calc";
 import { buzz, uid, clampNum } from "@/lib/util";
-import type { Item } from "@/lib/types";
+import type { ChargeMode, Item } from "@/lib/types";
 
 import Screen from "@/components/Screen";
 import { Plus, Trash, ArrowRight } from "@/components/icons";
 import ChargeRow from "./ChargeRow";
+import QtyInput from "./QtyInput";
 
 export default function Review() {
   const t = useT();
@@ -45,8 +46,10 @@ export default function Review() {
     }));
   };
 
-  const setCharge = (key: "taxPct" | "servicePct" | "discount", v: number) =>
-    updateDraft((d) => ({ ...d, charges: { ...d.charges, [key]: v } }));
+  const setCharge = (
+    key: "taxPct" | "servicePct" | "discount" | "taxMode" | "serviceMode",
+    v: number | ChargeMode,
+  ) => updateDraft((d) => ({ ...d, charges: { ...d.charges, [key]: v } }));
 
   const banner =
     draft.source === "demo"
@@ -106,13 +109,9 @@ export default function Review() {
               <div className="item__nums">
                 <label className="qtybox">
                   <span className="qtybox__x">×</span>
-                  <input
-                    className="qtybox__in tnum"
-                    inputMode="numeric"
+                  <QtyInput
                     value={it.qty}
-                    onChange={(e) =>
-                      setItem(it.id, { qty: Math.max(1, Math.round(clampNum(e.target.value))) })
-                    }
+                    onChange={(n) => setItem(it.id, { qty: n })}
                   />
                 </label>
                 <label className="pricebox">
@@ -120,7 +119,9 @@ export default function Review() {
                   <input
                     className="pricebox__in tnum"
                     inputMode="decimal"
-                    value={it.price}
+                    value={it.price || ""}
+                    placeholder="0"
+                    onFocus={(e) => e.target.select()}
                     onChange={(e) => setItem(it.id, { price: clampNum(e.target.value) })}
                   />
                 </label>
@@ -140,14 +141,18 @@ export default function Review() {
         <div className="card charges">
           <ChargeRow
             label={t("review.tax")}
-            suffix="%"
+            sym={sym}
+            mode={draft.charges.taxMode || "pct"}
+            onModeChange={(m) => setCharge("taxMode", m)}
             value={draft.charges.taxPct}
             onChange={(v) => setCharge("taxPct", v)}
           />
           <hr className="hr" />
           <ChargeRow
             label={t("review.service")}
-            suffix="%"
+            sym={sym}
+            mode={draft.charges.serviceMode || "pct"}
+            onModeChange={(m) => setCharge("serviceMode", m)}
             value={draft.charges.servicePct}
             onChange={(v) => setCharge("servicePct", v)}
           />
