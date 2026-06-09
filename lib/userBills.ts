@@ -88,6 +88,9 @@ export async function pullHistory(): Promise<Draft[] | null> {
 }
 
 export async function pushHistory(history: Draft[]): Promise<void> {
+  // never overwrite the cloud copy with an empty list — a failed restore on a
+  // fresh/evicted context would otherwise wipe a good backup
+  if (!history.length) return;
   const id = deviceId();
   if (!id || !online()) return;
   const client = await getSupabase();

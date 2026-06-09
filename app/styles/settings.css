@@ -27,6 +27,52 @@
   gap: 11px;
 }
 
+.set-hint {
+  font-size: 12.5px;
+  margin: -5px 0 0;
+}
+.sync-code {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.sync-code__val {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 12.5px;
+  letter-spacing: 0.02em;
+  background: var(--card-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 9px 11px;
+}
+.sync-restore {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+}
+.sync-input {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  background: var(--card-2);
+  border: 1.5px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  padding: 10px 11px;
+  color: var(--ink);
+}
+.sync-input::placeholder {
+  color: var(--ink-3);
+}
+.sync-restore .btn {
+  flex-shrink: 0;
+  width: auto;
+  height: auto;
+  font-size: 13.5px;
+  padding: 0 16px;
+}
+
 .seg {
   display: inline-flex;
   background: var(--card-2);

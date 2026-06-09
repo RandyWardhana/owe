@@ -12,9 +12,7 @@ export function useBillBackup() {
     (async () => {
       const remote = await pullHistory();
       if (cancelled) return;
-      const local = useStore.getState().history;
-      if (remote && remote.length && local.length === 0)
-        useStore.setState({ history: remote.slice(0, 30) });
+      if (remote && remote.length) useStore.getState().mergeHistory(remote);
       setReady(true);
     })();
     return () => {

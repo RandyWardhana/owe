@@ -12,3 +12,9 @@ export function deviceId(): string {
   }
   return id;
 }
+
+export function setDeviceId(id: string): void {
+  if (typeof localStorage === "undefined") return;
+  const trimmed = id.trim();
+  if (trimmed) localStorage.setItem(KEY, trimmed);
+}

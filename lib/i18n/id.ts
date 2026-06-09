@@ -167,7 +167,20 @@ const id: Dict = {
     roundExact: "Tepat",
     roundWhole: "Bulat",
     roundUp5: "+5",
-    about: "owe — offline-first. Tidak ada yang keluar dari HP-mu kecuali kamu bagikan.",
+    sync: "Sinkron antar perangkat",
+    syncCode: "Kode sinkronmu",
+    syncCodeHint:
+      "Salin ini dan tempel di perangkat atau browser lain untuk melihat tagihan yang sama.",
+    syncCopy: "Salin kode sinkron",
+    syncRestore: "Pakai kode dari perangkat lain",
+    syncRestoreHint:
+      "Tempel kode sinkron dari perangkat lain untuk menarik tagihannya ke sini.",
+    syncPlaceholder: "Tempel kode sinkron",
+    syncRestoreBtn: "Pulihkan",
+    syncRestoring: "Memulihkan…",
+    syncDone: "Tagihan tersinkron ke perangkat ini",
+    syncEmpty: "Tidak ada tagihan untuk kode itu",
+    about: "owe — patungan & lunasi offline-first. Cadangan dan bagikan terenkripsi.",
   },
   install: {
     title: "Pasang owe",

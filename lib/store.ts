@@ -70,6 +70,7 @@ interface State {
   resume: () => void;
   applyScan: (res: ScanResult) => void;
   openHistory: (h: Draft) => void;
+  mergeHistory: (incoming: Draft[]) => void;
   saveCurrent: (result: SplitResult, payerId: string | null) => void;
   finish: () => void;
 
@@ -218,6 +219,20 @@ export const useStore = create<State>()(
         });
         setTimeout(() => get().showToast("breakdown.saved"), 350);
       },
+
+      mergeHistory: (incoming) =>
+        set((s) => {
+          const byId = new Map<string, Draft>();
+          for (const d of incoming) byId.set(d.id, d);
+          for (const d of s.history) {
+            const ex = byId.get(d.id);
+            if (!ex || (d.createdAt || 0) >= (ex.createdAt || 0)) byId.set(d.id, d);
+          }
+          const merged = Array.from(byId.values())
+            .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
+            .slice(0, 30);
+          return { history: merged };
+        }),
 
       finish: () =>
         set({ draft: emptyDraft(), dir: "back", stack: [], view: "home" }),

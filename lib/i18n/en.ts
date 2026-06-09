@@ -165,7 +165,20 @@ const en = {
     roundExact: "Exact",
     roundWhole: "Whole",
     roundUp5: "+5",
-    about: "owe — offline-first. Nothing leaves your phone unless you share it.",
+    sync: "Sync across devices",
+    syncCode: "Your sync code",
+    syncCodeHint:
+      "Copy this and paste it on another device or browser to see the same bills.",
+    syncCopy: "Copy sync code",
+    syncRestore: "Use a code from elsewhere",
+    syncRestoreHint:
+      "Paste a sync code from another device to pull its bills onto this one.",
+    syncPlaceholder: "Paste sync code",
+    syncRestoreBtn: "Restore",
+    syncRestoring: "Restoring…",
+    syncDone: "Bills synced to this device",
+    syncEmpty: "No bills found for that code",
+    about: "owe — offline-first split & settle. Backups and shares are encrypted.",
   },
   install: {
     title: "Install owe",
