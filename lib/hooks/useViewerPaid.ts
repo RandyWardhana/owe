@@ -1,16 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { buzz } from "@/lib/util";
-import { fetchPaid, savePaid, subscribePaid } from "@/lib/bills";
+import { billId, fetchPaid, savePaid, subscribePaid } from "@/lib/bills";
 import { hasSupabase } from "@/lib/supabase";
 import type { SharePayload } from "@/lib/types";
-
-function billId(p: SharePayload): string {
-  const sig = JSON.stringify([p.t, p.c, p.g, p.pp.map((x) => [x.n, x.t])]);
-  let h = 0;
-  for (let i = 0; i < sig.length; i++) h = (h * 31 + sig.charCodeAt(i)) | 0;
-  return "owe-" + (h >>> 0).toString(36).padStart(6, "0");
-}
 
 const localKey = (id: string) => "owe.shared." + id;
 

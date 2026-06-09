@@ -1,15 +1,20 @@
--- owe — shared-bill "paid" sync
--- Run this in the Supabase SQL editor (or `supabase db push`).
+-- owe — shared-bill storage + "paid" sync
+-- Run this in the Supabase SQL editor (or `supabase db push`). Re-runnable.
 --
--- Stores only the deterministic bill id and which person indices have paid.
--- The bill contents never leave the device — they live in the share URL.
+-- Stores, keyed by the deterministic bill id:
+--   data — the encrypted bill, so short links (/s/owe-…) can resolve it
+--   paid — which person indices have settled
 -- No auth: anyone with the link (and therefore the id) can read/update.
 
 create table if not exists public.bills (
   id         text primary key,
+  data       text,
   paid       jsonb       not null default '[]'::jsonb,
   updated_at timestamptz not null default now()
 );
+
+-- add `data` to tables created before short links existed
+alter table public.bills add column if not exists data text;
 
 alter table public.bills enable row level security;
 
@@ -27,4 +32,15 @@ create policy "bills public update" on public.bills
   for update using (true) with check (true);
 
 -- Live updates so every viewer sees paid changes in real time.
-alter publication supabase_realtime add table public.bills;
+-- (guarded so re-running the script doesn't error if it's already added)
+do $$
+begin
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime'
+      and schemaname = 'public'
+      and tablename = 'bills'
+  ) then
+    alter publication supabase_realtime add table public.bills;
+  end if;
+end $$;
