@@ -70,7 +70,8 @@ export const Trash = (p: P) => (
 
 export const Check = (p: P) => (
   <Svg {...p}>
-    <path d="M20 6 9 17l-5-5" />
+    {/* drawn left → down → up-right so the stroke animation reads naturally */}
+    <path d="M4 12 9 17 20 6" />
   </Svg>
 );
 
