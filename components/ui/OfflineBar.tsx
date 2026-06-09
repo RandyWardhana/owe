@@ -54,7 +54,7 @@ export default function OfflineBar() {
     if (mode === "online") {
       setRender(true);
       setShown(true);
-      const id = setTimeout(() => setShown(false), 1800);
+      const id = setTimeout(() => setShown(false), 2500);
       return () => clearTimeout(id);
     }
     return;
