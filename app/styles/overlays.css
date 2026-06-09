@@ -190,32 +190,31 @@
   transform: translateY(0);
 }
 
-/* the message panel flips vertically (flap-display style) on connection change */
+/* the message rolls up: the offline line slides out the top as the
+   "back online" line rises into the window from below */
 .ob-flip {
-  display: inline-grid;
-  perspective: 600px;
+  display: inline-block;
+  height: 1.5em;
+  overflow: hidden;
+  vertical-align: bottom;
 }
-.ob-flipper {
-  display: grid;
-  transform-style: preserve-3d;
-  transition: transform 0.7s cubic-bezier(0.2, 0.8, 0.25, 1);
+.ob-track {
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.55s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
-.offline-bar.is-online .ob-flipper {
-  transform: rotateX(180deg);
+.offline-bar.is-online .ob-track {
+  transform: translateY(-1.5em);
 }
-.ob-face {
-  grid-area: 1 / 1;
+.ob-line {
+  height: 1.5em;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
   white-space: nowrap;
-  backface-visibility: hidden;
 }
-.ob-face--back {
-  transform: rotateX(180deg);
-}
-[data-anim="off"] .ob-flipper {
+[data-anim="off"] .ob-track {
   transition: none;
 }
 [data-anim="off"] .offline-bar {

@@ -85,12 +85,12 @@ export default function OfflineBar() {
       }}
     >
       <span className="ob-flip">
-        <span className="ob-flipper">
-          <span className="ob-face ob-face--front">
+        <span className="ob-track">
+          <span className="ob-line">
             <WifiOff size={15} />
             {t("offline")}
           </span>
-          <span className="ob-face ob-face--back">
+          <span className="ob-line">
             <Wifi size={15} />
             {t("backOnline")}
           </span>
