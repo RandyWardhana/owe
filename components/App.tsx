@@ -22,6 +22,7 @@ const SharedView = dynamic(() => import("@/components/shared/SharedView"), {
 import Toast from "@/components/Toast";
 import ClickSpark from "@/components/ui/ClickSpark";
 import InstallPrompt from "@/components/ui/InstallPrompt";
+import OfflineBar from "@/components/ui/OfflineBar";
 
 export default function App() {
   const view = useStore((s) => s.view);
@@ -42,6 +43,7 @@ export default function App() {
         <Toast />
         <ClickSpark />
         <InstallPrompt />
+        <OfflineBar />
       </div>
     );
   }
@@ -62,6 +64,7 @@ export default function App() {
       <Toast />
       <ClickSpark />
       <InstallPrompt />
+      <OfflineBar />
     </div>
   );
 }

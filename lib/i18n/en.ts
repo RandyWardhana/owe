@@ -170,6 +170,7 @@ const en = {
     iosHint: 'Tap the Share button, then "Add to Home Screen".',
     dismiss: "Not now",
   },
+  offline: "You're offline",
 };
 
 export default en;

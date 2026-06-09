@@ -11,7 +11,6 @@
   width: 100%;
   max-width: 440px;
   height: 100%;
-  max-height: 940px;
   background: var(--bg);
   display: flex;
   flex-direction: column;
@@ -31,9 +30,18 @@
 .screen {
   position: absolute;
   inset: 0;
+  top: var(--offline-shift, 0);
   display: flex;
   flex-direction: column;
   background: var(--bg);
+  transition: top 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+/* offline bar pushes the screen (and any top banner) down to make room */
+[data-offline] .shell {
+  --offline-shift: calc(38px + var(--safe-top));
+}
+[data-offline] .install-banner {
+  top: calc(52px + var(--safe-top));
 }
 .screen__scroll {
   flex: 1;

@@ -172,6 +172,7 @@ const id: Dict = {
     iosHint: 'Ketuk tombol Bagikan, lalu "Tambahkan ke Layar Utama".',
     dismiss: "Nanti saja",
   },
+  offline: "Kamu sedang offline",
 };
 
 export default id;
