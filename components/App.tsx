@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import dynamic from "next/dynamic";
 
 import { useStore } from "@/lib/store";
 import { useMounted, useSharedBill, useAppliedAppearance } from "@/lib/hooks";
@@ -12,8 +13,12 @@ import Review from "@/components/review/Review";
 import People from "@/components/people/People";
 import Assign from "@/components/Assign";
 import Breakdown from "@/components/breakdown/Breakdown";
-import SharedView from "@/components/shared/SharedView";
 import Settings from "@/components/Settings";
+
+const SharedView = dynamic(() => import("@/components/shared/SharedView"), {
+  ssr: false,
+  loading: () => <div className="shell" />,
+});
 import Toast from "@/components/Toast";
 import ClickSpark from "@/components/ui/ClickSpark";
 import InstallPrompt from "@/components/ui/InstallPrompt";

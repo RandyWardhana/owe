@@ -2,7 +2,8 @@
 
 import { useT } from "@/lib/i18n";
 import { methodMeta } from "@/lib/payments";
-import { useViewerPaid, useClipboard } from "@/lib/hooks";
+import { useClipboard } from "@/lib/hooks";
+import { useViewerPaid } from "@/lib/hooks/useViewerPaid";
 import type { SharePayload } from "@/lib/types";
 
 import Screen from "@/components/Screen";

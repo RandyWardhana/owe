@@ -1,41 +1,84 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { buzz } from "@/lib/util";
+import { fetchPaid, savePaid, subscribePaid } from "@/lib/bills";
+import { hasSupabase } from "@/lib/supabase";
 import type { SharePayload } from "@/lib/types";
 
-function billKey(p: SharePayload): string {
+function billId(p: SharePayload): string {
   const sig = JSON.stringify([p.t, p.c, p.g, p.pp.map((x) => [x.n, x.t])]);
   let h = 0;
   for (let i = 0; i < sig.length; i++) h = (h * 31 + sig.charCodeAt(i)) | 0;
-  return "owe.shared." + (h >>> 0).toString(36);
+  return "owe-" + (h >>> 0).toString(36).padStart(6, "0");
 }
+
+const localKey = (id: string) => "owe.shared." + id;
+
+function readLocal(id: string, p: SharePayload): Set<number> {
+  try {
+    const raw = localStorage.getItem(localKey(id));
+    return new Set(raw ? JSON.parse(raw) : p.pd || []);
+  } catch {
+    return new Set(p.pd || []);
+  }
+}
+
+function writeLocal(id: string, paid: Set<number>) {
+  try {
+    localStorage.setItem(localKey(id), JSON.stringify([...paid]));
+  } catch {
+  }
+}
+
+const online = () => typeof navigator === "undefined" || navigator.onLine;
 
 export function useViewerPaid(
   payload: SharePayload,
 ): [Set<number>, (index: number) => void] {
-  const key = useMemo(() => billKey(payload), [payload]);
-  const [paid, setPaid] = useState<Set<number>>(() => new Set(payload.pd || []));
+  const id = useMemo(() => billId(payload), [payload]);
+  const [paid, setPaid] = useState<Set<number>>(() => readLocal(id, payload));
+  const paidRef = useRef(paid);
+  paidRef.current = paid;
+
+  const apply = (next: Set<number>) => {
+    paidRef.current = next;
+    setPaid(next);
+    writeLocal(id, next);
+  };
 
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem(key);
-      setPaid(new Set(raw ? JSON.parse(raw) : payload.pd || []));
-    } catch {
-      setPaid(new Set(payload.pd || []));
+    let cancelled = false;
+
+    apply(readLocal(id, payload));
+
+    if (hasSupabase && online()) {
+      fetchPaid(id).then((server) => {
+        if (!cancelled && server) apply(new Set(server));
+      });
     }
-  }, [key, payload.pd]);
+
+    const unsubscribe = subscribePaid(id, (server) => {
+      if (!cancelled) apply(new Set(server));
+    });
+
+    const onReconnect = () => savePaid(id, [...paidRef.current]);
+    window.addEventListener("online", onReconnect);
+
+    return () => {
+      cancelled = true;
+      unsubscribe();
+      window.removeEventListener("online", onReconnect);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, payload.pd]);
 
   const toggle = (index: number) => {
     buzz(10);
-    setPaid((prev) => {
-      const next = new Set(prev);
-      if (next.has(index)) next.delete(index);
-      else next.add(index);
-      try {
-        localStorage.setItem(key, JSON.stringify([...next]));
-      } catch {}
-      return next;
-    });
+    const next = new Set(paidRef.current);
+    if (next.has(index)) next.delete(index);
+    else next.add(index);
+    apply(next);
+    if (hasSupabase && online()) savePaid(id, [...next]);
   };
 
   return [paid, toggle];
