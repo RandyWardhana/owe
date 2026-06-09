@@ -190,8 +190,6 @@
   transform: translateY(0);
 }
 
-/* the message rolls up: the offline line slides out the top as the
-   "back online" line rises into the window from below */
 .ob-flip {
   display: inline-block;
   height: 1.5em;

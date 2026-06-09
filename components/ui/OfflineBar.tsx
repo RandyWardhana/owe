@@ -5,16 +5,11 @@ import { useEffect, useRef, useState } from "react";
 import { useT } from "@/lib/i18n";
 import { Wifi, WifiOff } from "@/components/icons";
 
-/* Thin bar pinned to the very top (above the header) while the device is
-   offline. Slides in and out, and flags <html data-offline> so the screen
-   content shifts down (also animated) to make room. When the connection
-   comes back it briefly switches to a "back online" confirmation, then slides
-   away. Accent background offline, positive background when back online. */
 export default function OfflineBar() {
   const t = useT();
   const [mode, setMode] = useState<"offline" | "online" | null>(null);
-  const [render, setRender] = useState(false); // stays mounted through exit
-  const [shown, setShown] = useState(false); // slid-in state
+  const [render, setRender] = useState(false);
+  const [shown, setShown] = useState(false);
   const wasOffline = useRef(false);
 
   useEffect(() => {
@@ -37,12 +32,10 @@ export default function OfflineBar() {
     };
   }, []);
 
-  // keep the content offset in sync with the bar's visibility
   useEffect(() => {
     document.documentElement.toggleAttribute("data-offline", shown);
   }, [shown]);
 
-  // fallback unmount for when the slide-out transition won't fire (motion off)
   useEffect(() => {
     if (shown || !render) return;
     const id = setTimeout(() => {
@@ -52,7 +45,6 @@ export default function OfflineBar() {
     return () => clearTimeout(id);
   }, [shown, render]);
 
-  // drive slide-in → (hold, if back online) → slide-out
   useEffect(() => {
     if (mode === "offline") {
       setRender(true);
