@@ -92,7 +92,7 @@ const id: Dict = {
     counter: "{assigned}/{total} dibagi",
     all: "Semua",
     hint: "Ketuk siapa yang pesan tiap item. Pilih beberapa buat bagi rata.",
-    each: "{amount} /org",
+    each: "{amount} / org",
     notAssigned: "{n} item belum dibagi",
     notAssignedOne: "1 item belum dibagi",
     next: "Lihat hasilnya",

@@ -90,7 +90,7 @@ const en = {
     counter: "{assigned}/{total} assigned",
     all: "All",
     hint: "Tap who had each thing. Pick a few to split it evenly.",
-    each: "{amount} ea",
+    each: "{amount} each",
     notAssigned: "{n} items not assigned yet",
     notAssignedOne: "1 item not assigned yet",
     next: "See the split",
