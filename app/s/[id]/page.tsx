@@ -1,3 +1,4 @@
+import { cache } from "react";
 import type { Metadata } from "next";
 
 import { decryptShare } from "@/lib/share";
@@ -7,10 +8,13 @@ import App from "@/components/App";
 
 type Props = { params: Promise<{ id: string }> };
 
+// cached per request so metadata + page share a single server fetch
+const billData = cache(getBillData);
+
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;
   try {
-    const data = await getBillData(id);
+    const data = await billData(id);
     const payload = data ? await decryptShare(data) : null;
     return shareMeta(payload);
   } catch {
@@ -18,6 +22,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   }
 }
 
-export default function SharedShortPage() {
-  return <App />;
+export default async function SharedShortPage({ params }: Props) {
+  const { id } = await params;
+  const data = await billData(id);
+  return <App initialShared={data} />;
 }

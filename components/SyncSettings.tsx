@@ -5,7 +5,7 @@ import { useState } from "react";
 import { useStore } from "@/lib/store";
 import { useT } from "@/lib/i18n";
 import { deviceId, setDeviceId } from "@/lib/device";
-import { pullHistory, pushHistory } from "@/lib/userBills";
+import { pullHistory, pushHistory, setSyncCookie } from "@/lib/userBills";
 import { hasSupabase } from "@/lib/supabase";
 import { buzz } from "@/lib/util";
 
@@ -32,6 +32,7 @@ export default function SyncSettings() {
     const remote = await pullHistory();
     if (remote && remote.length) {
       mergeHistory(remote);
+      setSyncCookie();
       pushHistory(useStore.getState().history);
       setCode("");
       showToast("settings.syncDone");

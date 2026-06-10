@@ -25,14 +25,20 @@ import ClickSpark from "@/components/ui/ClickSpark";
 import InstallPrompt from "@/components/ui/InstallPrompt";
 import OfflineBar from "@/components/ui/OfflineBar";
 
-export default function App() {
+export default function App({
+  initialShared,
+  initialBackup,
+}: {
+  initialShared?: string | null;
+  initialBackup?: string | null;
+} = {}) {
   const view = useStore((s) => s.view);
   const [settingsOpen, setSettingsOpen] = useState(false);
 
   const mounted = useMounted();
-  const { shared, clear } = useSharedBill();
+  const { shared, clear } = useSharedBill(initialShared);
   useAppliedAppearance();
-  useBillBackup();
+  useBillBackup(initialBackup);
 
   if (!mounted || shared === undefined) {
     return <div className="shell" />;
