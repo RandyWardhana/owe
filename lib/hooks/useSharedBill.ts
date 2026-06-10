@@ -7,9 +7,9 @@ import type { SharePayload } from "@/lib/types";
 type SharedState = SharePayload | null | undefined;
 
 /* Resolves the shared bill from the URL. Two link shapes are supported:
-   - short:  /s/owe-xxxxxx   → encrypted bill, injected by SSR (else fetched)
+   - short:  /s/owe-xxxxxx   → fetch the encrypted bill from Supabase by id
    - long:   /s?s=<payload>  → the bill is self-contained in the link */
-export function useSharedBill(initialShared?: string | null) {
+export function useSharedBill() {
   const [shared, setShared] = useState<SharedState>(undefined);
 
   useEffect(() => {
@@ -32,15 +32,10 @@ export function useSharedBill(initialShared?: string | null) {
     };
 
     if (shortMatch) {
-      // prefer the SSR-injected blob (no network); fall back to a fetch
-      if (initialShared !== undefined) {
-        resolve(initialShared);
-      } else {
-        fetchBill(shortMatch[1]).then((row) => {
-          if (cancelled) return;
-          resolve(row?.data ?? null);
-        });
-      }
+      fetchBill(shortMatch[1]).then((row) => {
+        if (cancelled) return;
+        resolve(row?.data ?? null);
+      });
     } else {
       resolve(raw);
     }

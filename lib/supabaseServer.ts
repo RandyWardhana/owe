@@ -35,21 +35,3 @@ export async function getBillData(id: string): Promise<string | null> {
     return null;
   }
 }
-
-/* The user's encrypted backup blob by row key (sha256 of their device id).
-   The server only ever sees ciphertext — the browser holds the key. */
-export async function getUserBillsData(key: string): Promise<string | null> {
-  const c = supabaseServer();
-  if (!c) return null;
-  try {
-    const { data, error } = await c
-      .from("user_bills")
-      .select("data")
-      .eq("key", key)
-      .maybeSingle();
-    if (error || !data) return null;
-    return (data.data as string) ?? null;
-  } catch {
-    return null;
-  }
-}

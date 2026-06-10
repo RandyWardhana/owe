@@ -66,26 +66,6 @@ async function decrypt(data: string, id: string): Promise<Draft[] | null> {
   }
 }
 
-/** Decrypts a server-injected backup blob (SSR), so no client fetch is needed. */
-export async function decryptBackup(data: string): Promise<Draft[] | null> {
-  const id = deviceId();
-  if (!id) return null;
-  return decrypt(data, id);
-}
-
-/** Stores the row key (sha256 of the device id) in a cookie so the server can
-    fetch the encrypted backup on the next load — the key never decrypts. */
-export async function setSyncCookie(): Promise<void> {
-  const id = deviceId();
-  if (!id || typeof document === "undefined") return;
-  try {
-    const key = await digestHex(id);
-    document.cookie = `owe.k=${key}; path=/; max-age=31536000; samesite=lax`;
-  } catch {
-    /* ignore */
-  }
-}
-
 export async function pullHistory(): Promise<Draft[] | null> {
   const id = deviceId();
   if (!hasSupabase || !id || !online()) return null;
