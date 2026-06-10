@@ -1,8 +1,6 @@
-import { getSupabase } from "./supabase";
+import { hasSupabase } from "./supabase";
 import { deviceId } from "./device";
 import type { Draft } from "./types";
-
-const TABLE = "user_bills";
 
 function online(): boolean {
   return typeof navigator === "undefined" || navigator.onLine;
@@ -70,18 +68,14 @@ async function decrypt(data: string, id: string): Promise<Draft[] | null> {
 
 export async function pullHistory(): Promise<Draft[] | null> {
   const id = deviceId();
-  if (!id || !online()) return null;
-  const client = await getSupabase();
-  if (!client) return null;
+  if (!hasSupabase || !id || !online()) return null;
   try {
     const key = await digestHex(id);
-    const { data, error } = await client
-      .from(TABLE)
-      .select("data")
-      .eq("key", key)
-      .maybeSingle();
-    if (error || !data?.data) return null;
-    return decrypt(data.data as string, id);
+    const r = await fetch(`/api/sync?key=${encodeURIComponent(key)}`);
+    if (!r.ok) return null;
+    const json = (await r.json()) as { data?: string | null };
+    if (!json.data) return null;
+    return decrypt(json.data, id);
   } catch {
     return null;
   }
@@ -92,15 +86,15 @@ export async function pushHistory(history: Draft[]): Promise<void> {
   // fresh/evicted context would otherwise wipe a good backup
   if (!history.length) return;
   const id = deviceId();
-  if (!id || !online()) return;
-  const client = await getSupabase();
-  if (!client) return;
+  if (!hasSupabase || !id || !online()) return;
   try {
     const key = await digestHex(id);
     const data = await encrypt(history, id);
-    await client
-      .from(TABLE)
-      .upsert({ key, data, updated_at: new Date().toISOString() });
+    await fetch("/api/sync", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ key, data }),
+    });
   } catch {
     /* best-effort */
   }
