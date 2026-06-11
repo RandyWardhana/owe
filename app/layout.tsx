@@ -15,7 +15,13 @@ const bricolage = Bricolage_Grotesque({
   display: "swap",
 });
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+const SITE_URL =
+  process.env.NEXT_PUBLIC_SITE_URL ||
+  (process.env.VERCEL_PROJECT_PRODUCTION_URL
+    ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+    : null) ||
+  (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null) ||
+  "http://localhost:3000";
 const TITLE = "owe — scan · split · settle";
 const DESCRIPTION =
   "Scan a receipt, split it, settle up. Offline-first. Nothing leaves your phone unless you share it.";
