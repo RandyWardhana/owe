@@ -2,9 +2,9 @@ import { useEffect, useState } from "react";
 
 import { decryptShare } from "@/lib/share";
 import { fetchBill } from "@/lib/bills";
-import type { SharePayload } from "@/lib/types";
+import type { SharedBill } from "@/lib/types";
 
-type SharedState = SharePayload | null | undefined;
+type SharedState = SharedBill | null | undefined;
 
 /* Resolves the shared bill from the URL. Two link shapes are supported:
    - short:  /s/owe-xxxxxx   → fetch the encrypted bill from Supabase by id

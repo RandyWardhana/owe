@@ -3,10 +3,9 @@
 import { useState } from "react";
 
 import { useT } from "@/lib/i18n";
-import { fmtMoney } from "@/lib/currency";
-import { buildPersonText } from "@/lib/breakdown";
+import { fmtMoney, fmtAmountPlain } from "@/lib/currency";
 import { initials, personColor, personInk } from "@/lib/util";
-import type { Person, PersonSplit } from "@/lib/types";
+import type { PersonSplit } from "@/lib/types";
 
 import { Chevron } from "@/components/icons";
 import AnimatedMoney from "@/components/ui/AnimatedMoney";
@@ -17,14 +16,12 @@ export default function PersonCard({
   person,
   colorIndex,
   animIndex,
-  payer,
   currency,
   isPayer,
 }: {
   person: PersonSplit;
   colorIndex: number;
   animIndex: number;
-  payer: Person | null;
   currency: string;
   isPayer: boolean;
 }) {
@@ -33,7 +30,9 @@ export default function PersonCard({
 
   const fees = person.tax + person.service - person.discount;
   const hasItems = person.items.length > 0;
-  const copyText = buildPersonText(t, person, payer, currency);
+  // Copy only the bare amount owed, so it can be pasted directly into a
+  // payment app's amount field (no explanatory text / currency symbol).
+  const copyText = fmtAmountPlain(person.total, currency);
 
   return (
     <div

@@ -3,16 +3,16 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { buzz } from "@/lib/util";
 import { billId, fetchPaid, savePaid, subscribePaid } from "@/lib/bills";
 import { hasSupabase } from "@/lib/supabase";
-import type { SharePayload } from "@/lib/types";
+import type { SharedBill } from "@/lib/types";
 
 const localKey = (id: string) => "owe.shared." + id;
 
-function readLocal(id: string, p: SharePayload): Set<number> {
+function readLocal(id: string, bill: SharedBill): Set<number> {
   try {
     const raw = localStorage.getItem(localKey(id));
-    return new Set(raw ? JSON.parse(raw) : p.pd || []);
+    return new Set(raw ? JSON.parse(raw) : bill.paidIndices || []);
   } catch {
-    return new Set(p.pd || []);
+    return new Set(bill.paidIndices || []);
   }
 }
 
@@ -26,10 +26,10 @@ function writeLocal(id: string, paid: Set<number>) {
 const online = () => typeof navigator === "undefined" || navigator.onLine;
 
 export function useViewerPaid(
-  payload: SharePayload,
+  bill: SharedBill,
 ): [Set<number>, (index: number) => void] {
-  const id = useMemo(() => billId(payload), [payload]);
-  const [paid, setPaid] = useState<Set<number>>(() => readLocal(id, payload));
+  const id = useMemo(() => billId(bill), [bill]);
+  const [paid, setPaid] = useState<Set<number>>(() => readLocal(id, bill));
   const paidRef = useRef(paid);
   paidRef.current = paid;
 
@@ -42,7 +42,7 @@ export function useViewerPaid(
   useEffect(() => {
     let cancelled = false;
 
-    apply(readLocal(id, payload));
+    apply(readLocal(id, bill));
 
     if (hasSupabase && online()) {
       fetchPaid(id).then((server) => {
@@ -63,7 +63,7 @@ export function useViewerPaid(
       window.removeEventListener("online", onReconnect);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id, payload.pd]);
+  }, [id, bill.paidIndices]);
 
   const toggle = (index: number) => {
     buzz(10);

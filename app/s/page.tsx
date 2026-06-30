@@ -8,8 +8,8 @@ type Props = { searchParams: Promise<{ s?: string }> };
 
 export async function generateMetadata({ searchParams }: Props): Promise<Metadata> {
   const { s } = await searchParams;
-  const payload = s ? await decryptShare(s) : null;
-  return shareMeta(payload);
+  const bill = s ? await decryptShare(s) : null;
+  return shareMeta(bill);
 }
 
 export default function SharedPage() {

@@ -1,19 +1,19 @@
 import type { Metadata } from "next";
 
 import { fmtMoney } from "./currency";
-import type { SharePayload } from "./types";
+import type { SharedBill } from "./types";
 
 const FALLBACK: Metadata = { title: "owe — a shared split" };
 
-export function shareMeta(payload: SharePayload | null): Metadata {
-  if (!payload) return FALLBACK;
+export function shareMeta(bill: SharedBill | null): Metadata {
+  if (!bill) return FALLBACK;
 
-  const total = fmtMoney(payload.g, payload.c);
-  const title = payload.t?.trim() || "A shared split";
-  const n = payload.pp.length;
-  const people = `${n} ${n === 1 ? "person" : "people"}`;
+  const total = fmtMoney(bill.grandTotal, bill.currency);
+  const title = bill.title?.trim() || "A shared split";
+  const peopleCount = bill.people.length;
+  const people = `${peopleCount} ${peopleCount === 1 ? "person" : "people"}`;
   const payer =
-    payload.py >= 0 ? payload.pp[payload.py]?.n?.trim() || "" : "";
+    bill.payerIndex >= 0 ? bill.people[bill.payerIndex]?.name?.trim() || "" : "";
 
   const heading = `${title} · ${total}`;
   const description = payer

@@ -5,7 +5,7 @@ import { useMemo, useState } from "react";
 import { useStore } from "@/lib/store";
 import { useT } from "@/lib/i18n";
 import { computeSplit, settlements } from "@/lib/calc";
-import { buildSharePayload, buildSummaryText } from "@/lib/breakdown";
+import { buildSharedBill, buildSummaryText } from "@/lib/breakdown";
 import { useShareLink } from "@/lib/hooks";
 import { buzz } from "@/lib/util";
 
@@ -35,11 +35,11 @@ export default function Breakdown() {
   const settle = settlements(result.perPerson, payerId);
   const paid = useMemo(() => draft.paid || [], [draft.paid]);
 
-  const payload = useMemo(
-    () => buildSharePayload(draft.title, result, draft.people, payerId, currency, paid),
+  const bill = useMemo(
+    () => buildSharedBill(draft.title, result, draft.people, payerId, currency, paid),
     [draft.title, draft.people, result, payerId, currency, paid],
   );
-  const { link, label } = useShareLink(payload);
+  const { link, label } = useShareLink(bill);
   const summary = useMemo(
     () => buildSummaryText(t, draft.title, result, payer, currency, paid),
     [t, draft.title, result, payer, currency, paid],

@@ -11,8 +11,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;
   try {
     const data = await getBillData(id);
-    const payload = data ? await decryptShare(data) : null;
-    return shareMeta(payload);
+    const bill = data ? await decryptShare(data) : null;
+    return shareMeta(bill);
   } catch {
     return shareMeta(null);
   }

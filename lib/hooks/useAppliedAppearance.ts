@@ -8,9 +8,9 @@ export function useAppliedAppearance(): void {
   const accent = useStore((s) => s.accent);
 
   useEffect(() => {
-    const el = document.documentElement;
-    el.setAttribute("data-theme", theme);
-    el.setAttribute("data-anim", anim ? "on" : "off");
-    el.style.setProperty("--accent", accent);
+    const root = document.documentElement;
+    root.setAttribute("data-theme", theme);
+    root.setAttribute("data-anim", anim ? "on" : "off");
+    root.style.setProperty("--accent", accent);
   }, [theme, anim, accent]);
 }

@@ -4,17 +4,15 @@ import { useState } from "react";
 
 import { useT } from "@/lib/i18n";
 import { initials, personColor, personInk } from "@/lib/util";
-import type { SharePayload } from "@/lib/types";
+import type { SharedBillPerson } from "@/lib/types";
 
 import { Check, Chevron } from "@/components/icons";
 import AnimatedMoney from "@/components/ui/AnimatedMoney";
 import CopyButton from "@/components/ui/CopyButton";
 import PersonItems from "@/components/ui/PersonItems";
 
-type SharedPerson = SharePayload["pp"][number];
-
 interface Props {
-  person: SharedPerson;
+  person: SharedBillPerson;
   index: number;
   currency: string;
   isPayer: boolean;
@@ -38,12 +36,7 @@ export default function SharedPersonRow({
   const [open, setOpen] = useState(false);
 
   const settled = isPaid && !isPayer;
-  const items = (person.it || []).map((i) => ({
-    name: i.n,
-    qty: i.q,
-    share: i.s,
-    split: i.sp,
-  }));
+  const items = person.items;
   const hasItems = items.length > 0;
 
   const meta = isPayer
@@ -63,17 +56,17 @@ export default function SharedPersonRow({
               : { background: personColor(index), color: personInk(index) }
           }
         >
-          {settled ? <Check size={16} className="pp__check" /> : initials(person.n)}
+          {settled ? <Check size={16} className="pp__check" /> : initials(person.name)}
         </span>
         <div style={{ minWidth: 0 }}>
-          <div className="pp__name truncate">{person.n || "—"}</div>
+          <div className="pp__name truncate">{person.name || "—"}</div>
           <div className="muted pp__meta">{meta}</div>
         </div>
       </div>
       <div
         className={`pp__total disp tnum ${isPayer ? "is-payer" : ""} ${settled ? "is-struck" : ""}`}
       >
-        <AnimatedMoney value={person.t} currency={currency} />
+        <AnimatedMoney value={person.total} currency={currency} />
       </div>
     </div>
   );
@@ -99,16 +92,16 @@ export default function SharedPersonRow({
           {hasItems ? (
             <button
               className="pp__copy"
-              aria-label={t("breakdown.viewItems", { name: person.n || "—" })}
+              aria-label={t("breakdown.viewItems", { name: person.name || "—" })}
               aria-expanded={open}
-              onClick={() => setOpen((o) => !o)}
+              onClick={() => setOpen((isOpen) => !isOpen)}
             >
               <Chevron size={16} className={`pp__chev ${open ? "open" : ""}`} />
             </button>
           ) : null}
           <CopyButton
             text={copyText}
-            label={t("breakdown.copyShare", { name: person.n || "—" })}
+            label={t("breakdown.copyShare", { name: person.name || "—" })}
           />
         </div>
       </div>

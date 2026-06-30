@@ -6,10 +6,13 @@ function online(): boolean {
   return typeof navigator === "undefined" || navigator.onLine;
 }
 
-async function digestHex(s: string): Promise<string> {
-  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s));
-  return Array.from(new Uint8Array(buf))
-    .map((b) => b.toString(16).padStart(2, "0"))
+async function digestHex(text: string): Promise<string> {
+  const buffer = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(text),
+  );
+  return Array.from(new Uint8Array(buffer))
+    .map((byte) => byte.toString(16).padStart(2, "0"))
     .join("");
 }
 
@@ -25,9 +28,9 @@ async function keyFor(id: string): Promise<CryptoKey> {
 }
 
 function toB64(bytes: Uint8Array): string {
-  let s = "";
-  for (let i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]);
-  return btoa(s);
+  let binary = "";
+  for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+  return btoa(binary);
 }
 
 function fromB64(str: string): Uint8Array {
@@ -71,9 +74,9 @@ export async function pullHistory(): Promise<Draft[] | null> {
   if (!hasSupabase || !id || !online()) return null;
   try {
     const key = await digestHex(id);
-    const r = await fetch(`/api/sync?key=${encodeURIComponent(key)}`);
-    if (!r.ok) return null;
-    const json = (await r.json()) as { data?: string | null };
+    const response = await fetch(`/api/sync?key=${encodeURIComponent(key)}`);
+    if (!response.ok) return null;
+    const json = (await response.json()) as { data?: string | null };
     if (!json.data) return null;
     return decrypt(json.data, id);
   } catch {

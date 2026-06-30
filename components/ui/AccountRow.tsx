@@ -14,13 +14,13 @@ export default function AccountRow({
   value: string;
 }) {
   const { phase, copy } = useCopyAnim();
-  const m = methodMeta(methodKey);
+  const meta = methodMeta(methodKey);
 
   return (
     <button className="acct acct--tap" onClick={() => copy(value)}>
-      <span className="acct__dot" style={{ background: m.color }} />
+      <span className="acct__dot" style={{ background: meta.color }} />
       <div className="grow" style={{ textAlign: "left" }}>
-        <div className="acct__label">{m.label}</div>
+        <div className="acct__label">{meta.label}</div>
         <div className="acct__val truncate">{value || "—"}</div>
       </div>
       <CopyTick phase={phase} size={16} />

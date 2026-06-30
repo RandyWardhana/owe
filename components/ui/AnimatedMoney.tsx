@@ -10,6 +10,6 @@ export default function AnimatedMoney({
   value: number;
   currency: string;
 }) {
-  const n = useCountUp(value);
-  return <>{fmtMoney(n, currency)}</>;
+  const animated = useCountUp(value);
+  return <>{fmtMoney(animated, currency)}</>;
 }

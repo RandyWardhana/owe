@@ -6,9 +6,9 @@ export const buzz = (ms = 8) => {
   } catch {}
 };
 
-export function clampNum(s: string | number): number {
-  const v = parseFloat(String(s).replace(/[^\d.]/g, ""));
-  return isFinite(v) ? v : 0;
+export function clampNum(raw: string | number): number {
+  const value = parseFloat(String(raw).replace(/[^\d.]/g, ""));
+  return isFinite(value) ? value : 0;
 }
 
 export const PALETTE = [

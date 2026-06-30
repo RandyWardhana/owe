@@ -53,21 +53,21 @@ export default function ClickSpark() {
       ctx.lineCap = "round";
 
       for (let i = sparks.length - 1; i >= 0; i--) {
-        const s = sparks[i];
-        const p = (now - s.startTime) / DURATION;
-        if (p >= 1) {
+        const spark = sparks[i];
+        const progress = (now - spark.startTime) / DURATION;
+        if (progress >= 1) {
           sparks.splice(i, 1);
           continue;
         }
-        const eased = easeOut(p);
+        const eased = easeOut(progress);
         const dist = eased * SPARK_RADIUS;
         const len = SPARK_LENGTH * (1 - eased);
-        const cos = Math.cos(s.angle);
-        const sin = Math.sin(s.angle);
+        const cos = Math.cos(spark.angle);
+        const sin = Math.sin(spark.angle);
         ctx.globalAlpha = 1 - eased;
         ctx.beginPath();
-        ctx.moveTo(s.x + dist * cos, s.y + dist * sin);
-        ctx.lineTo(s.x + (dist + len) * cos, s.y + (dist + len) * sin);
+        ctx.moveTo(spark.x + dist * cos, spark.y + dist * sin);
+        ctx.lineTo(spark.x + (dist + len) * cos, spark.y + (dist + len) * sin);
         ctx.stroke();
       }
       ctx.globalAlpha = 1;

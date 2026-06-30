@@ -23,12 +23,12 @@ export default function SyncSettings() {
   if (!hasSupabase) return null;
 
   const restore = async () => {
-    const c = code.trim();
-    if (!c || busy) return;
+    const trimmedCode = code.trim();
+    if (!trimmedCode || busy) return;
     buzz(8);
     setBusy(true);
     const prev = deviceId();
-    setDeviceId(c);
+    setDeviceId(trimmedCode);
     const remote = await pullHistory();
     if (remote && remote.length) {
       mergeHistory(remote);

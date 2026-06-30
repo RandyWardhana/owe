@@ -2,70 +2,48 @@ import { settlements } from "./calc";
 import { fmtMoney } from "./currency";
 import { methodMeta } from "./payments";
 import type { TFn } from "./i18n";
-import type { Person, PersonSplit, SharePayload, SplitResult } from "./types";
+import type { Person, PersonSplit, SharedBill, SplitResult } from "./types";
 
-export function buildPersonText(
-  t: TFn,
-  person: PersonSplit,
-  payer: Person | null,
-  currency: string,
-): string {
-  if (payer && person.id !== payer.id) {
-    const lines = [
-      t("breakdown.owesLine", {
-        from: person.name || "—",
-        to: payer.name || "—",
-        amount: fmtMoney(person.total, currency),
-      }),
-    ];
-    if (payer.accounts.length) {
-      lines.push(t("breakdown.payVia", { name: payer.name || "—" }));
-      payer.accounts.forEach((a) =>
-        lines.push(`  ${methodMeta(a.key).label}: ${a.value}`),
-      );
-    }
-    return lines.join("\n");
-  }
-  return `${person.name || "—"}: ${fmtMoney(person.total, currency)}`;
-}
-
-export function buildSharePayload(
+export function buildSharedBill(
   title: string,
   result: SplitResult,
   people: Person[],
   payerId: string | null,
   currency: string,
   paid: string[],
-): SharePayload {
-  const ids = people.map((p) => p.id);
-  const pd: number[] = [];
-  result.perPerson.forEach((ps, i) => {
-    if (paid.includes(ps.id)) pd.push(i);
+): SharedBill {
+  const ids = people.map((person) => person.id);
+  const paidIndices: number[] = [];
+  result.perPerson.forEach((split, index) => {
+    if (paid.includes(split.id)) paidIndices.push(index);
   });
 
   return {
-    v: 1,
-    t: title,
-    c: currency,
-    g: result.grandTotal,
-    py: payerId ? ids.indexOf(payerId) : -1,
-    pp: result.perPerson.map((ps) => {
-      const person = people.find((p) => p.id === ps.id);
+    version: 1,
+    title,
+    currency,
+    grandTotal: result.grandTotal,
+    payerIndex: payerId ? ids.indexOf(payerId) : -1,
+    people: result.perPerson.map((split) => {
+      const person = people.find((candidate) => candidate.id === split.id);
       return {
-        n: ps.name,
-        t: ps.total,
-        ac: (person?.accounts || []).map((acc) => ({ k: acc.key, v: acc.value })),
-        it: ps.items.map((i) => ({
-          n: i.name,
-          q: i.qty,
-          s: i.share,
+        name: split.name,
+        total: split.total,
+        accounts: (person?.accounts || []).map((account) => ({
+          key: account.key,
+          value: account.value,
+        })),
+        items: split.items.map((item) => ({
+          name: item.name,
+          qty: item.qty,
+          share: item.share,
           // Only carry the split count when shared; keeps exclusive-item
-          // payloads (sp omitted) compact in the URL.
-          ...(i.split ? { sp: i.split } : {}),
+          // entries compact in the URL.
+          ...(item.split ? { split: item.split } : {}),
         })),
       };
     }),
-    pd,
+    paidIndices,
   };
 }
 

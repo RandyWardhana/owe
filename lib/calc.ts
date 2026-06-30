@@ -11,11 +11,11 @@ export function lineTotal(it: Pick<Item, "qty" | "price">): number {
   return (Number(it.qty) || 0) * (Number(it.price) || 0);
 }
 
-export function roundVal(v: number, mode: Rounding): number {
-  if (mode === "whole") return Math.round(v);
-  if (mode === "up5") return Math.ceil(v / 5) * 5;
-  if (mode === "k") return Math.round(v / 1000) * 1000;
-  return Math.round(v * 100) / 100;
+export function roundVal(value: number, mode: Rounding): number {
+  if (mode === "whole") return Math.round(value);
+  if (mode === "up5") return Math.ceil(value / 5) * 5;
+  if (mode === "k") return Math.round(value / 1000) * 1000;
+  return Math.round(value * 100) / 100;
 }
 
 export function computeSplit(
@@ -27,37 +27,40 @@ export function computeSplit(
   const serviceVal = Number(charges?.servicePct) || 0;
   const discount = Number(charges?.discount) || 0;
 
-  const itemsSubtotal = items.reduce((s, it) => s + lineTotal(it), 0);
+  const itemsSubtotal = items.reduce((sum, item) => sum + lineTotal(item), 0);
 
   const base: Record<string, { subtotal: number; items: PersonSplit["items"] }> =
     {};
-  people.forEach((p) => {
-    base[p.id] = { subtotal: 0, items: [] };
+  people.forEach((person) => {
+    base[person.id] = { subtotal: 0, items: [] };
   });
   let unassignedSubtotal = 0;
   const unassignedItems: Item[] = [];
 
-  items.forEach((it) => {
-    const lt = lineTotal(it);
-    const who = (it.assignedTo || []).filter((id) => base[id]);
-    if (!who.length) {
-      unassignedSubtotal += lt;
-      if (lt > 0 || it.name) unassignedItems.push(it);
+  items.forEach((item) => {
+    const lineAmount = lineTotal(item);
+    const assignees = (item.assignedTo || []).filter((id) => base[id]);
+    if (!assignees.length) {
+      unassignedSubtotal += lineAmount;
+      if (lineAmount > 0 || item.name) unassignedItems.push(item);
       return;
     }
-    const share = lt / who.length;
-    who.forEach((id) => {
+    const share = lineAmount / assignees.length;
+    assignees.forEach((id) => {
       base[id].subtotal += share;
       base[id].items.push({
-        name: it.name,
-        qty: it.qty,
+        name: item.name,
+        qty: item.qty,
         share,
-        split: who.length > 1 ? who.length : 0,
+        split: assignees.length > 1 ? assignees.length : 0,
       });
     });
   });
 
-  const assignedSubtotal = people.reduce((s, p) => s + base[p.id].subtotal, 0);
+  const assignedSubtotal = people.reduce(
+    (sum, person) => sum + base[person.id].subtotal,
+    0,
+  );
 
   const tax =
     charges?.taxMode === "amt" ? taxVal : (itemsSubtotal * taxVal) / 100;
@@ -67,23 +70,23 @@ export function computeSplit(
       : (itemsSubtotal * serviceVal) / 100;
   const grandTotal = itemsSubtotal + tax + service - discount;
 
-  const perPerson: PersonSplit[] = people.map((p) => {
-    const sub = base[p.id].subtotal;
-    const frac = assignedSubtotal > 0 ? sub / assignedSubtotal : 0;
-    const t = tax * frac;
-    const sv = service * frac;
-    const d = discount * frac;
-    const total = sub + t + sv - d;
+  const perPerson: PersonSplit[] = people.map((person) => {
+    const subtotal = base[person.id].subtotal;
+    const fraction = assignedSubtotal > 0 ? subtotal / assignedSubtotal : 0;
+    const taxShare = tax * fraction;
+    const serviceShare = service * fraction;
+    const discountShare = discount * fraction;
+    const total = subtotal + taxShare + serviceShare - discountShare;
     return {
-      id: p.id,
-      name: p.name,
-      subtotal: sub,
-      tax: t,
-      service: sv,
-      discount: d,
+      id: person.id,
+      name: person.name,
+      subtotal,
+      tax: taxShare,
+      service: serviceShare,
+      discount: discountShare,
       total: roundVal(total, rounding),
       rawTotal: total,
-      items: base[p.id].items,
+      items: base[person.id].items,
     };
   });
 
@@ -105,11 +108,11 @@ export function settlements(
   payerId: string | null,
 ): Settlement[] {
   return perPerson
-    .filter((p) => p.id !== payerId && p.total > 0.0001)
-    .map((p) => ({
-      from: p.id,
-      fromName: p.name,
+    .filter((person) => person.id !== payerId && person.total > 0.0001)
+    .map((person) => ({
+      from: person.id,
+      fromName: person.name,
       to: payerId as string,
-      amount: p.total,
+      amount: person.total,
     }));
 }

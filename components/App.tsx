@@ -41,7 +41,7 @@ export default function App() {
   if (shared) {
     return (
       <div className="shell">
-        <SharedView payload={shared} onMakeOwn={clear} />
+        <SharedView bill={shared} onMakeOwn={clear} />
         <Toast />
         <ClickSpark />
         <InstallPrompt />

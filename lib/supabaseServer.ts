@@ -21,10 +21,10 @@ export function supabaseServer(): SupabaseClient | null {
 }
 
 export async function getBillData(id: string): Promise<string | null> {
-  const c = supabaseServer();
-  if (!c) return null;
+  const supabase = supabaseServer();
+  if (!supabase) return null;
   try {
-    const { data, error } = await c
+    const { data, error } = await supabase
       .from("bills")
       .select("data")
       .eq("id", id)

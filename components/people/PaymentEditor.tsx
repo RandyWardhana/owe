@@ -36,21 +36,21 @@ export default function PaymentEditor({
 
       {accounts.length ? (
         <div className="col-gap" style={{ marginBottom: 16 }}>
-          {accounts.map((a) => {
-            const m = methodMeta(a.key);
+          {accounts.map((account) => {
+            const meta = methodMeta(account.key);
             return (
-              <div className="acct" key={a.id}>
-                <span className="acct__dot" style={{ background: m.color }} />
+              <div className="acct" key={account.id}>
+                <span className="acct__dot" style={{ background: meta.color }} />
                 <div className="grow">
-                  <div className="acct__label">{m.label}</div>
+                  <div className="acct__label">{meta.label}</div>
                   <input
                     className="acct__in"
-                    value={a.value}
-                    placeholder={t(`payment.ph.${a.key}`)}
-                    onChange={(e) => set(a.id, e.target.value)}
+                    value={account.value}
+                    placeholder={t(`payment.ph.${account.key}`)}
+                    onChange={(e) => set(account.id, e.target.value)}
                   />
                 </div>
-                <button className="iconbtn ghost" aria-label="remove" onClick={() => del(a.id)}>
+                <button className="iconbtn ghost" aria-label="remove" onClick={() => del(account.id)}>
                   <Trash size={16} />
                 </button>
               </div>
@@ -61,10 +61,10 @@ export default function PaymentEditor({
 
       <p className="label">{t("payment.addMethod")}</p>
       <div className="method-grid">
-        {PAY_METHODS.map((m) => (
-          <button key={m.key} className="chip method-chip" onClick={() => add(m.key)}>
-            <span className="acct__dot" style={{ background: m.color }} />
-            {m.label}
+        {PAY_METHODS.map((method) => (
+          <button key={method.key} className="chip method-chip" onClick={() => add(method.key)}>
+            <span className="acct__dot" style={{ background: method.color }} />
+            {method.label}
           </button>
         ))}
       </div>

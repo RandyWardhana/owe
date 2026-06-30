@@ -40,11 +40,11 @@ export default function Settings({
 
   const pickTheme = (next: Theme) => {
     buzz(8);
-    const el = document.documentElement;
-    el.classList.add("theme-switching");
+    const root = document.documentElement;
+    root.classList.add("theme-switching");
     setTheme(next);
     requestAnimationFrame(() =>
-      requestAnimationFrame(() => el.classList.remove("theme-switching")),
+      requestAnimationFrame(() => root.classList.remove("theme-switching")),
     );
   };
 

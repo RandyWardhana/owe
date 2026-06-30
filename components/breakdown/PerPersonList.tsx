@@ -34,7 +34,6 @@ export default function PerPersonList({
               person={payerSplit}
               colorIndex={colorOf(payerSplit.id)}
               animIndex={0}
-              payer={payer}
               currency={currency}
               isPayer
             />
@@ -52,7 +51,6 @@ export default function PerPersonList({
             person={p}
             colorIndex={colorOf(p.id)}
             animIndex={i}
-            payer={payer}
             currency={currency}
             isPayer={false}
           />

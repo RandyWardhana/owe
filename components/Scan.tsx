@@ -30,10 +30,10 @@ export default function Scan() {
     setBusy(true);
     setProgress(0.08);
 
-    let p = 0.08;
+    let creepProgress = 0.08;
     const creep = setInterval(() => {
-      p += (0.92 - p) * 0.085;
-      setProgress(p);
+      creepProgress += (0.92 - creepProgress) * 0.085;
+      setProgress(creepProgress);
     }, 180);
 
     const res = await scanReceipt(file, currency);
@@ -57,8 +57,8 @@ export default function Scan() {
   };
 
   const onPick = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0];
-    if (f) run(f);
+    const file = e.target.files?.[0];
+    if (file) run(file);
     e.target.value = "";
   };
 

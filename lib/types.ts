@@ -103,6 +103,16 @@ export type Rounding = "none" | "whole" | "up5" | "k";
 export type Theme = "light" | "dark";
 export type Lang = "en" | "id";
 
+/**
+ * Compact on-the-wire shape for a shared bill. The single-character keys are
+ * intentional: this gets JSON-encoded into the share URL, so short keys keep
+ * links small. Do NOT rename these — it would break existing links and bloat
+ * new ones. Map to/from the readable `SharedBill` (below) at the encode/decode
+ * boundary in lib/share.ts instead. Key legend:
+ *   v=version, t=title, c=currency, g=grandTotal, py=payerIndex, pd=paidIndices
+ *   pp=people [ n=name, t=total, ac=accounts[k=key, v=value],
+ *               it=items[n=name, q=qty, s=share, sp=split] ]
+ */
 export interface SharePayload {
   v: number;
   t: string;
@@ -117,4 +127,35 @@ export interface SharePayload {
   }[];
 
   pd?: number[];
+}
+
+/* Readable shared-bill model used throughout the app. Mapped to/from the
+   compact SharePayload wire format in lib/share.ts (toWire / fromWire). */
+export interface SharedBillItem {
+  name: string;
+  qty: number;
+  share: number;
+  split?: number;
+}
+
+export interface SharedBillAccount {
+  key: PayMethodKey;
+  value: string;
+}
+
+export interface SharedBillPerson {
+  name: string;
+  total: number;
+  accounts: SharedBillAccount[];
+  items: SharedBillItem[];
+}
+
+export interface SharedBill {
+  version: number;
+  title: string;
+  currency: string;
+  grandTotal: number;
+  payerIndex: number;
+  people: SharedBillPerson[];
+  paidIndices: number[];
 }

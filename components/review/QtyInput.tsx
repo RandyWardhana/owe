@@ -7,30 +7,30 @@ export default function QtyInput({
   onChange,
 }: {
   value: number;
-  onChange: (n: number) => void;
+  onChange: (qty: number) => void;
 }) {
-  const [str, setStr] = useState(String(value));
+  const [text, setText] = useState(String(value));
 
   useEffect(() => {
-    setStr((prev) => (Number(prev) === value ? prev : String(value)));
+    setText((prev) => (Number(prev) === value ? prev : String(value)));
   }, [value]);
 
   return (
     <input
       className="qtybox__in tnum"
       inputMode="numeric"
-      value={str}
+      value={text}
       onFocus={(e) => e.target.select()}
       onChange={(e) => {
         const raw = e.target.value.replace(/[^\d]/g, "");
-        setStr(raw);
-        const n = parseInt(raw, 10);
-        if (Number.isFinite(n) && n > 0) onChange(n);
+        setText(raw);
+        const parsed = parseInt(raw, 10);
+        if (Number.isFinite(parsed) && parsed > 0) onChange(parsed);
       }}
       onBlur={() => {
-        const n = parseInt(str, 10);
-        const fixed = Number.isFinite(n) && n > 0 ? n : 1;
-        setStr(String(fixed));
+        const parsed = parseInt(text, 10);
+        const fixed = Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
+        setText(String(fixed));
         onChange(fixed);
       }}
     />

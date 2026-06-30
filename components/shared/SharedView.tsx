@@ -4,9 +4,7 @@ import { useT } from "@/lib/i18n";
 import { fmtMoney } from "@/lib/currency";
 import { methodMeta } from "@/lib/payments";
 import { useViewerPaid } from "@/lib/hooks/useViewerPaid";
-import type { SharePayload } from "@/lib/types";
-
-type SharedPerson = SharePayload["pp"][number];
+import type { SharedBill, SharedBillPerson } from "@/lib/types";
 
 import Screen from "@/components/Screen";
 import { Check } from "@/components/icons";
@@ -15,36 +13,36 @@ import AccountRow from "@/components/ui/AccountRow";
 import SharedPersonRow from "./SharedPersonRow";
 
 export default function SharedView({
-  payload,
+  bill,
   onMakeOwn,
 }: {
-  payload: SharePayload;
+  bill: SharedBill;
   onMakeOwn: () => void;
 }) {
   const t = useT();
-  const [paid, togglePaid] = useViewerPaid(payload);
+  const [paid, togglePaid] = useViewerPaid(bill);
 
-  const cur = payload.c || "USD";
-  const payer = payload.py >= 0 ? payload.pp[payload.py] : null;
+  const currency = bill.currency || "USD";
+  const payer = bill.payerIndex >= 0 ? bill.people[bill.payerIndex] : null;
 
-  const personText = (person: SharedPerson, isPayer: boolean) => {
+  const personText = (person: SharedBillPerson, isPayer: boolean) => {
     if (payer && !isPayer) {
       const lines = [
         t("breakdown.owesLine", {
-          from: person.n || "—",
-          to: payer.n || "—",
-          amount: fmtMoney(person.t, cur),
+          from: person.name || "—",
+          to: payer.name || "—",
+          amount: fmtMoney(person.total, currency),
         }),
       ];
-      if (payer.ac.length) {
-        lines.push(t("breakdown.payVia", { name: payer.n || "—" }));
-        payer.ac.forEach((a) =>
-          lines.push(`  ${methodMeta(a.k).label}: ${a.v}`),
+      if (payer.accounts.length) {
+        lines.push(t("breakdown.payVia", { name: payer.name || "—" }));
+        payer.accounts.forEach((account) =>
+          lines.push(`  ${methodMeta(account.key).label}: ${account.value}`),
         );
       }
       return lines.join("\n");
     }
-    return `${person.n || "—"}: ${fmtMoney(person.t, cur)}`;
+    return `${person.name || "—"}: ${fmtMoney(person.total, currency)}`;
   };
 
   return (
@@ -61,14 +59,14 @@ export default function SharedView({
           {t("shared.intro")}
         </p>
         <div className="card hero-total">
-          <h2 className="disp shared-title">{payload.t || t("shared.defaultTitle")}</h2>
+          <h2 className="disp shared-title">{bill.title || t("shared.defaultTitle")}</h2>
           <div className="grand disp tnum">
-            <AnimatedMoney value={payload.g} currency={cur} />
+            <AnimatedMoney value={bill.grandTotal} currency={currency} />
           </div>
           <div className="muted grand__sub">
             {t("shared.splitBetween", {
-              n: payload.pp.length,
-              name: payer ? payer.n || "—" : "—",
+              n: bill.people.length,
+              name: payer ? payer.name || "—" : "—",
             })}
           </div>
         </div>
@@ -81,11 +79,11 @@ export default function SharedView({
             <div className="col-gap">
               <SharedPersonRow
                 person={payer}
-                index={payload.py}
-                currency={cur}
+                index={bill.payerIndex}
+                currency={currency}
                 isPayer
                 isPaid={false}
-                payerName={payer.n || "—"}
+                payerName={payer.name || "—"}
                 onToggle={() => {}}
                 copyText={personText(payer, true)}
               />
@@ -100,16 +98,16 @@ export default function SharedView({
           {t("shared.markHint")}
         </p>
         <div className="col-gap stagger">
-          {payload.pp.map((person, i) =>
-            i === payload.py ? null : (
+          {bill.people.map((person, i) =>
+            i === bill.payerIndex ? null : (
               <SharedPersonRow
                 key={i}
                 person={person}
                 index={i}
-                currency={cur}
+                currency={currency}
                 isPayer={false}
                 isPaid={paid.has(i)}
-                payerName={payer?.n || "—"}
+                payerName={payer?.name || "—"}
                 onToggle={() => togglePaid(i)}
                 copyText={personText(person, false)}
               />
@@ -117,14 +115,14 @@ export default function SharedView({
           )}
         </div>
 
-        {payer && payer.ac.length ? (
+        {payer && payer.accounts.length ? (
           <>
             <p className="label" style={{ marginTop: 24 }}>
-              {t("shared.sendShare", { name: payer.n || "—" })}
+              {t("shared.sendShare", { name: payer.name || "—" })}
             </p>
             <div className="card pay-via">
-              {payer.ac.map((a, k) => (
-                <AccountRow key={k} methodKey={a.k} value={a.v} />
+              {payer.accounts.map((account, k) => (
+                <AccountRow key={k} methodKey={account.key} value={account.value} />
               ))}
             </div>
           </>

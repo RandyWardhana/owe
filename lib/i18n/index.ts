@@ -14,25 +14,24 @@ type Vars = Record<string, string | number>;
 
 function resolve(lang: Lang, key: string): string {
   const dict = DICTS[lang] || en;
-  const fromEn = key.split(".").reduce<unknown>((o, k) => {
-    if (o && typeof o === "object" && k in (o as Record<string, unknown>))
-      return (o as Record<string, unknown>)[k];
-    return undefined;
-  }, dict);
-  if (typeof fromEn === "string") return fromEn;
+  const lookup = (root: typeof en): unknown =>
+    key.split(".").reduce<unknown>((node, segment) => {
+      if (node && typeof node === "object" && segment in (node as Record<string, unknown>))
+        return (node as Record<string, unknown>)[segment];
+      return undefined;
+    }, root);
 
-  const fb = key.split(".").reduce<unknown>((o, k) => {
-    if (o && typeof o === "object" && k in (o as Record<string, unknown>))
-      return (o as Record<string, unknown>)[k];
-    return undefined;
-  }, en);
-  return typeof fb === "string" ? fb : key;
+  const fromDict = lookup(dict);
+  if (typeof fromDict === "string") return fromDict;
+
+  const fromFallback = lookup(en);
+  return typeof fromFallback === "string" ? fromFallback : key;
 }
 
 function interpolate(str: string, vars?: Vars): string {
   if (!vars) return str;
-  return str.replace(/\{(\w+)\}/g, (_, k) =>
-    k in vars ? String(vars[k]) : `{${k}}`,
+  return str.replace(/\{(\w+)\}/g, (_, name) =>
+    name in vars ? String(vars[name]) : `{${name}}`,
   );
 }
 

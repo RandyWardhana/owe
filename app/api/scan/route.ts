@@ -25,7 +25,7 @@ export async function POST(req: Request) {
     form.set("isTable", "true"); // preserves the name | price column layout
     form.set("scale", "true");
 
-    const r = await fetch("https://api.ocr.space/parse/image", {
+    const response = await fetch("https://api.ocr.space/parse/image", {
       method: "POST",
       headers: {
         apikey: apiKey,
@@ -33,7 +33,7 @@ export async function POST(req: Request) {
       },
       body: form.toString(),
     });
-    const data = (await r.json()) as {
+    const data = (await response.json()) as {
       IsErroredOnProcessing?: boolean;
       ParsedResults?: { ParsedText?: string }[];
     };
@@ -42,11 +42,11 @@ export async function POST(req: Request) {
     }
 
     const text = data.ParsedResults[0].ParsedText || "";
-    const cur = currency || "USD";
+    const currencyCode = currency || "USD";
     return NextResponse.json({
-      items: parseReceiptText(text, cur),
+      items: parseReceiptText(text, currencyCode),
       charges: parseReceiptCharges(text),
-      currency: cur,
+      currency: currencyCode,
     });
   } catch {
     return NextResponse.json({ error: "scan_failed" }, { status: 500 });
