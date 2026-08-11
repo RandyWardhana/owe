@@ -12,12 +12,26 @@ export interface Account {
   id: string;
   key: PayMethodKey;
   value: string;
+  /** Display-only form of `value` (e.g. `••••7890`). Kept alongside the real
+      value so screens can show the mask while copy hands over the full number.
+      Optional: accounts saved before masking existed fall back to a derived
+      mask (see lib/mask.ts). */
+  masked?: string;
 }
 
 export interface Person {
   id: string;
   name: string;
   accounts: Account[];
+}
+
+/** A person owe remembers between bills, so re-adding them brings their
+    payment details back. Matched by name (see lib/contacts.ts). */
+export interface Contact {
+  id: string;
+  name: string;
+  accounts: Account[];
+  updatedAt: number;
 }
 
 export interface Item {
@@ -110,7 +124,7 @@ export type Lang = "en" | "id";
  * new ones. Map to/from the readable `SharedBill` (below) at the encode/decode
  * boundary in lib/share.ts instead. Key legend:
  *   v=version, t=title, c=currency, g=grandTotal, py=payerIndex, pd=paidIndices
- *   pp=people [ n=name, t=total, ac=accounts[k=key, v=value],
+ *   pp=people [ n=name, t=total, ac=accounts[k=key, v=value, m=maskedValue],
  *               it=items[n=name, q=qty, s=share, sp=split] ]
  */
 export interface SharePayload {
@@ -122,7 +136,7 @@ export interface SharePayload {
   pp: {
     n: string;
     t: number;
-    ac: { k: PayMethodKey; v: string }[];
+    ac: { k: PayMethodKey; v: string; m?: string }[];
     it?: { n: string; q: number; s: number; sp?: number }[];
   }[];
 
@@ -141,6 +155,7 @@ export interface SharedBillItem {
 export interface SharedBillAccount {
   key: PayMethodKey;
   value: string;
+  masked?: string;
 }
 
 export interface SharedBillPerson {

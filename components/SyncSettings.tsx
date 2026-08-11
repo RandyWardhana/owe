@@ -5,6 +5,7 @@ import { useState } from "react";
 import { useStore } from "@/lib/store";
 import { useT } from "@/lib/i18n";
 import { deviceId, setDeviceId } from "@/lib/device";
+import { pullContacts, pushContacts } from "@/lib/contacts";
 import { pullHistory, pushHistory } from "@/lib/userBills";
 import { hasSupabase } from "@/lib/supabase";
 import { buzz } from "@/lib/util";
@@ -14,6 +15,7 @@ import CopyButton from "@/components/ui/CopyButton";
 export default function SyncSettings() {
   const t = useT();
   const mergeHistory = useStore((s) => s.mergeHistory);
+  const mergeContacts = useStore((s) => s.mergeContacts);
   const showToast = useStore((s) => s.showToast);
 
   const [code, setCode] = useState("");
@@ -29,10 +31,16 @@ export default function SyncSettings() {
     setBusy(true);
     const prev = deviceId();
     setDeviceId(trimmedCode);
-    const remote = await pullHistory();
+    const [remote, remoteContacts] = await Promise.all([
+      pullHistory(),
+      pullContacts(),
+    ]);
     if (remote && remote.length) {
       mergeHistory(remote);
-      pushHistory(useStore.getState().history);
+      if (remoteContacts && remoteContacts.length) mergeContacts(remoteContacts);
+      const merged = useStore.getState();
+      pushHistory(merged.history);
+      pushContacts(merged.contacts);
       setCode("");
       showToast("settings.syncDone");
     } else {

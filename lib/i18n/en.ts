@@ -64,6 +64,9 @@ const en = {
     waysToPay: "{n} ways to pay",
     wayToPay: "1 way to pay",
     addAccountHint: "Add bank / e-wallet to get paid back",
+    saved: "Saved people",
+    savedHint: "Tap to add them back, payment details and all.",
+    forget: "Forget {name}",
     next: "Next · assign items",
   },
   payment: {
@@ -73,6 +76,9 @@ const en = {
       "Add where {name} can be paid back — a bank account or any e-wallet. Everyone will see it on the settle-up screen.",
     addMethod: "Add a method",
     emptyError: "Fill in or remove the empty payment method",
+    maskedAs: "Shows as {masked} — copying gives the full number",
+    reveal: "Show the full number",
+    hide: "Hide the number",
     ph: {
       bank: "Bank · account number",
       gopay: "GoPay phone number",
@@ -132,6 +138,7 @@ const en = {
     taxShare: "Tax share",
     serviceShare: "Service share",
     copyShare: "Copy {name}’s share",
+    copyAccount: "Copy the {method} number",
     viewItems: "Show {name}’s items",
     owesLine: "{from} owes {to} {amount}",
     settleHeader: "Paid by {name}. To settle up:",

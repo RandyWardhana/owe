@@ -1,6 +1,7 @@
 "use client";
 
 import { useT } from "@/lib/i18n";
+import { maskValue, withMask } from "@/lib/mask";
 import { PAY_METHODS, methodMeta } from "@/lib/payments";
 import { buzz, uid } from "@/lib/util";
 import type { Account, PayMethodKey, Person } from "@/lib/types";
@@ -19,10 +20,11 @@ export default function PaymentEditor({
 
   const add = (key: PayMethodKey) => {
     buzz(8);
-    onChange([...accounts, { id: uid(), key, value: "" }]);
+    onChange([...accounts, { id: uid(), key, value: "", masked: "" }]);
   };
+  // The mask is stored, not derived at render time, so keep it in step here.
   const set = (id: string, value: string) =>
-    onChange(accounts.map((a) => (a.id === id ? { ...a, value } : a)));
+    onChange(accounts.map((a) => (a.id === id ? withMask({ ...a, value }) : a)));
   const del = (id: string) => {
     buzz(6);
     onChange(accounts.filter((a) => a.id !== id));
@@ -49,6 +51,13 @@ export default function PaymentEditor({
                     placeholder={t(`payment.ph.${account.key}`)}
                     onChange={(e) => set(account.id, e.target.value)}
                   />
+                  {account.value.trim() ? (
+                    <p className="acct__hint">
+                      {t("payment.maskedAs", {
+                        masked: maskValue(account.value, account.key),
+                      })}
+                    </p>
+                  ) : null}
                 </div>
                 <button className="iconbtn ghost" aria-label="remove" onClick={() => del(account.id)}>
                   <Trash size={16} />

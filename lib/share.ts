@@ -15,7 +15,13 @@ function toWire(bill: SharedBill): SharePayload {
     pp: bill.people.map((person) => ({
       n: person.name,
       t: person.total,
-      ac: person.accounts.map((account) => ({ k: account.key, v: account.value })),
+      ac: person.accounts.map((account) => ({
+        k: account.key,
+        v: account.value,
+        // Only carry the mask when there is one — older links have none and
+        // the reader derives it.
+        ...(account.masked ? { m: account.masked } : {}),
+      })),
       it: person.items.map((item) => ({
         n: item.name,
         q: item.qty,
@@ -41,6 +47,7 @@ function fromWire(payload: SharePayload): SharedBill {
       accounts: (person.ac || []).map((account) => ({
         key: account.k,
         value: account.v,
+        masked: account.m,
       })),
       items: (person.it || []).map((item) => ({
         name: item.n,

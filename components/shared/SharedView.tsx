@@ -122,7 +122,12 @@ export default function SharedView({
             </p>
             <div className="card pay-via">
               {payer.accounts.map((account, k) => (
-                <AccountRow key={k} methodKey={account.key} value={account.value} />
+                <AccountRow
+                  key={k}
+                  methodKey={account.key}
+                  value={account.value}
+                  masked={account.masked}
+                />
               ))}
             </div>
           </>

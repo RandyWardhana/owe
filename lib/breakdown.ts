@@ -1,5 +1,6 @@
 import { settlements } from "./calc";
 import { fmtMoney } from "./currency";
+import { maskedOf } from "./mask";
 import { methodMeta } from "./payments";
 import type { TFn } from "./i18n";
 import type { Person, PersonSplit, SharedBill, SplitResult } from "./types";
@@ -32,6 +33,7 @@ export function buildSharedBill(
         accounts: (person?.accounts || []).map((account) => ({
           key: account.key,
           value: account.value,
+          masked: maskedOf(account),
         })),
         items: split.items.map((item) => ({
           name: item.name,

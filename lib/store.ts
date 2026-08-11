@@ -1,14 +1,17 @@
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import type {
+  Contact,
   Draft,
   Lang,
+  Person,
   Rounding,
   ScanResult,
   SplitResult,
   Step,
   Theme,
 } from "./types";
+import { mergeContactLists, rememberInto } from "./contacts";
 import { uid, buzz } from "./util";
 
 export const emptyDraft = (): Draft => ({
@@ -45,6 +48,7 @@ interface State {
   anim: boolean;
 
   history: Draft[];
+  contacts: Contact[];
   draft: Draft;
 
   view: Step;
@@ -71,6 +75,11 @@ interface State {
   applyScan: (res: ScanResult) => void;
   openHistory: (h: Draft) => void;
   mergeHistory: (incoming: Draft[]) => void;
+
+  rememberPeople: (people: Person[]) => void;
+  forgetContact: (id: string) => void;
+  mergeContacts: (incoming: Contact[]) => void;
+
   saveCurrent: (result: SplitResult, payerId: string | null) => void;
   finish: () => void;
 
@@ -89,6 +98,7 @@ export const useStore = create<State>()(
       anim: true,
 
       history: [],
+      contacts: [],
       draft: emptyDraft(),
 
       view: "home",
@@ -214,6 +224,7 @@ export const useStore = create<State>()(
           const without = s.history.filter((x) => x.id !== entry.id);
           return {
             history: [entry, ...without].slice(0, 30),
+            contacts: rememberInto(s.contacts, entry.people),
             draft: entry,
           };
         });
@@ -234,6 +245,17 @@ export const useStore = create<State>()(
           return { history: merged };
         }),
 
+      // Saved people: filled in as soon as payment details are entered and
+      // again when a split is locked in, so the next bill can autofill them.
+      rememberPeople: (people) =>
+        set((s) => ({ contacts: rememberInto(s.contacts, people) })),
+
+      forgetContact: (id) =>
+        set((s) => ({ contacts: s.contacts.filter((c) => c.id !== id) })),
+
+      mergeContacts: (incoming) =>
+        set((s) => ({ contacts: mergeContactLists(s.contacts, incoming) })),
+
       finish: () =>
         set({ draft: emptyDraft(), dir: "back", stack: [], view: "home" }),
 
@@ -251,6 +273,7 @@ export const useStore = create<State>()(
         rounding: s.rounding,
         anim: s.anim,
         history: s.history,
+        contacts: s.contacts,
         draft: s.draft,
       }),
     },

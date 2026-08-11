@@ -34,6 +34,50 @@
   color: var(--ink-2);
 }
 
+/* Saved people — tap to bring someone (and their payment details) back. */
+.saved {
+  margin-top: 26px;
+}
+.saved__grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+.saved__chip {
+  padding: 0;
+  gap: 0;
+  max-width: 100%;
+}
+.saved__add {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  padding: 7px 4px 7px 12px;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+.saved__wallet {
+  color: var(--ink-3);
+  flex-shrink: 0;
+}
+.saved__forget {
+  display: inline-flex;
+  align-items: center;
+  border: 0;
+  background: transparent;
+  padding: 7px 11px 7px 5px;
+  color: var(--ink-3);
+  cursor: pointer;
+}
+.saved__forget:active {
+  color: var(--ink);
+}
+
 .method-grid {
   display: flex;
   flex-wrap: wrap;

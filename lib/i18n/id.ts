@@ -66,6 +66,9 @@ const id: Dict = {
     waysToPay: "{n} cara bayar",
     wayToPay: "1 cara bayar",
     addAccountHint: "Tambah bank / e-wallet biar bisa ditransfer balik",
+    saved: "Orang tersimpan",
+    savedHint: "Ketuk buat menambahkan lagi, lengkap sama detail pembayarannya.",
+    forget: "Lupakan {name}",
     next: "Lanjut · bagikan item",
   },
   payment: {
@@ -75,6 +78,9 @@ const id: Dict = {
       "Tambahkan ke mana {name} bisa ditransfer balik — rekening bank atau e-wallet apa pun. Semua orang melihatnya di layar pelunasan.",
     addMethod: "Tambah metode",
     emptyError: "Isi atau hapus metode pembayaran yang kosong",
+    maskedAs: "Tampil sebagai {masked} — yang disalin nomor lengkapnya",
+    reveal: "Tampilkan nomor lengkap",
+    hide: "Sembunyikan nomor",
     ph: {
       bank: "Bank · nomor rekening",
       gopay: "Nomor HP GoPay",
@@ -134,6 +140,7 @@ const id: Dict = {
     taxShare: "Bagian pajak",
     serviceShare: "Bagian servis",
     copyShare: "Salin bagian {name}",
+    copyAccount: "Salin nomor {method}",
     viewItems: "Lihat item {name}",
     owesLine: "{from} berutang {amount} ke {to}",
     settleHeader: "Dibayar oleh {name}. Untuk melunasi:",

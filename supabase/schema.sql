@@ -71,3 +71,33 @@ create policy "user_bills public insert" on public.user_bills
 drop policy if exists "user_bills public update" on public.user_bills;
 create policy "user_bills public update" on public.user_bills
   for update using (true) with check (true);
+
+-- Per-device backup of the user's saved people ("Pak Arif" and his bank /
+-- e-wallet details), so re-adding someone on a later bill brings their payment
+-- info back. Same scheme as user_bills:
+--   key  — sha256(deviceId), so restoring with a sync code picks these up too
+--   data — the contact list, AES-GCM encrypted with a key derived from the
+--          device id. Each saved account carries both the real value and its
+--          masked display form; both live inside this opaque blob, so no
+--          column ever holds a payment number in the clear.
+create table if not exists public.user_contacts (
+  key        text primary key,
+  data       text        not null,
+  updated_at timestamptz not null default now()
+);
+
+alter table public.user_contacts enable row level security;
+
+-- Open access by design, as above: the un-guessable key + encryption is the
+-- security boundary, not SQL auth.
+drop policy if exists "user_contacts public select" on public.user_contacts;
+create policy "user_contacts public select" on public.user_contacts
+  for select using (true);
+
+drop policy if exists "user_contacts public insert" on public.user_contacts;
+create policy "user_contacts public insert" on public.user_contacts
+  for insert with check (true);
+
+drop policy if exists "user_contacts public update" on public.user_contacts;
+create policy "user_contacts public update" on public.user_contacts
+  for update using (true) with check (true);

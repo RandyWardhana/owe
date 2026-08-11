@@ -150,6 +150,22 @@ export const Wallet = (p: P) => (
   </Svg>
 );
 
+export const Eye = (p: P) => (
+  <Svg {...p}>
+    <path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7z" />
+    <circle cx="12" cy="12" r="3" />
+  </Svg>
+);
+
+export const EyeOff = (p: P) => (
+  <Svg {...p}>
+    <path d="M10.7 5.1A10.9 10.9 0 0 1 12 5c6.4 0 10 7 10 7a18.4 18.4 0 0 1-2.7 3.7" />
+    <path d="M6.6 6.6A18.5 18.5 0 0 0 2 12s3.6 7 10 7a10.7 10.7 0 0 0 5.4-1.4" />
+    <path d="M9.9 9.9a3 3 0 0 0 4.2 4.2" />
+    <path d="m3 3 18 18" />
+  </Svg>
+);
+
 export const ArrowRight = (p: P) => (
   <Svg {...p}>
     <path d="M5 12h14M12 5l7 7-7 7" />

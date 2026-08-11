@@ -8,3 +8,4 @@ export { useClipboard } from "./useClipboard";
 export { useCopyAnim } from "./useCopyAnim";
 export type { CopyPhase } from "./useCopyAnim";
 export { useCountUp } from "./useCountUp";
+export { useCloudBackup } from "./useCloudBackup";

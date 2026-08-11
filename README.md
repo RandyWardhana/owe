@@ -24,7 +24,8 @@
 - 📷 **Scan a receipt** — cloud OCR ([OCR.space](https://ocr.space/)) pulls out items, prices, tax and service when you're online; offline, the scan buttons let you know to reconnect or enter items by hand.
 - ✋ **Assign by tapping** — mark who had each item, or split a shared dish evenly between a few people.
 - 🧮 **Fair, itemised splits** — per-person totals with tax, service and discounts apportioned proportionally; expand any person to see exactly which items are theirs.
-- 💸 **Settle up** — see who pays whom, with each person's bank / e-wallet number one tap to copy.
+- 💸 **Settle up** — see who pays whom, with each person's bank / e-wallet number one tap to copy. Numbers show up **masked** (`••••7890`) on screen and in shared links; copying still hands over the real thing, and an eye toggle reveals it when you need to read it out.
+- 🧠 **Saved people** — owe remembers everyone you've split with and their payment details, so adding "Pak Arif" to the next bill fills his bank / e-wallet back in.
 - ☁️ **Your bills, backed up** — saved splits sync to an anonymous, end-to-end-encrypted cloud row keyed to your device, so they survive a cleared cache — still no account.
 - 🔗 **Share without an app** — lock a split in, then share a link; whoever opens it sees the totals, each person's items, and payment numbers right in their browser.
 - 🌍 **Bilingual** — English and Bahasa Indonesia.
@@ -52,7 +53,8 @@ owe keeps as much as possible on your device, and what does leave is minimal or 
 
 - The **split → assign → settle flow runs entirely offline.** Your splits, history and preferences live in `localStorage` — no account, no login.
 - **Reading a receipt** is the one step that needs a connection: the photo is sent to [OCR.space](https://ocr.space/) only to extract text. Offline, the scan buttons prompt you to reconnect or enter items by hand.
-- **Backup is anonymous and encrypted.** Your bill list is mirrored to Supabase keyed by `sha256(deviceId)`, with the payload **AES-GCM encrypted** using a key derived from a device id that never leaves the browser — so rows are opaque and only your device can read them.
+- **Backup is anonymous and encrypted.** Your bill list and saved people are mirrored to Supabase keyed by `sha256(deviceId)`, with the payload **AES-GCM encrypted** using a key derived from a device id that never leaves the browser — so rows are opaque and only your device can read them. No column ever holds a payment number in the clear.
+- **Payment numbers are masked on screen.** Only the last few characters are rendered; the full value lives in the same encrypted payload and is handed over on copy.
 - **Shared bills are encrypted too.** A short link stores the encrypted bill in Supabase; a long link packs it into the URL itself. Either way the recipient only sees the bill in the link they were given.
 - A service worker (Serwist) precaches the app so it loads instantly and the core flow works with no connection.
 
@@ -127,12 +129,15 @@ lib/
   breakdown.ts      # per-person settlement
   currency.ts       # currencies + formatting
   payments.ts       # payment-method catalogue
+  mask.ts           # masked display form of payment numbers
   share.ts          # encode/decode/encrypt shared splits
   shareMeta.ts      # share-link Open Graph metadata
   supabase.ts       # lazy Supabase client (optional)
   bills.ts          # shared-bill storage + paid sync
   device.ts         # anonymous per-device id
+  vault.ts          # per-device encryption for the cloud backup
   userBills.ts      # encrypted history backup
+  contacts.ts       # saved people + their payment details
   i18n/             # en + id dictionaries
   hooks/            # composable hooks
 ```

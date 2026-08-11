@@ -108,7 +108,12 @@ export default function SettleUp({
                   {t("breakdown.payVia", { name: payer.name || "—" })}
                 </div>
                 {payer.accounts.map((a) => (
-                  <AccountRow key={a.id} methodKey={a.key} value={a.value} />
+                  <AccountRow
+                    key={a.id}
+                    methodKey={a.key}
+                    value={a.value}
+                    masked={a.masked}
+                  />
                 ))}
               </div>
             ) : null}
