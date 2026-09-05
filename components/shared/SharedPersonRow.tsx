@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 import { useT } from "@/lib/i18n";
 import { initials, personColor, personInk } from "@/lib/util";
 import type { SharedBillPerson } from "@/lib/types";
 
-import { Check, Chevron } from "@/components/icons";
+import { Check, Chevron, Trash } from "@/components/icons";
+import { PROOF_TYPES } from "@/lib/proofs";
 import AnimatedMoney from "@/components/ui/AnimatedMoney";
 import CopyButton from "@/components/ui/CopyButton";
 import PersonItems from "@/components/ui/PersonItems";
@@ -20,6 +21,14 @@ interface Props {
   payerName: string;
   onToggle: () => void;
   copyText: string;
+  /* Settlement. A guest attaches a receipt; only the creator turns a row green. */
+  isOwner?: boolean;
+  hasProof?: boolean;
+  uploading?: boolean;
+  onProof?: (file: File) => void;
+  onViewProof?: () => void;
+  onRemoveProof?: () => void;
+  proofSrc?: string;
 }
 
 export default function SharedPersonRow({
@@ -31,6 +40,13 @@ export default function SharedPersonRow({
   payerName,
   onToggle,
   copyText,
+  isOwner = false,
+  hasProof = false,
+  uploading = false,
+  onProof,
+  onViewProof,
+  onRemoveProof,
+  proofSrc,
 }: Props) {
   const t = useT();
   const [open, setOpen] = useState(false);
@@ -38,6 +54,8 @@ export default function SharedPersonRow({
   const settled = isPaid && !isPayer;
   const items = person.items;
   const hasItems = items.length > 0;
+
+  const fileInput = useRef<HTMLInputElement | null>(null);
 
   const meta = isPayer
     ? t("shared.paidBill")
@@ -77,13 +95,14 @@ export default function SharedPersonRow({
       style={{ ["--i" as string]: index }}
     >
       <div className="pp--row">
-        {isPayer ? (
+        {isPayer || !hasItems ? (
           <div className="pp__tap">{body}</div>
         ) : (
           <button
             className="pp__tap tappable"
-            aria-pressed={isPaid}
-            onClick={onToggle}
+            aria-expanded={open}
+            onClick={() => setOpen((isOpen) => !isOpen)}
+            aria-label={t("breakdown.viewItems", { name: person.name || "—" })}
           >
             {body}
           </button>
@@ -106,6 +125,20 @@ export default function SharedPersonRow({
         </div>
       </div>
 
+      {!isPayer && !isOwner ? (
+        <input
+          ref={fileInput}
+          type="file"
+          accept={PROOF_TYPES.join(",")}
+          hidden
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file && onProof) onProof(file);
+            e.target.value = "";
+          }}
+        />
+      ) : null}
+
       {hasItems ? (
         <div className={`pp__drawer ${open ? "open" : ""}`}>
           <div>
@@ -113,6 +146,77 @@ export default function SharedPersonRow({
           </div>
         </div>
       ) : null}
+
+      {isPayer ? null : (
+        <div className="pp__settle">
+          {isOwner ? (
+            <>
+              {hasProof && proofSrc ? (
+                <button
+                  className="settle__thumb"
+                  onClick={onViewProof}
+                  aria-label={t("shared.viewProof")}
+                >
+                  <img src={proofSrc} alt="" />
+                </button>
+              ) : null}
+              {hasProof && !proofSrc ? (
+                <span className="settle__note">{t("shared.proofReceived")}</span>
+              ) : null}
+              {hasProof ? (
+                <button
+                  className="settle__icon"
+                  onClick={onRemoveProof}
+                  aria-label={t("shared.proofRemove")}
+                  title={t("shared.proofRemove")}
+                >
+                  <Trash size={16} />
+                </button>
+              ) : null}
+              <button
+                className={`settle__btn ${isPaid ? "settle__btn--ghost" : "settle__btn--go"}`}
+                onClick={onToggle}
+              >
+                {isPaid
+                  ? t("shared.undoPaid")
+                  : hasProof
+                    ? t("shared.confirmReceipt")
+                    : t("shared.markPaid")}
+              </button>
+            </>
+          ) : isPaid ? (
+            <span className="settle__note settle__note--done">{t("shared.confirmedByPayer", { name: payerName })}</span>
+          ) : (
+            <>
+              <span className="settle__note">
+                {uploading
+                  ? t("shared.proofUploading")
+                  : hasProof
+                    ? t("shared.proofWaiting")
+                    : t("shared.proofPrompt")}
+              </span>
+              {/* {hasProof ? (
+                <button
+                  className="settle__icon"
+                  onClick={onRemoveProof}
+                  disabled={uploading}
+                  aria-label={t("shared.proofRemove")}
+                  title={t("shared.proofRemove")}
+                >
+                  <Trash size={16} />
+                </button>
+              ) : null} */}
+              <button
+                className={`settle__btn ${hasProof ? "settle__btn--ghost" : "settle__btn--go"}`}
+                onClick={() => fileInput.current?.click()}
+                disabled={uploading}
+              >
+                {hasProof ? t("shared.proofReplace") : t("shared.proofUpload")}
+              </button>
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 }

@@ -1,6 +1,39 @@
 export interface Env {
   DB: D1Database;
+  PROOFS: R2Bucket;
   OWE_API_SECRET: string;
+}
+
+const MAX_PROOF_BYTES = 5 * 1024 * 1024;
+
+const PROOF_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "application/pdf"]);
+
+const PROOF_EXT: Record<string, string> = {
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+  "application/pdf": "pdf",
+};
+
+/**
+ * The name segment of a proof's key.
+ *
+ * Cosmetic only: what identifies a proof is the (bill_id, person_index) row in
+ * D1, which holds the real key. That is what makes it safe to put a name here
+ * at all — someone renaming themselves on a later share does not orphan an
+ * existing object, because nothing looks proofs up by this path.
+ *
+ * Everything outside a-z0-9 collapses to a dash, so a name cannot introduce a
+ * slash, walk up a directory, or smuggle whitespace into the key.
+ */
+function nameSegment(raw: string, index: number): string {
+  const slug = raw
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 40);
+
+  return slug ? `${index}-${slug}` : String(index);
 }
 
 const json = (body: unknown, status = 200): Response =>
@@ -19,6 +52,14 @@ function authorized(req: Request, env: Env): boolean {
     differing |= provided.charCodeAt(i) ^ expected.charCodeAt(i);
   }
   return differing === 0;
+}
+
+async function sha256Hex(value: string): Promise<string> {
+  const bytes = new TextEncoder().encode(value);
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  return Array.from(new Uint8Array(digest))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
 }
 
 function parsePaid(raw: unknown): number[] {
@@ -40,9 +81,31 @@ async function getBill(env: Env, id: string): Promise<Response> {
   return json({ data: row.data ?? null, paid: parsePaid(row.paid) });
 }
 
-async function putBill(env: Env, body: Record<string, unknown>): Promise<Response> {
+async function putBill(
+  env: Env,
+  body: Record<string, unknown>,
+  ownerToken: string,
+): Promise<Response> {
   const id = typeof body.id === "string" ? body.id : "";
   if (!id) return json({ ok: false }, 400);
+
+  const current = await env.DB.prepare("SELECT owner_hash FROM bills WHERE id = ?")
+    .bind(id)
+    .first<{ owner_hash: string | null }>();
+  const ownerHash = current?.owner_hash ?? null;
+
+  // Only the creating device may change who has paid. A bill with no owner is
+  // one created before ownership existed; it stays open so old links keep
+  // working. Ownership is claimed once, on the write that creates the row.
+  if (Array.isArray(body.paid) && ownerHash) {
+    const presented = ownerToken ? await sha256Hex(ownerToken) : "";
+    if (presented !== ownerHash) return json({ ok: false, error: "not the owner" }, 403);
+  }
+
+  const claiming =
+    !current && typeof body.owner_hash === "string" && body.owner_hash
+      ? (body.owner_hash as string)
+      : null;
 
   const hasData = typeof body.data === "string";
   const hasPaid = Array.isArray(body.paid);
@@ -52,18 +115,20 @@ async function putBill(env: Env, body: Record<string, unknown>): Promise<Respons
   // whoever has already settled. The old upsert sent whole rows and could blank
   // a column that simply was not in this request.
   await env.DB.prepare(
-    `INSERT INTO bills (id, data, paid, updated_at)
-     VALUES (?1, ?2, COALESCE(?3, '[]'), ?4)
+    `INSERT INTO bills (id, data, paid, updated_at, owner_hash)
+     VALUES (?1, ?2, COALESCE(?3, '[]'), ?4, ?5)
      ON CONFLICT(id) DO UPDATE SET
        data       = COALESCE(excluded.data, bills.data),
        paid       = COALESCE(?3, bills.paid),
-       updated_at = excluded.updated_at`,
+       updated_at = excluded.updated_at,
+       owner_hash = COALESCE(bills.owner_hash, excluded.owner_hash)`,
   )
     .bind(
       id,
       hasData ? (body.data as string) : null,
       hasPaid ? JSON.stringify(body.paid) : null,
       now,
+      claiming,
     )
     .run();
 
@@ -96,6 +161,136 @@ async function putUserBills(env: Env, body: Record<string, unknown>): Promise<Re
   return json({ ok: true });
 }
 
+async function isOwner(env: Env, billId: string, token: string): Promise<boolean> {
+  const row = await env.DB.prepare("SELECT owner_hash FROM bills WHERE id = ?")
+    .bind(billId)
+    .first<{ owner_hash: string | null }>();
+  if (!row?.owner_hash) return false;
+  return token ? (await sha256Hex(token)) === row.owner_hash : false;
+}
+
+async function putProof(env: Env, req: Request, url: URL): Promise<Response> {
+  const billId = url.searchParams.get("id") ?? "";
+  const index = Number(url.searchParams.get("i"));
+  if (!billId || !Number.isInteger(index) || index < 0) return json({ ok: false }, 400);
+
+  const type = req.headers.get("content-type") ?? "";
+  if (!PROOF_TYPES.has(type)) return json({ ok: false, error: "unsupported type" }, 415);
+
+  const body = await req.arrayBuffer();
+  if (!body.byteLength) return json({ ok: false, error: "empty" }, 400);
+  if (body.byteLength > MAX_PROOF_BYTES) return json({ ok: false, error: "too large" }, 413);
+
+  // billId / person / file. The person segment makes the bucket browsable --
+  // with opaque folders, nobody can tell whose receipt is whose. The filename
+  // stays a uuid: a proof is a screenshot of someone's banking app, and the
+  // bill id is derived from the bill and therefore predictable, so a guessable
+  // path would be the one weak link in front of the object.
+  const person = nameSegment(url.searchParams.get("name") ?? "", index);
+  const key = `${billId}/${person}/${crypto.randomUUID()}.${PROOF_EXT[type] ?? "bin"}`;
+  await env.PROOFS.put(key, body, { httpMetadata: { contentType: type } });
+
+  const previous = await env.DB.prepare(
+    "SELECT r2_key FROM proofs WHERE bill_id = ? AND person_index = ?",
+  )
+    .bind(billId, index)
+    .first<{ r2_key: string }>();
+
+  await env.DB.prepare(
+    `INSERT INTO proofs (bill_id, person_index, r2_key, content_type, size, uploaded_at)
+     VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+     ON CONFLICT(bill_id, person_index) DO UPDATE SET
+       r2_key = excluded.r2_key, content_type = excluded.content_type,
+       size = excluded.size, uploaded_at = excluded.uploaded_at`,
+  )
+    .bind(billId, index, key, type, body.byteLength, new Date().toISOString())
+    .run();
+
+  // Replacing a proof drops the old object rather than orphaning it in R2.
+  if (previous?.r2_key) await env.PROOFS.delete(previous.r2_key);
+
+  return json({ ok: true });
+}
+
+async function listProofs(env: Env, billId: string): Promise<Response> {
+  const { results } = await env.DB.prepare(
+    "SELECT person_index, uploaded_at FROM proofs WHERE bill_id = ? ORDER BY person_index",
+  )
+    .bind(billId)
+    .all<{ person_index: number; uploaded_at: string }>();
+
+  return json({
+    proofs: (results ?? []).map((r) => ({
+      index: r.person_index,
+      uploadedAt: r.uploaded_at,
+    })),
+  });
+}
+
+async function getProof(env: Env, url: URL, token: string): Promise<Response> {
+  const billId = url.searchParams.get("id") ?? "";
+  const index = Number(url.searchParams.get("i"));
+  if (!billId || !Number.isInteger(index)) return json({ error: "bad request" }, 400);
+
+  // Only the creator sees the image itself; everyone else only learns that one
+  // exists, from listProofs.
+  if (!(await isOwner(env, billId, token))) return json({ error: "not the owner" }, 403);
+
+  const row = await env.DB.prepare(
+    "SELECT r2_key, content_type FROM proofs WHERE bill_id = ? AND person_index = ?",
+  )
+    .bind(billId, index)
+    .first<{ r2_key: string; content_type: string }>();
+  if (!row) return json({ error: "not found" }, 404);
+
+  const object = await env.PROOFS.get(row.r2_key);
+  if (!object) return json({ error: "not found" }, 404);
+
+  return new Response(object.body, {
+    headers: { "content-type": row.content_type, "cache-control": "private, max-age=60" },
+  });
+}
+
+/**
+ * Remove a proof.
+ *
+ * Before the payer accepts it, whoever holds the link may take it down — the
+ * same trust as uploading, and someone who attached the wrong screenshot should
+ * not have to ask permission to fix it. Once the line is marked paid the proof
+ * is the receipt for a settled debt, so only the bill's owner can remove it.
+ */
+async function deleteProof(env: Env, url: URL, ownerToken: string): Promise<Response> {
+  const billId = url.searchParams.get("id") ?? "";
+  const index = Number(url.searchParams.get("i"));
+  if (!billId || !Number.isInteger(index) || index < 0) return json({ ok: false }, 400);
+
+  const bill = await env.DB.prepare("SELECT paid, owner_hash FROM bills WHERE id = ?")
+    .bind(billId)
+    .first<{ paid: string; owner_hash: string | null }>();
+  if (!bill) return json({ ok: false, error: "not found" }, 404);
+
+  if (parsePaid(bill.paid).includes(index)) {
+    const presented = ownerToken ? await sha256Hex(ownerToken) : "";
+    if (!bill.owner_hash || presented !== bill.owner_hash) {
+      return json({ ok: false, error: "already confirmed" }, 403);
+    }
+  }
+
+  const row = await env.DB.prepare(
+    "SELECT r2_key FROM proofs WHERE bill_id = ? AND person_index = ?",
+  )
+    .bind(billId, index)
+    .first<{ r2_key: string }>();
+  if (!row) return json({ ok: false, error: "not found" }, 404);
+
+  await env.PROOFS.delete(row.r2_key);
+  await env.DB.prepare("DELETE FROM proofs WHERE bill_id = ? AND person_index = ?")
+    .bind(billId, index)
+    .run();
+
+  return json({ ok: true });
+}
+
 export default {
   async fetch(req: Request, env: Env): Promise<Response> {
     if (!authorized(req, env)) return json({ error: "unauthorized" }, 401);
@@ -110,7 +305,7 @@ export default {
       }
 
       if (req.method === "POST" && path === "/bill") {
-        return await putBill(env, await req.json());
+        return await putBill(env, await req.json(), req.headers.get("x-owe-owner") ?? "");
       }
 
       if (req.method === "GET" && path === "/sync") {
@@ -120,6 +315,23 @@ export default {
 
       if (req.method === "POST" && path === "/sync") {
         return await putUserBills(env, await req.json());
+      }
+
+      if (req.method === "POST" && path === "/proof") {
+        return await putProof(env, req, url);
+      }
+
+      if (req.method === "GET" && path === "/proof") {
+        return await getProof(env, url, req.headers.get("x-owe-owner") ?? "");
+      }
+
+      if (req.method === "DELETE" && path === "/proof") {
+        return await deleteProof(env, url, req.headers.get("x-owe-owner") ?? "");
+      }
+
+      if (req.method === "GET" && path === "/proofs") {
+        const id = url.searchParams.get("id");
+        return id ? await listProofs(env, id) : json({ proofs: [] });
       }
 
       return json({ error: "not found" }, 404);

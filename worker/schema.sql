@@ -12,7 +12,8 @@ CREATE TABLE IF NOT EXISTS bills (
   id         TEXT PRIMARY KEY,
   data       TEXT,
   paid       TEXT NOT NULL DEFAULT '[]',
-  updated_at TEXT NOT NULL
+  updated_at TEXT NOT NULL,
+  owner_hash TEXT
 );
 
 CREATE TABLE IF NOT EXISTS user_bills (
@@ -20,3 +21,17 @@ CREATE TABLE IF NOT EXISTS user_bills (
   data       TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
+
+-- Payment proof, one per person per bill and replaceable. `r2_key` points into
+-- the owe-proofs bucket; the row is the index, the object is the image.
+CREATE TABLE IF NOT EXISTS proofs (
+  bill_id      TEXT    NOT NULL,
+  person_index INTEGER NOT NULL,
+  r2_key       TEXT    NOT NULL,
+  content_type TEXT    NOT NULL,
+  size         INTEGER NOT NULL,
+  uploaded_at  TEXT    NOT NULL,
+  PRIMARY KEY (bill_id, person_index)
+);
+
+CREATE INDEX IF NOT EXISTS proofs_bill ON proofs (bill_id);

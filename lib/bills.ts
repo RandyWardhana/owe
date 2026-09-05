@@ -1,4 +1,5 @@
 import { hasCloudSync } from "./cloudSync";
+import { claimBill, ownerToken } from "./billOwner";
 import type { SharedBill } from "./types";
 
 /* Cloud layer for shared bills, proxied through our own server (/api/bill) so
@@ -31,10 +32,14 @@ export function billId(bill: SharedBill): string {
 export async function saveBill(id: string, data: string): Promise<boolean> {
   if (!hasCloudSync || !isOnline()) return false;
   try {
+    // Sharing a bill claims it for this device. Only the claim that lands first
+    // counts, so re-sharing is harmless and a stranger cannot take it over.
+    const { ownerHash } = await import("./billOwner");
+    const owner_hash = await ownerHash(claimBill(id));
     const response = await fetch("/api/bill", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ id, data }),
+      body: JSON.stringify({ id, data, owner_hash }),
     });
     if (!response.ok) return false;
     const body = (await response.json()) as { ok?: boolean };
@@ -78,7 +83,7 @@ export async function savePaid(id: string, paid: number[]): Promise<void> {
     await fetch("/api/bill", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ id, paid }),
+      body: JSON.stringify({ id, paid, owner_token: ownerToken(id) ?? undefined }),
     });
   } catch {
     /* best-effort */

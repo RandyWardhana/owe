@@ -10,3 +10,7 @@ database_id = "f6790765-79fa-4adc-8d5c-d269eef2ca33"
 # Shared secret between the Next app and this Worker. Set it with:
 #   npx wrangler secret put OWE_API_SECRET
 # The Worker refuses every request without it.
+
+[[r2_buckets]]
+binding = "PROOFS"
+bucket_name = "owe-proofs"

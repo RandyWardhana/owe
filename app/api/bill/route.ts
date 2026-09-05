@@ -17,14 +17,20 @@ export async function POST(req: Request) {
       id?: string;
       data?: string;
       paid?: number[];
+      owner_hash?: string;
+      owner_token?: string;
     };
     if (!body.id) return NextResponse.json({ ok: false }, { status: 400 });
 
-    const { ok } = await writeBill({
-      id: body.id,
-      ...(typeof body.data === "string" ? { data: body.data } : {}),
-      ...(Array.isArray(body.paid) ? { paid: body.paid } : {}),
-    });
+    const { ok } = await writeBill(
+      {
+        id: body.id,
+        ...(typeof body.data === "string" ? { data: body.data } : {}),
+        ...(Array.isArray(body.paid) ? { paid: body.paid } : {}),
+        ...(typeof body.owner_hash === "string" ? { owner_hash: body.owner_hash } : {}),
+      },
+      body.owner_token,
+    );
     return NextResponse.json({ ok });
   } catch {
     return NextResponse.json({ ok: false }, { status: 500 });
