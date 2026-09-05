@@ -1,4 +1,4 @@
-import { hasSupabase } from "./supabase";
+import { hasCloudSync } from "./cloudSync";
 import { deviceId } from "./device";
 import type { Draft } from "./types";
 
@@ -71,7 +71,7 @@ async function decrypt(data: string, id: string): Promise<Draft[] | null> {
 
 export async function pullHistory(): Promise<Draft[] | null> {
   const id = deviceId();
-  if (!hasSupabase || !id || !online()) return null;
+  if (!hasCloudSync || !id || !online()) return null;
   try {
     const key = await digestHex(id);
     const response = await fetch(`/api/sync?key=${encodeURIComponent(key)}`);
@@ -89,7 +89,7 @@ export async function pushHistory(history: Draft[]): Promise<void> {
   // fresh/evicted context would otherwise wipe a good backup
   if (!history.length) return;
   const id = deviceId();
-  if (!hasSupabase || !id || !online()) return;
+  if (!hasCloudSync || !id || !online()) return;
   try {
     const key = await digestHex(id);
     const data = await encrypt(history, id);

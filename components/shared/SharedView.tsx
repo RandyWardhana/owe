@@ -1,15 +1,21 @@
 "use client";
 
+import { useMemo, useState } from "react";
+
 import { useT } from "@/lib/i18n";
-import { fmtMoney } from "@/lib/currency";
-import { methodMeta } from "@/lib/payments";
-import { useViewerPaid } from "@/lib/hooks/useViewerPaid";
-import type { SharedBill, SharedBillPerson } from "@/lib/types";
+import { useStore } from "@/lib/store";
+import { fmtAmountPlain, fmtMoney } from "@/lib/currency";
+import { useSettlement } from "@/lib/hooks/useSettlement";
+import { ownerToken } from "@/lib/billOwner";
+import { billId } from "@/lib/bills";
+import { proofUrl } from "@/lib/proofs";
+import type { SharedBill } from "@/lib/types";
 
 import Screen from "@/components/Screen";
 import { Check } from "@/components/icons";
 import AnimatedMoney from "@/components/ui/AnimatedMoney";
 import AccountRow from "@/components/ui/AccountRow";
+import ProofLightbox from "@/components/ui/ProofLightbox";
 import SharedPersonRow from "./SharedPersonRow";
 
 export default function SharedView({
@@ -20,30 +26,38 @@ export default function SharedView({
   onMakeOwn: () => void;
 }) {
   const t = useT();
-  const [paid, togglePaid] = useViewerPaid(bill);
+  const { paid, proofs, isOwner, uploading, confirm, submitProof, dropProof } =
+    useSettlement(bill);
+  const [viewing, setViewing] = useState<number | null>(null);
+  const showToast = useStore((state) => state.showToast);
+
+  // uploadProof reports why it failed; without this the file simply vanished.
+  const handleRemove = async (index: number) => {
+    const result = await dropProof(index);
+    if (result.ok) return;
+    showToast(
+      result.reason === "confirmed"
+        ? "shared.proofRemoveLocked"
+        : "shared.proofFailed",
+    );
+  };
+
+  const handleProof = async (index: number, file: File) => {
+    const result = await submitProof(index, file);
+    if (result.ok) return;
+    showToast(
+      result.reason === "size"
+        ? "shared.proofTooBig"
+        : result.reason === "type"
+          ? "shared.proofBadType"
+          : "shared.proofFailed",
+    );
+  };
+  const id = useMemo(() => billId(bill), [bill]);
 
   const currency = bill.currency || "USD";
   const payer = bill.payerIndex >= 0 ? bill.people[bill.payerIndex] : null;
 
-  const personText = (person: SharedBillPerson, isPayer: boolean) => {
-    if (payer && !isPayer) {
-      const lines = [
-        t("breakdown.owesLine", {
-          from: person.name || "—",
-          to: payer.name || "—",
-          amount: fmtMoney(person.total, currency),
-        }),
-      ];
-      if (payer.accounts.length) {
-        lines.push(t("breakdown.payVia", { name: payer.name || "—" }));
-        payer.accounts.forEach((account) =>
-          lines.push(`  ${methodMeta(account.key).label}: ${account.value}`),
-        );
-      }
-      return lines.join("\n");
-    }
-    return `${person.name || "—"}: ${fmtMoney(person.total, currency)}`;
-  };
 
   return (
     <Screen
@@ -73,6 +87,14 @@ export default function SharedView({
 
         {payer ? (
           <>
+        {viewing !== null && isOwner ? (
+          <ProofLightbox
+            src={proofUrl(id, viewing, ownerToken(id) ?? "")}
+            label={t("shared.viewProof")}
+            onClose={() => setViewing(null)}
+          />
+        ) : null}
+
             <p className="label" style={{ marginTop: 24 }}>
               {t("shared.paidBy")}
             </p>
@@ -85,17 +107,18 @@ export default function SharedView({
                 isPaid={false}
                 payerName={payer.name || "—"}
                 onToggle={() => {}}
-                copyText={personText(payer, true)}
+                copyText={fmtAmountPlain(payer.total, currency)}
               />
             </div>
           </>
         ) : null}
 
+
         <p className="label" style={{ marginTop: 24 }}>
           {t("shared.whoOwes")}
         </p>
         <p className="muted assign-hint" style={{ marginTop: -4 }}>
-          {t("shared.markHint")}
+          {isOwner ? t("shared.markHint") : t("shared.markHintGuest")}
         </p>
         <div className="col-gap stagger">
           {bill.people.map((person, i) =>
@@ -108,8 +131,15 @@ export default function SharedView({
                 isPayer={false}
                 isPaid={paid.has(i)}
                 payerName={payer?.name || "—"}
-                onToggle={() => togglePaid(i)}
-                copyText={personText(person, false)}
+                onToggle={() => confirm(i)}
+                copyText={fmtAmountPlain(person.total, currency)}
+                isOwner={isOwner}
+                hasProof={proofs.has(i)}
+                uploading={uploading === i}
+                onProof={(file) => handleProof(i, file)}
+                onViewProof={() => setViewing(i)}
+                onRemoveProof={() => handleRemove(i)}
+                proofSrc={isOwner ? proofUrl(id, i, ownerToken(id) ?? "") : undefined}
               />
             ),
           )}

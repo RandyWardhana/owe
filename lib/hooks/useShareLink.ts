@@ -2,12 +2,12 @@ import { useEffect, useMemo, useState } from "react";
 
 import { encryptShare } from "@/lib/share";
 import { billId, saveBill } from "@/lib/bills";
-import { hasSupabase } from "@/lib/supabase";
+import { hasCloudSync } from "@/lib/cloudSync";
 import type { SharedBill } from "@/lib/types";
 
 const online = () => typeof navigator === "undefined" || navigator.onLine;
 
-/* Builds the share link. When online + Supabase is configured, the encrypted
+/* Builds the share link. When online + cloud sync is configured, the encrypted
    bill is stored under its id and a short `/s/owe-…` link is returned. Otherwise
    it falls back to the self-contained long `/s?s=…` link. */
 export function useShareLink(bill: SharedBill) {
@@ -22,7 +22,7 @@ export function useShareLink(bill: SharedBill) {
       const origin = window.location.origin;
       const longLink = `${origin}/s?s=${enc}`;
 
-      if (hasSupabase && online()) {
+      if (hasCloudSync && online()) {
         const id = billId(bill);
         const ok = await saveBill(id, enc);
         if (cancelled) return;

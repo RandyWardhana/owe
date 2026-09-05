@@ -6,7 +6,7 @@ import { useStore } from "@/lib/store";
 import { useT } from "@/lib/i18n";
 import { deviceId, setDeviceId } from "@/lib/device";
 import { pullHistory, pushHistory } from "@/lib/userBills";
-import { hasSupabase } from "@/lib/supabase";
+import { hasCloudSync } from "@/lib/cloudSync";
 import { buzz } from "@/lib/util";
 
 import CopyButton from "@/components/ui/CopyButton";
@@ -20,7 +20,7 @@ export default function SyncSettings() {
   const [busy, setBusy] = useState(false);
   const myCode = deviceId();
 
-  if (!hasSupabase) return null;
+  if (!hasCloudSync) return null;
 
   const restore = async () => {
     const trimmedCode = code.trim();

@@ -1,0 +1,16 @@
+{
+  "name": "owe-db",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev --local",
+    "deploy": "wrangler deploy",
+    "test": "node --test test/*.test.mjs",
+    "schema:local": "wrangler d1 execute owe --local --file=./schema.sql",
+    "schema:remote": "wrangler d1 execute owe --remote --file=./schema.sql",
+    "rows": "wrangler d1 execute owe --remote --command \"SELECT (SELECT COUNT(*) FROM bills) AS bills, (SELECT COUNT(*) FROM user_bills) AS user_bills\""
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20260904.1"
+  }
+}

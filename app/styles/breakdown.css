@@ -145,6 +145,7 @@
   transform: rotate(-90deg);
 }
 .pp__drawer {
+  margin: 4px 0;
   display: grid;
   grid-template-rows: 0fr;
   transition: grid-template-rows 0.25s ease;
@@ -377,4 +378,127 @@
   gap: 6px;
   font-size: 12px;
   margin-top: 24px;
+}
+
+/* Settling up. Same vocabulary as .pp__copy — 32px tall, 10px radius, card-2
+   ground — so the row reads as one control set rather than a banner bolted on.
+   The divider is full-bleed to the card edge; inset, it looked like an
+   underline on the person's name. */
+.pp__settle {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 10px 14px;
+  border-top: 1px solid var(--line);
+  background: var(--card-2);
+  border-radius: 0 0 var(--radius-md) var(--radius-md);
+}
+
+.settle__note {
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  color: var(--ink-3);
+}
+
+.settle__note--done {
+  color: var(--ink-2);
+  font-weight: 600;
+}
+
+.settle__btn {
+  flex: 0 0 auto;
+  height: 32px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 10px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.settle__btn--go {
+  background: var(--accent);
+  color: var(--ink);
+}
+.settle__btn--go:active {
+  background: var(--accent-edge);
+}
+
+.settle__btn--ghost {
+  background: var(--card);
+  color: var(--ink-2);
+  box-shadow: inset 0 0 0 1px var(--line-strong);
+}
+.settle__btn--ghost:active {
+  background: var(--line);
+  color: var(--ink);
+}
+
+.settle__btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* The receipt itself, not the words "View receipt". A thumbnail is its own
+   affordance: you can see there is something to look at, and roughly what. */
+.settle__thumb {
+  flex: 0 0 auto;
+  margin-right: auto;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 0;
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--card);
+  box-shadow: inset 0 0 0 1px var(--line-strong);
+  cursor: zoom-in;
+}
+
+.settle__thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.settle__thumb:active {
+  box-shadow: inset 0 0 0 2px var(--accent-edge);
+}
+
+/* Square sibling of .settle__btn, so a destructive action costs an icon's width
+   rather than a whole row on a narrow phone. */
+.settle__icon {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 10px;
+  background: var(--card);
+  color: var(--ink-3);
+  box-shadow: inset 0 0 0 1px var(--line-strong);
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.settle__icon:active {
+  background: var(--line);
+  color: var(--ink);
+}
+
+.settle__icon:disabled {
+  opacity: 0.5;
+  cursor: default;
 }

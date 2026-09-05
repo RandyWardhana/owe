@@ -10,7 +10,7 @@ import { useShareLink } from "@/lib/hooks";
 import { buzz } from "@/lib/util";
 
 import Screen from "@/components/Screen";
-import { Share, Lock, Check } from "@/components/icons";
+import { Share, Lock, Check, Pencil } from "@/components/icons";
 import TotalCard from "./TotalCard";
 import PerPersonList from "./PerPersonList";
 import SettleUp from "./SettleUp";
@@ -25,6 +25,7 @@ export default function Breakdown() {
   const updateDraft = useStore((s) => s.updateDraft);
   const saveCurrent = useStore((s) => s.saveCurrent);
   const finish = useStore((s) => s.finish);
+  const editStep = useStore((s) => s.editStep);
   const isSaved = useStore((s) => s.history.some((h) => h.id === draft.id));
 
   const [shareOpen, setShareOpen] = useState(false);
@@ -65,6 +66,19 @@ export default function Breakdown() {
     <Screen
       title={t("breakdown.title")}
       steps={{ current: 4, total: 4 }}
+      right={
+        <button
+          className="iconbtn"
+          aria-label={t("breakdown.editItems")}
+          title={t("breakdown.editItems")}
+          onClick={() => {
+            buzz(6);
+            editStep("assign");
+          }}
+        >
+          <Pencil size={18} />
+        </button>
+      }
       footer={
         <div className="row" style={{ gap: 10 }}>
           <button

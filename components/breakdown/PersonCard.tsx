@@ -86,7 +86,10 @@ export default function PersonCard({
       </div>
 
       {hasItems ? (
-        <div className={`pp__drawer ${open ? "open" : ""}`}>
+        <div 
+          className={`pp__drawer ${open ? "open" : ""}`}
+          style={{ margin: open ? "4px 0" : 0 }}
+        >
           <div>
             <PersonItems items={person.items} currency={currency} />
           </div>

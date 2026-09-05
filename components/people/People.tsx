@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 import { useStore } from "@/lib/store";
+import { accountsFor, contacts, isKnown } from "@/lib/addressBook";
 import { useT } from "@/lib/i18n";
 import { buzz, uid, initials, personColor, personInk } from "@/lib/util";
 import type { Person } from "@/lib/types";
@@ -45,6 +46,13 @@ export default function People() {
       ...d,
       people: d.people.map((p) => (p.id === id ? { ...p, ...patch } : p)),
     }));
+
+  const known = useMemo(() => contacts(), []);
+
+  const nameChanged = (person: Person, name: string) => {
+    const saved = person.accounts.length ? [] : accountsFor(name);
+    setPerson(person.id, saved.length ? { name, accounts: saved } : { name });
+  };
 
   const delPerson = (id: string) => {
     buzz(6);
@@ -118,11 +126,16 @@ export default function People() {
                     value={p.name}
                     placeholder={t("people.addName")}
                     autoFocus={i === people.length - 1 && !p.name}
-                    onChange={(e) => setPerson(p.id, { name: e.target.value })}
+                    list="owe-contacts"
+                    onChange={(e) => nameChanged(p, e.target.value)}
                   />
                   <button className="person__pay" onClick={() => setPayFor(p.id)}>
                     <Wallet size={14} />
-                    <span>{payLabel(p.accounts.length)}</span>
+                    <span>
+                      {p.accounts.length === 0 && isKnown(p.name)
+                        ? t("people.savedDetails")
+                        : payLabel(p.accounts.length)}
+                    </span>
                     <Chevron size={14} />
                   </button>
                 </div>
@@ -137,6 +150,12 @@ export default function People() {
             ))}
           </div>
         )}
+
+        <datalist id="owe-contacts">
+          {known.map((contact) => (
+            <option key={contact.name} value={contact.name} />
+          ))}
+        </datalist>
 
         <button className="btn secondary" style={{ marginTop: 12 }} onClick={addPerson}>
           <Plus size={18} /> {t("people.addName")}
