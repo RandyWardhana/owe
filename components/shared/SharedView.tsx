@@ -1,10 +1,9 @@
 "use client";
 
 import { useT } from "@/lib/i18n";
-import { fmtMoney } from "@/lib/currency";
-import { methodMeta } from "@/lib/payments";
+import { fmtAmountPlain, fmtMoney } from "@/lib/currency";
 import { useViewerPaid } from "@/lib/hooks/useViewerPaid";
-import type { SharedBill, SharedBillPerson } from "@/lib/types";
+import type { SharedBill } from "@/lib/types";
 
 import Screen from "@/components/Screen";
 import { Check } from "@/components/icons";
@@ -25,25 +24,6 @@ export default function SharedView({
   const currency = bill.currency || "USD";
   const payer = bill.payerIndex >= 0 ? bill.people[bill.payerIndex] : null;
 
-  const personText = (person: SharedBillPerson, isPayer: boolean) => {
-    if (payer && !isPayer) {
-      const lines = [
-        t("breakdown.owesLine", {
-          from: person.name || "—",
-          to: payer.name || "—",
-          amount: fmtMoney(person.total, currency),
-        }),
-      ];
-      if (payer.accounts.length) {
-        lines.push(t("breakdown.payVia", { name: payer.name || "—" }));
-        payer.accounts.forEach((account) =>
-          lines.push(`  ${methodMeta(account.key).label}: ${account.value}`),
-        );
-      }
-      return lines.join("\n");
-    }
-    return `${person.name || "—"}: ${fmtMoney(person.total, currency)}`;
-  };
 
   return (
     <Screen
@@ -85,7 +65,7 @@ export default function SharedView({
                 isPaid={false}
                 payerName={payer.name || "—"}
                 onToggle={() => {}}
-                copyText={personText(payer, true)}
+                copyText={fmtAmountPlain(payer.total, currency)}
               />
             </div>
           </>
@@ -109,7 +89,7 @@ export default function SharedView({
                 isPaid={paid.has(i)}
                 payerName={payer?.name || "—"}
                 onToggle={() => togglePaid(i)}
-                copyText={personText(person, false)}
+                copyText={fmtAmountPlain(person.total, currency)}
               />
             ),
           )}
