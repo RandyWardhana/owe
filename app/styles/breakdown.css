@@ -427,7 +427,7 @@
 
 .settle__btn--go {
   background: var(--accent);
-  color: var(--ink);
+  color: var(--on-accent);
 }
 .settle__btn--go:active {
   background: var(--accent-edge);
