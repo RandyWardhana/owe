@@ -502,3 +502,10 @@
   opacity: 0.5;
   cursor: default;
 }
+
+/* A receipt thumbnail inside the owe row, same control as the shared view. */
+.owe-row__proof {
+  width: 34px;
+  height: 34px;
+  margin-right: 6px;
+}

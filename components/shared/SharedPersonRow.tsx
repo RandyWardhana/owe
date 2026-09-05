@@ -56,6 +56,7 @@ export default function SharedPersonRow({
   const hasItems = items.length > 0;
 
   const fileInput = useRef<HTMLInputElement | null>(null);
+  const [thumbFailed, setThumbFailed] = useState(false);
 
   const meta = isPayer
     ? t("shared.paidBill")
@@ -151,16 +152,19 @@ export default function SharedPersonRow({
         <div className="pp__settle">
           {isOwner ? (
             <>
-              {hasProof && proofSrc ? (
+              {hasProof && proofSrc && !thumbFailed ? (
                 <button
                   className="settle__thumb"
                   onClick={onViewProof}
                   aria-label={t("shared.viewProof")}
                 >
-                  <img src={proofSrc} alt="" />
+                  {/* A receipt can fail to load: deleted in another tab, an
+                      expired token, a flaky connection. Falling back to the
+                      wording beats a broken-image glyph. */}
+                  <img src={proofSrc} alt="" onError={() => setThumbFailed(true)} />
                 </button>
               ) : null}
-              {hasProof && !proofSrc ? (
+              {hasProof && (!proofSrc || thumbFailed) ? (
                 <span className="settle__note">{t("shared.proofReceived")}</span>
               ) : null}
               {hasProof ? (

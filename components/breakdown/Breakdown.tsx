@@ -8,6 +8,8 @@ import { computeSplit, settlements } from "@/lib/calc";
 import { buildSharedBill, buildSummaryText } from "@/lib/breakdown";
 import { useShareLink } from "@/lib/hooks";
 import { billId } from "@/lib/bills";
+import { useOwnerSettlement } from "@/lib/hooks/useOwnerSettlement";
+import ProofLightbox from "@/components/ui/ProofLightbox";
 import { buzz } from "@/lib/util";
 
 import Screen from "@/components/Screen";
@@ -51,6 +53,14 @@ export default function Breakdown() {
   }, [isSaved, draft.shareId, shareId, patchDraft]);
 
   const { link, label } = useShareLink(bill, shareId);
+
+  // Once a bill is shared, the server holds the truth about who has settled --
+  // that is what the people holding the link are writing to. Before that it is
+  // just this device's own list.
+  const shared = isSaved && Boolean(draft.shareId);
+  const owner = useOwnerSettlement(draft.people, shared ? shareId : null, shared);
+  const [viewingProof, setViewingProof] = useState<string | null>(null);
+
   const summary = useMemo(
     () => buildSummaryText(t, draft.title, result, payer, currency, paid),
     [t, draft.title, result, payer, currency, paid],
@@ -71,6 +81,9 @@ export default function Breakdown() {
       };
     });
   };
+
+  const paidList = shared ? owner.paidIds : paid;
+  const onTogglePaid = shared ? owner.togglePaid : togglePaid;
 
   return (
     <Screen
@@ -149,13 +162,22 @@ export default function Breakdown() {
           payer={payer}
           payerId={payerId}
           settle={settle}
-          paid={paid}
+          paid={paidList}
           currency={currency}
           summary={summary}
           onSetPayer={setPayer}
-          onTogglePaid={togglePaid}
+          onTogglePaid={onTogglePaid}
+          proofOf={shared ? owner.proofFor : undefined}
+          onViewProof={shared ? setViewingProof : undefined}
         />
       </div>
+      {viewingProof && owner.proofFor(viewingProof) ? (
+        <ProofLightbox
+          src={owner.proofFor(viewingProof) as string}
+          label={t("shared.viewProof")}
+          onClose={() => setViewingProof(null)}
+        />
+      ) : null}
     </Screen>
   );
 }
