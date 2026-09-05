@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { readBill, writeBill } from "@/lib/oweDb";
+import { readBill, removeBill, writeBill } from "@/lib/oweDb";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -35,4 +35,13 @@ export async function POST(req: Request) {
   } catch {
     return NextResponse.json({ ok: false }, { status: 500 });
   }
+}
+
+export async function DELETE(req: Request) {
+  const url = new URL(req.url);
+  const id = url.searchParams.get("id");
+  if (!id) return NextResponse.json({ ok: false }, { status: 400 });
+
+  const { ok, status } = await removeBill(id, url.searchParams.get("t") ?? "");
+  return NextResponse.json({ ok }, { status: ok ? 200 : status });
 }

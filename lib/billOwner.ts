@@ -50,6 +50,38 @@ export function claimBill(billId: string): string {
   return tokens[billId];
 }
 
+/** Every token this device holds, for the sync payload. */
+export function allTokens(): Record<string, string> {
+  return read();
+}
+
+/**
+ * Adopt tokens from another of your devices.
+ *
+ * Never overwrites one already held: whoever claimed a bill first owns it, and
+ * the server enforces that anyway, so replacing a good token with a stale one
+ * would only lock this device out of its own bill.
+ */
+export function adoptTokens(tokens: Record<string, string>): void {
+  const held = read();
+  let changed = false;
+  Object.entries(tokens || {}).forEach(([billId, token]) => {
+    if (billId && token && !held[billId]) {
+      held[billId] = token;
+      changed = true;
+    }
+  });
+  if (changed) write(held);
+}
+
+/** Drop a bill's token once the bill itself is gone. */
+export function forgetBill(billId: string): void {
+  const tokens = read();
+  if (!(billId in tokens)) return;
+  delete tokens[billId];
+  write(tokens);
+}
+
 export async function ownerHash(token: string): Promise<string> {
   const bytes = new TextEncoder().encode(token);
   const digest = await crypto.subtle.digest("SHA-256", bytes);

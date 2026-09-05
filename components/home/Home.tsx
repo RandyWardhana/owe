@@ -1,11 +1,16 @@
 "use client";
 
+import { useState } from "react";
+
 import { useStore } from "@/lib/store";
 import { useT } from "@/lib/i18n";
 import { buzz } from "@/lib/util";
+import { deleteBill } from "@/lib/bills";
+import type { Draft } from "@/lib/types";
 
 import Screen from "@/components/Screen";
-import { Gear, Camera, Pencil, Receipt, Chevron } from "@/components/icons";
+import { Gear, Camera, Pencil, Receipt, Chevron, Trash } from "@/components/icons";
+import Sheet from "@/components/Sheet";
 import HistoryRow from "./HistoryRow";
 
 export default function Home({ onOpenSettings }: { onOpenSettings: () => void }) {
@@ -16,6 +21,10 @@ export default function Home({ onOpenSettings }: { onOpenSettings: () => void })
   const startNew = useStore((s) => s.startNew);
   const applyScan = useStore((s) => s.applyScan);
   const openHistory = useStore((s) => s.openHistory);
+  const deleteBillLocally = useStore((s) => s.deleteBillLocally);
+  const discardDraft = useStore((s) => s.discardDraft);
+  const showToast = useStore((s) => s.showToast);
+  const [confirming, setConfirming] = useState<Draft | null>(null);
   const resume = useStore((s) => s.resume);
 
   const canResume = draft.items.length > 0 && draft.step !== "home";
@@ -28,6 +37,22 @@ export default function Home({ onOpenSettings }: { onOpenSettings: () => void })
       charges: { taxPct: 0, servicePct: 0, discount: 0 },
       source: "manual",
     });
+  };
+
+  const confirmDelete = async () => {
+    const entry = confirming;
+    if (!entry) return;
+    setConfirming(null);
+    buzz(10);
+    // Server first: if that fails we keep the row, rather than hiding a bill
+    // that is still reachable through its share link.
+    const gone = await deleteBill(entry.id);
+    if (!gone) {
+      showToast("home.deleteFailed");
+      return;
+    }
+    deleteBillLocally(entry.id);
+    showToast("home.deleted");
   };
 
   return (
@@ -70,7 +95,8 @@ export default function Home({ onOpenSettings }: { onOpenSettings: () => void })
         </div>
 
         {canResume ? (
-          <button className="card resume tappable" onClick={resume}>
+          <div className="card resume">
+            <button className="resume__open tappable" onClick={resume}>
             <div className="grow" style={{ textAlign: "left" }}>
               <div className="resume__title disp">{t("home.resume")}</div>
               <div className="muted resume__meta">
@@ -80,8 +106,21 @@ export default function Home({ onOpenSettings }: { onOpenSettings: () => void })
                 })}
               </div>
             </div>
-            <Chevron size={20} />
-          </button>
+              <Chevron size={20} />
+            </button>
+            <button
+              className="iconbtn ghost"
+              aria-label={t("home.discardDraft")}
+              title={t("home.discardDraft")}
+              onClick={() => {
+                buzz(8);
+                discardDraft();
+                showToast("home.draftDiscarded");
+              }}
+            >
+              <Trash size={17} />
+            </button>
+          </div>
         ) : null}
 
         <p className="label" style={{ marginTop: 26 }}>
@@ -102,11 +141,39 @@ export default function Home({ onOpenSettings }: { onOpenSettings: () => void })
                 index={i}
                 currency={currency}
                 onOpen={() => openHistory(entry)}
+                onDelete={() => setConfirming(entry)}
               />
             ))}
           </div>
         )}
       </div>
+      <Sheet
+        open={!!confirming}
+        onClose={() => setConfirming(null)}
+        title={t("home.deleteTitle")}
+      >
+        <p className="muted" style={{ marginTop: 0 }}>
+          {t("home.deleteBody", {
+            name: confirming?.title || t("shared.defaultTitle"),
+          })}
+        </p>
+        <div className="row" style={{ gap: 10, marginTop: 14 }}>
+          <button
+            className="btn secondary"
+            style={{ width: "auto", flex: 1 }}
+            onClick={() => setConfirming(null)}
+          >
+            {t("common.cancel")}
+          </button>
+          <button
+            className="btn danger"
+            style={{ width: "auto", flex: 1 }}
+            onClick={confirmDelete}
+          >
+            {t("home.deleteConfirm")}
+          </button>
+        </div>
+      </Sheet>
     </Screen>
   );
 }

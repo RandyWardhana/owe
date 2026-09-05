@@ -30,9 +30,9 @@ export default function SyncSettings() {
     const prev = deviceId();
     setDeviceId(trimmedCode);
     const remote = await pullHistory();
-    if (remote && remote.length) {
-      mergeHistory(remote);
-      pushHistory(useStore.getState().history);
+    if (remote && remote.history.length) {
+      mergeHistory(remote.history, remote.tombstones);
+      pushHistory(useStore.getState().history, useStore.getState().tombstones);
       setCode("");
       showToast("settings.syncDone");
     } else {

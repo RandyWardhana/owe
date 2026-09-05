@@ -47,6 +47,8 @@ interface State {
   anim: boolean;
 
   history: Draft[];
+  /* Bills deleted here, so a sync cannot resurrect them. id -> when. */
+  tombstones: Record<string, number>;
   draft: Draft;
 
   view: Step;
@@ -73,7 +75,9 @@ interface State {
   resume: () => void;
   applyScan: (res: ScanResult) => void;
   openHistory: (h: Draft) => void;
-  mergeHistory: (incoming: Draft[]) => void;
+  mergeHistory: (incoming: Draft[], incomingTombstones?: Record<string, number>) => void;
+  deleteBillLocally: (id: string) => void;
+  discardDraft: () => void;
   saveCurrent: (result: SplitResult, payerId: string | null) => void;
   finish: () => void;
 
@@ -92,6 +96,7 @@ export const useStore = create<State>()(
       anim: true,
 
       history: [],
+      tombstones: {},
       draft: emptyDraft(),
 
       view: "home",
@@ -113,12 +118,12 @@ export const useStore = create<State>()(
 
       patchDraft: (patch) =>
         set((s) => {
-          const draft = { ...s.draft, ...patch };
+          const draft = { ...s.draft, ...patch, updatedAt: Date.now() };
           return { draft, history: syncSaved(s.history, draft) };
         }),
       updateDraft: (fn) =>
         set((s) => {
-          const draft = fn(s.draft);
+          const draft = { ...fn(s.draft), updatedAt: Date.now() };
           return { draft, history: syncSaved(s.history, draft) };
         }),
 
@@ -227,6 +232,7 @@ export const useStore = create<State>()(
           ...draft,
           payerId,
           createdAt: draft.createdAt || Date.now(),
+          updatedAt: Date.now(),
           currency,
           summary: { grandTotal: result.grandTotal },
         };
@@ -240,18 +246,42 @@ export const useStore = create<State>()(
         setTimeout(() => get().showToast("breakdown.saved"), 350);
       },
 
-      mergeHistory: (incoming) =>
+      deleteBillLocally: (id) =>
+        set((s) => ({
+          history: s.history.filter((h) => h.id !== id),
+          tombstones: { ...s.tombstones, [id]: Date.now() },
+          // If the bill being deleted is the one open, clear it too -- leaving
+          // it as the live draft would re-add it on the next edit via syncSaved.
+          ...(s.draft.id === id
+            ? { draft: emptyDraft(), view: "home" as const, stack: [], dir: "back" as const }
+            : {}),
+        })),
+
+      discardDraft: () =>
+        set({ draft: emptyDraft(), view: "home", stack: [], dir: "back" }),
+
+      mergeHistory: (incoming, incomingTombstones) =>
         set((s) => {
+          // Last write wins per bill. Falling back to createdAt keeps entries
+          // saved before updatedAt existed comparable, and a local copy only
+          // wins a genuine tie -- previously it won every time, because every
+          // comparison was a tie.
+          const when = (d: Draft) => d.updatedAt || d.createdAt || 0;
+          const tombstones = { ...incomingTombstones, ...s.tombstones };
           const byId = new Map<string, Draft>();
           for (const d of incoming) byId.set(d.id, d);
           for (const d of s.history) {
             const ex = byId.get(d.id);
-            if (!ex || (d.createdAt || 0) >= (ex.createdAt || 0)) byId.set(d.id, d);
+            if (!ex || when(d) >= when(ex)) byId.set(d.id, d);
           }
           const merged = Array.from(byId.values())
-            .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
+            // A bill deleted after its last edit stays deleted. Comparing the
+            // times rather than dropping outright means re-creating a bill with
+            // the same id still works.
+            .filter((d) => !(tombstones[d.id] && tombstones[d.id] >= when(d)))
+            .sort((a, b) => when(b) - when(a))
             .slice(0, 30);
-          return { history: merged };
+          return { history: merged, tombstones };
         }),
 
       finish: () =>
@@ -271,6 +301,7 @@ export const useStore = create<State>()(
         rounding: s.rounding,
         anim: s.anim,
         history: s.history,
+        tombstones: s.tombstones,
         draft: s.draft,
       }),
     },

@@ -330,3 +330,69 @@ describe("removing a proof", () => {
     assert.equal(res.status, 400);
   });
 });
+
+describe("deleting a whole bill", () => {
+  const token = randomUUID();
+  let id;
+
+  const seed = async () => {
+    id = "__delbill_" + randomUUID().slice(0, 8);
+    await call("/bill", { method: "POST", json: { id, data: "cipher", owner_hash: sha256(token) } });
+    for (const i of [1, 2]) {
+      await call(`/proof?id=${id}&i=${i}&name=Budi`, {
+        method: "POST", headers: { "content-type": "image/png" }, body: PNG,
+      });
+    }
+  };
+
+  const del = (tok) =>
+    call(`/bill?id=${id}`, { method: "DELETE", ...(tok ? { headers: { "x-owe-owner": tok } } : {}) });
+
+  test("a stranger cannot delete a bill they merely received", async () => {
+    await seed();
+    assert.equal((await del()).status, 403);
+    assert.equal((await (await call(`/bill?id=${id}`)).json()).data, "cipher");
+  });
+
+  test("a wrong token cannot either", async () => {
+    await seed();
+    assert.equal((await del(randomUUID())).status, 403);
+  });
+
+  test("the owner removes the bill and every proof with it", async () => {
+    await seed();
+    const res = await del(token);
+    const body = await res.json();
+    assert.equal(body.ok, true);
+    assert.equal(body.proofs, 2, "both receipts were cleaned up");
+
+    assert.equal((await (await call(`/bill?id=${id}`)).json()).data, null);
+    assert.deepEqual((await (await call(`/proofs?id=${id}`)).json()).proofs, []);
+  });
+
+  test("the R2 objects go too, not just the rows", async () => {
+    await seed();
+    await del(token);
+    // re-create the bill under the same id and re-point at the old proof slot:
+    // a 404 proves the objects themselves are gone.
+    await call("/bill", { method: "POST", json: { id, data: "c", owner_hash: sha256(token) } });
+    const res = await call(`/proof?id=${id}&i=1`, { headers: { "x-owe-owner": token } });
+    assert.equal(res.status, 404);
+  });
+
+  test("deleting something already gone is not an error", async () => {
+    await seed();
+    await del(token);
+    const body = await (await del(token)).json();
+    assert.equal(body.ok, true);
+    assert.equal(body.alreadyGone, true);
+  });
+
+  test("a bill with no proofs deletes cleanly", async () => {
+    id = "__delbill_" + randomUUID().slice(0, 8);
+    await call("/bill", { method: "POST", json: { id, data: "c", owner_hash: sha256(token) } });
+    const body = await (await del(token)).json();
+    assert.equal(body.ok, true);
+    assert.equal(body.proofs, 0);
+  });
+});

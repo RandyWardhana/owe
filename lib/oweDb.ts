@@ -144,6 +144,23 @@ export async function removeProof(
   }
 }
 
+export async function removeBill(
+  billId: string,
+  ownerToken: string,
+): Promise<{ ok: boolean; status: number }> {
+  if (!serverHasDb) return { ok: false, status: 503 };
+  try {
+    const res = await fetch(`${base}/bill?id=${encodeURIComponent(billId)}`, {
+      method: "DELETE",
+      headers: { "x-owe-secret": secret, "x-owe-owner": ownerToken },
+      cache: "no-store",
+    });
+    return { ok: res.ok, status: res.status };
+  } catch {
+    return { ok: false, status: 500 };
+  }
+}
+
 /* Server-rendered share pages read the bill straight from here. */
 export async function getBillData(id: string): Promise<string | null> {
   const { data } = await readBill(id);

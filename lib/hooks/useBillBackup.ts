@@ -5,6 +5,7 @@ import { pullHistory, pushHistory } from "@/lib/userBills";
 
 export function useBillBackup() {
   const history = useStore((s) => s.history);
+  const tombstones = useStore((s) => s.tombstones);
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
@@ -12,7 +13,7 @@ export function useBillBackup() {
     (async () => {
       const remote = await pullHistory();
       if (cancelled) return;
-      if (remote && remote.length) useStore.getState().mergeHistory(remote);
+      if (remote) useStore.getState().mergeHistory(remote.history, remote.tombstones);
       setReady(true);
     })();
     return () => {
@@ -23,8 +24,8 @@ export function useBillBackup() {
   useEffect(() => {
     if (!ready) return;
     const timer = setTimeout(() => {
-      pushHistory(history);
+      pushHistory(history, tombstones);
     }, 800);
     return () => clearTimeout(timer);
-  }, [history, ready]);
+  }, [history, tombstones, ready]);
 }
