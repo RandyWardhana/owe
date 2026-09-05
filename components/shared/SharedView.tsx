@@ -20,14 +20,16 @@ import SharedPersonRow from "./SharedPersonRow";
 
 export default function SharedView({
   bill,
+  shareId,
   onMakeOwn,
 }: {
   bill: SharedBill;
+  shareId?: string | null;
   onMakeOwn: () => void;
 }) {
   const t = useT();
   const { paid, proofs, isOwner, uploading, confirm, submitProof, dropProof } =
-    useSettlement(bill);
+    useSettlement(bill, shareId ?? undefined);
   const [viewing, setViewing] = useState<number | null>(null);
   const showToast = useStore((state) => state.showToast);
 
@@ -53,7 +55,7 @@ export default function SharedView({
           : "shared.proofFailed",
     );
   };
-  const id = useMemo(() => billId(bill), [bill]);
+  const id = useMemo(() => shareId || billId(bill), [bill, shareId]);
 
   const currency = bill.currency || "USD";
   const payer = bill.payerIndex >= 0 ? bill.people[bill.payerIndex] : null;

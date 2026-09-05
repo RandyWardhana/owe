@@ -10,7 +10,7 @@ const online = () => typeof navigator === "undefined" || navigator.onLine;
 /* Builds the share link. When online + cloud sync is configured, the encrypted
    bill is stored under its id and a short `/s/owe-…` link is returned. Otherwise
    it falls back to the self-contained long `/s?s=…` link. */
-export function useShareLink(bill: SharedBill) {
+export function useShareLink(bill: SharedBill, shareId?: string) {
   const [link, setLink] = useState("");
 
   useEffect(() => {
@@ -23,7 +23,7 @@ export function useShareLink(bill: SharedBill) {
       const longLink = `${origin}/s?s=${enc}`;
 
       if (hasCloudSync && online()) {
-        const id = billId(bill);
+        const id = shareId || billId(bill);
         const ok = await saveBill(id, enc);
         if (cancelled) return;
         if (ok) {
@@ -37,7 +37,7 @@ export function useShareLink(bill: SharedBill) {
     return () => {
       cancelled = true;
     };
-  }, [bill]);
+  }, [bill, shareId]);
 
   const label = useMemo(() => {
     try {

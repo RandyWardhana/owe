@@ -1,12 +1,13 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { useStore } from "@/lib/store";
 import { useT } from "@/lib/i18n";
 import { computeSplit, settlements } from "@/lib/calc";
 import { buildSharedBill, buildSummaryText } from "@/lib/breakdown";
 import { useShareLink } from "@/lib/hooks";
+import { billId } from "@/lib/bills";
 import { buzz } from "@/lib/util";
 
 import Screen from "@/components/Screen";
@@ -40,7 +41,16 @@ export default function Breakdown() {
     () => buildSharedBill(draft.title, result, draft.people, payerId, currency, paid),
     [draft.title, draft.people, result, payerId, currency, paid],
   );
-  const { link, label } = useShareLink(bill);
+  // Freeze the share id the first time a bill is locked, seeding it from the
+  // content hash so links already sent out keep resolving. After that an edit
+  // republishes to the SAME id instead of stranding everyone on the old one.
+  const shareId = draft.shareId || billId(bill);
+
+  useEffect(() => {
+    if (isSaved && !draft.shareId) patchDraft({ shareId });
+  }, [isSaved, draft.shareId, shareId, patchDraft]);
+
+  const { link, label } = useShareLink(bill, shareId);
   const summary = useMemo(
     () => buildSummaryText(t, draft.title, result, payer, currency, paid),
     [t, draft.title, result, payer, currency, paid],
