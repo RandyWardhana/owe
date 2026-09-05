@@ -7,7 +7,7 @@ import type { SharedBill } from "@/lib/types";
 type SharedState = SharedBill | null | undefined;
 
 /* Resolves the shared bill from the URL. Two link shapes are supported:
-   - short:  /s/owe-xxxxxx   → fetch the encrypted bill from Supabase by id
+   - short:  /s/owe-xxxxxx   → fetch the encrypted bill from the cloud by id
    - long:   /s?s=<payload>  → the bill is self-contained in the link */
 export function useSharedBill() {
   const [shared, setShared] = useState<SharedState>(undefined);

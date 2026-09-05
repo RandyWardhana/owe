@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 import { decryptShare } from "@/lib/share";
-import { getBillData } from "@/lib/supabaseServer";
+import { getBillData } from "@/lib/oweDb";
 import { shareMeta } from "@/lib/shareMeta";
 import App from "@/components/App";
 

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import { buzz } from "@/lib/util";
 import { billId, fetchPaid, savePaid, subscribePaid } from "@/lib/bills";
-import { hasSupabase } from "@/lib/supabase";
+import { hasCloudSync } from "@/lib/cloudSync";
 import type { SharedBill } from "@/lib/types";
 
 const localKey = (id: string) => "owe.shared." + id;
@@ -44,7 +44,7 @@ export function useViewerPaid(
 
     apply(readLocal(id, bill));
 
-    if (hasSupabase && online()) {
+    if (hasCloudSync && online()) {
       fetchPaid(id).then((server) => {
         if (!cancelled && server) apply(new Set(server));
       });
@@ -71,7 +71,7 @@ export function useViewerPaid(
     if (next.has(index)) next.delete(index);
     else next.add(index);
     apply(next);
-    if (hasSupabase && online()) savePaid(id, [...next]);
+    if (hasCloudSync && online()) savePaid(id, [...next]);
   };
 
   return [paid, toggle];

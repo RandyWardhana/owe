@@ -1,5 +1,6 @@
 # dependencies
 /node_modules
+node_modules/
 /.pnp
 .pnp.*
 
@@ -35,3 +36,7 @@ yarn-error.log*
 .vscode/*
 !.vscode/extensions.json
 .idea
+
+# wrangler local secrets
+worker/.dev.vars
+worker/.wrangler/

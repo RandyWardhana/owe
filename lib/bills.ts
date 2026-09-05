@@ -1,8 +1,8 @@
-import { hasSupabase } from "./supabase";
+import { hasCloudSync } from "./cloudSync";
 import type { SharedBill } from "./types";
 
 /* Cloud layer for shared bills, proxied through our own server (/api/bill) so
-   the browser never talks to Supabase directly. Stores `{ id, data, paid }`:
+   the browser never talks to the database directly. Stores `{ id, data, paid }`:
    - id   — deterministic, derived from the bill (same for everyone)
    - data — the encrypted share string, so a short link can point to the bill
    - paid — which person indices have settled
@@ -29,7 +29,7 @@ export function billId(bill: SharedBill): string {
 
 /** Stores the encrypted bill so a short link can resolve it. Returns success. */
 export async function saveBill(id: string, data: string): Promise<boolean> {
-  if (!hasSupabase || !isOnline()) return false;
+  if (!hasCloudSync || !isOnline()) return false;
   try {
     const response = await fetch("/api/bill", {
       method: "POST",
@@ -48,7 +48,7 @@ export async function saveBill(id: string, data: string): Promise<boolean> {
 export async function fetchBill(
   id: string,
 ): Promise<{ data: string | null; paid: number[] } | null> {
-  if (!hasSupabase || !isOnline()) return null;
+  if (!hasCloudSync || !isOnline()) return null;
   try {
     const response = await fetch(`/api/bill?id=${encodeURIComponent(id)}`);
     if (!response.ok) return null;
@@ -73,7 +73,7 @@ export async function fetchPaid(id: string): Promise<number[] | null> {
 
 /** Upserts the paid indices for a bill. No-ops when offline / unconfigured. */
 export async function savePaid(id: string, paid: number[]): Promise<void> {
-  if (!hasSupabase || !isOnline()) return;
+  if (!hasCloudSync || !isOnline()) return;
   try {
     await fetch("/api/bill", {
       method: "POST",
@@ -90,7 +90,7 @@ export function subscribePaid(
   id: string,
   onChange: (paid: number[]) => void,
 ): () => void {
-  if (!hasSupabase) return () => {};
+  if (!hasCloudSync) return () => {};
   let stopped = false;
   let last = "";
 
