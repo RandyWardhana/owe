@@ -65,7 +65,7 @@ export default function App() {
       <Settings open={settingsOpen} onClose={() => setSettingsOpen(false)} />
       <Toast />
       <ClickSpark />
-      <InstallPrompt />
+      {view === "home" ? <InstallPrompt /> : null}
       <OfflineBar />
     </div>
   );

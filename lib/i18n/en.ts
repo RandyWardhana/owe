@@ -115,6 +115,7 @@ const en = {
     share: "Share",
     lockIn: "Lock it in",
     lockToShare: "Lock it in first to share",
+    editItems: "Edit this split",
     done: "Done",
     shareTitle: "Share this split",
     copyLink: "Copy the link",

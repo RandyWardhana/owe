@@ -117,6 +117,7 @@ const id: Dict = {
     share: "Bagikan",
     lockIn: "Kunci",
     lockToShare: "Kunci dulu untuk bagikan",
+    editItems: "Ubah patungan ini",
     done: "Selesai",
     shareTitle: "Bagikan patungan ini",
     copyLink: "Salin tautan",

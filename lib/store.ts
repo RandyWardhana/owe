@@ -67,6 +67,7 @@ interface State {
   updateDraft: (fn: (d: Draft) => Draft) => void;
 
   go: (step: Step) => void;
+  editStep: (step: Step) => void;
   back: () => void;
   startNew: (step: Step) => void;
   resume: () => void;
@@ -128,6 +129,18 @@ export const useStore = create<State>()(
           view: step,
           draft: { ...s.draft, step },
         })),
+
+      editStep: (step) =>
+        set((s) => {
+          const order: Step[] = ["review", "people", "assign", "breakdown"];
+          const i = order.indexOf(step);
+          return {
+            dir: "back",
+            view: step,
+            draft: { ...s.draft, step },
+            stack: i > 0 ? ["home", ...order.slice(0, i)] : ["home"],
+          };
+        }),
 
       back: () =>
         set((s) => {
@@ -198,7 +211,11 @@ export const useStore = create<State>()(
         set({
           draft: { ...h, step: "breakdown" },
           dir: "fwd",
-          stack: ["home"],
+          // Seed the whole trail, not just home. Opening a bill from history
+          // used to be a dead end: Back went straight out, so a saved split
+          // could never be corrected. Locking a bill fixes its total, not the
+          // ability to fix a typo in it -- edits flow back through syncSaved.
+          stack: ["home", "review", "people", "assign"],
           view: "breakdown",
         }),
 
