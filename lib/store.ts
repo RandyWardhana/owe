@@ -1,5 +1,7 @@
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
+
+import { remember } from "./addressBook";
 import type {
   Draft,
   Lang,
@@ -203,6 +205,7 @@ export const useStore = create<State>()(
       saveCurrent: (result, payerId) => {
         buzz(16);
         const { draft, currency } = get();
+        remember(draft.people);
         const entry: Draft = {
           ...draft,
           payerId,

@@ -40,3 +40,6 @@ yarn-error.log*
 # wrangler local secrets
 worker/.dev.vars
 worker/.wrangler/
+
+# compiled sources for unit tests
+.test-build/

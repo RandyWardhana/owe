@@ -62,6 +62,7 @@ const id: Dict = {
     title: "Siapa aja?",
     sub: "Tambah semua yang di meja",
     addName: "Tambah nama",
+    savedDetails: "Detail tersimpan — ketuk buat pakai",
     empty: "Tambah minimal dua orang buat mulai bagi-bagi.",
     waysToPay: "{n} cara bayar",
     wayToPay: "1 cara bayar",

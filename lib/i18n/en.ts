@@ -60,6 +60,7 @@ const en = {
     title: "Who’s in?",
     sub: "Add everyone at the table",
     addName: "Add a name",
+    savedDetails: "Details saved — tap to use",
     empty: "Add at least two people to start divvying things up.",
     waysToPay: "{n} ways to pay",
     wayToPay: "1 way to pay",
