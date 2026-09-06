@@ -174,6 +174,7 @@ const id: Dict = {
     proofTooBig: "File-nya lebih dari 5MB",
     proofBadType: "Pakai JPG, PNG, WebP, atau PDF",
     proofFailed: "Bukti belum terkirim — coba lagi",
+    settleRefused: "Cuma perangkat yang bikin tagihan ini yang bisa ubah status bayar",
     markHintGuest: "Unggah bukti transfermu, lalu tunggu dikonfirmasi.",
     proofPrompt: "Sudah transfer?",
     proofUpload: "Unggah bukti",

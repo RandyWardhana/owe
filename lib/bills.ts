@@ -76,17 +76,27 @@ export async function fetchPaid(id: string): Promise<number[] | null> {
   return row ? row.paid : null;
 }
 
-/** Upserts the paid indices for a bill. No-ops when offline / unconfigured. */
-export async function savePaid(id: string, paid: number[]): Promise<void> {
-  if (!hasCloudSync || !isOnline()) return;
+/**
+ * Upserts the paid indices for a bill.
+ *
+ * Reports whether the server took it. It used to swallow everything, so a write
+ * the server REFUSED -- a bill this device no longer owns -- still looked like
+ * it worked: the tick moved, and the next reload put it back. A settle screen
+ * that quietly disagrees with the server is worse than one that says no.
+ */
+export async function savePaid(id: string, paid: number[]): Promise<boolean> {
+  if (!hasCloudSync || !isOnline()) return false;
   try {
-    await fetch("/api/bill", {
+    const res = await fetch("/api/bill", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ id, paid, owner_token: ownerToken(id) ?? undefined }),
     });
+    if (!res.ok) return false;
+    const body = (await res.json()) as { ok?: boolean };
+    return Boolean(body.ok);
   } catch {
-    /* best-effort */
+    return false;
   }
 }
 

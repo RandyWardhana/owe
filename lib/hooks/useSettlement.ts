@@ -11,6 +11,7 @@ import {
   type UploadResult,
 } from "@/lib/proofs";
 import { hasCloudSync } from "@/lib/cloudSync";
+import { useStore } from "@/lib/store";
 import type { SharedBill } from "@/lib/types";
 
 /* Settling up, from both sides of the same screen.
@@ -87,6 +88,7 @@ export function useSettlement(bill: SharedBill, shareId?: string): Settlement {
   const [isOwner, setIsOwner] = useState(false);
   const paidRef = useRef(paid);
   paidRef.current = paid;
+  const showToast = useStore((state) => state.showToast);
 
   const apply = useCallback(
     (next: Set<number>) => {
@@ -139,13 +141,21 @@ export function useSettlement(bill: SharedBill, shareId?: string): Settlement {
     (index: number) => {
       if (!isOwner || !ownerToken(id)) return;
       buzz(10);
-      const next = new Set(paidRef.current);
+      const before = new Set(paidRef.current);
+      const next = new Set(before);
       if (next.has(index)) next.delete(index);
       else next.add(index);
       apply(next);
-      savePaid(id, [...next]);
+
+      // Put it back if the server refuses, rather than showing a change that
+      // the next reload will undo.
+      savePaid(id, [...next]).then((ok) => {
+        if (ok) return;
+        apply(before);
+        showToast("shared.settleRefused");
+      });
     },
-    [apply, id, isOwner],
+    [apply, id, isOwner, showToast],
   );
 
   const submitProof = useCallback(

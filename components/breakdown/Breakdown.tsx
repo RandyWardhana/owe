@@ -39,32 +39,12 @@ export default function Breakdown() {
   const settle = settlements(result.perPerson, payerId);
   const paid = useMemo(() => draft.paid || [], [draft.paid]);
 
-  const bill = useMemo(
-    () => buildSharedBill(draft.title, result, draft.people, payerId, currency, paid),
-    [draft.title, draft.people, result, payerId, currency, paid],
-  );
-  // Freeze the share id the first time a bill is locked, seeding it from the
-  // content hash so links already sent out keep resolving. After that an edit
-  // republishes to the SAME id instead of stranding everyone on the old one.
-  const shareId = draft.shareId || billId(bill);
-
-  useEffect(() => {
-    if (isSaved && !draft.shareId) patchDraft({ shareId });
-  }, [isSaved, draft.shareId, shareId, patchDraft]);
-
-  const { link, label } = useShareLink(bill, shareId);
-
   // Once a bill is shared, the server holds the truth about who has settled --
   // that is what the people holding the link are writing to. Before that it is
   // just this device's own list.
   const shared = isSaved && Boolean(draft.shareId);
-  const owner = useOwnerSettlement(draft.people, shared ? shareId : null, shared);
+  const owner = useOwnerSettlement(draft.people, draft.shareId ?? null, shared);
   const [viewingProof, setViewingProof] = useState<string | null>(null);
-
-  const summary = useMemo(
-    () => buildSummaryText(t, draft.title, result, payer, currency, paid),
-    [t, draft.title, result, payer, currency, paid],
-  );
 
   const setPayer = (id: string) => {
     buzz(6);
@@ -83,7 +63,39 @@ export default function Breakdown() {
   };
 
   const paidList = shared ? owner.paidIds : paid;
+
+  // Once a bill is shared the server owns the answer, so mirror it back into
+  // the draft. Without this, `paid` kept whatever was ticked before sharing --
+  // and the share payload, the summary text and the history entry all went on
+  // reporting someone as settled after the confirmation had been undone.
+  useEffect(() => {
+    if (!shared) return;
+    const same =
+      paid.length === owner.paidIds.length &&
+      paid.every((id) => owner.paidIds.includes(id));
+    if (!same) patchDraft({ paid: owner.paidIds });
+  }, [shared, owner.paidIds, paid, patchDraft]);
+
+  const summary = useMemo(
+    () => buildSummaryText(t, draft.title, result, payer, currency, paidList),
+    [t, draft.title, result, payer, currency, paidList],
+  );
   const onTogglePaid = shared ? owner.togglePaid : togglePaid;
+
+  const bill = useMemo(
+    () => buildSharedBill(draft.title, result, draft.people, payerId, currency, paidList),
+    [draft.title, draft.people, result, payerId, currency, paidList],
+  );
+  // Freeze the share id the first time a bill is locked, seeding it from the
+  // content hash so links already sent out keep resolving. After that an edit
+  // republishes to the SAME id instead of stranding everyone on the old one.
+  const shareId = draft.shareId || billId(bill);
+
+  useEffect(() => {
+    if (isSaved && !draft.shareId) patchDraft({ shareId });
+  }, [isSaved, draft.shareId, shareId, patchDraft]);
+
+  const { link, label } = useShareLink(bill, shareId);
 
   return (
     <Screen
