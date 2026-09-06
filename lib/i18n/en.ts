@@ -172,6 +172,7 @@ const en = {
     proofTooBig: "That file is over 5MB",
     proofBadType: "Use a JPG, PNG, WebP or PDF",
     proofFailed: "Could not send the receipt — try again",
+    settleRefused: "Only the device that created this bill can change who has paid",
     markHintGuest: "Upload your transfer receipt, then wait for it to be confirmed.",
     proofPrompt: "Paid already?",
     proofUpload: "Upload receipt",

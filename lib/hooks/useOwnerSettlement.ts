@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { fetchPaid, savePaid, subscribePaid } from "@/lib/bills";
 import { fetchProofs, proofUrl } from "@/lib/proofs";
+import { useStore } from "@/lib/store";
 import type { Person } from "@/lib/types";
 
 /**
@@ -32,6 +33,7 @@ export function useOwnerSettlement(
 ): OwnerSettlement {
   const [paidIdx, setPaidIdx] = useState<number[]>([]);
   const [proofIdx, setProofIdx] = useState<number[]>([]);
+  const showToast = useStore((state) => state.showToast);
 
   const indexOf = useCallback(
     (personId: string) => people.findIndex((p) => p.id === personId),
@@ -76,13 +78,19 @@ export function useOwnerSettlement(
       const i = indexOf(personId);
       if (i < 0) return;
 
+      const before = paidIdx;
       const next = paidIdx.includes(i)
         ? paidIdx.filter((x) => x !== i)
         : [...paidIdx, i];
       setPaidIdx(next);
-      savePaid(shareId, next);
+
+      savePaid(shareId, next).then((ok) => {
+        if (ok) return;
+        setPaidIdx(before);
+        showToast("shared.settleRefused");
+      });
     },
-    [indexOf, paidIdx, shareId],
+    [indexOf, paidIdx, shareId, showToast],
   );
 
   const hasProofFor = useCallback(
