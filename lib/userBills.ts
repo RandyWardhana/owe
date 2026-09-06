@@ -1,6 +1,7 @@
 import { hasCloudSync } from "./cloudSync";
 import { deviceId } from "./device";
 import { adoptTokens, allTokens } from "./billOwner";
+import { contacts, mergeContacts, type Contact } from "./addressBook";
 import type { Draft } from "./types";
 
 function online(): boolean {
@@ -46,6 +47,10 @@ interface Payload {
   /* Bills deleted on any device. Without these a delete is undone by the very
      next sync, which reads as the app losing your instruction. */
   tombstones?: Record<string, number>;
+  /* Saved people. Re-entering everyone's bank details on a second device is
+     the tedium this app exists to remove; it should not reappear the moment
+     you pick up a different phone. */
+  contacts?: Contact[];
   /* billId -> owner token. Without these, your other device can see a bill it
      created but cannot confirm anyone's payment on it: the token proving
      ownership lived only in the browser that first shared it. */
@@ -96,6 +101,7 @@ export async function pullHistory(): Promise<Payload | null> {
     const payload = await decrypt(json.data, id);
     if (!payload) return null;
     if (payload.owners) adoptTokens(payload.owners);
+    if (payload.contacts) mergeContacts(payload.contacts);
     return payload;
   } catch {
     return null;
@@ -127,7 +133,7 @@ export async function pushHistory(
   try {
     const key = await digestHex(id);
     const data = await encrypt(
-      { history: forSync(history), owners: allTokens(), tombstones },
+      { history: forSync(history), owners: allTokens(), tombstones, contacts: contacts() },
       id,
     );
     await fetch("/api/sync", {
