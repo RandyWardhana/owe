@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Chevron } from "@/components/icons";
+import { Plus } from "@/components/icons";
 import Reveal from "./Reveal";
 import { FAQS } from "./data";
 
@@ -16,12 +16,16 @@ export default function Faq() {
           <h2 className="disp lp-h2">Questions, answered</h2>
         </Reveal>
 
-        <Reveal>
-          <ul className="lp-faq">
-            {FAQS.map((item, i) => {
-              const isOpen = open === i;
-              return (
-                <li key={item.q} className={`lp-faq__item card ${isOpen ? "is-open" : ""}`}>
+        <ul className="lp-faq">
+          {FAQS.map((item, i) => {
+            const isOpen = open === i;
+            return (
+              <Reveal
+                key={item.q}
+                as="li"
+                delay={i * 40}
+                className={`lp-faq__item card ${isOpen ? "is-open" : ""}`}
+              >
                   <button
                     type="button"
                     className="lp-faq__q"
@@ -29,16 +33,19 @@ export default function Faq() {
                     onClick={() => setOpen(isOpen ? null : i)}
                   >
                     <span>{item.q}</span>
-                    <Chevron size={20} className="lp-faq__caret" />
+                    <span className="lp-faq__caret">
+                      <Plus size={18} />
+                    </span>
                   </button>
                   <div className="lp-faq__a">
-                    <p>{item.a}</p>
+                    <div>
+                      <p>{item.a}</p>
+                    </div>
                   </div>
-                </li>
-              );
-            })}
-          </ul>
-        </Reveal>
+              </Reveal>
+            );
+          })}
+        </ul>
       </div>
     </section>
   );
