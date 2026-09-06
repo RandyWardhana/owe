@@ -102,14 +102,13 @@ export async function writeProof(
 export async function readProof(
   billId: string,
   index: number,
-  ownerToken: string,
 ): Promise<{ body: ArrayBuffer; contentType: string } | null> {
   if (!serverHasDb) return null;
   try {
     const res = await fetch(
       `${base}/proof?id=${encodeURIComponent(billId)}&i=${index}`,
       {
-        headers: { "x-owe-secret": secret, "x-owe-owner": ownerToken },
+        headers: { "x-owe-secret": secret },
         cache: "no-store",
       },
     );

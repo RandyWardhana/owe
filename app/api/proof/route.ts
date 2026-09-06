@@ -34,15 +34,11 @@ export async function GET(req: Request) {
   const url = new URL(req.url);
   const id = url.searchParams.get("id");
   const index = Number(url.searchParams.get("i"));
-  // The owner token rides in the query rather than a header so the image can be
-  // used as a plain <img src>. It never leaves this origin: the route swaps it
-  // for the server-only shared secret before calling the Worker.
-  const token = url.searchParams.get("t") ?? "";
   if (!id || !Number.isInteger(index)) {
     return NextResponse.json({ error: "bad request" }, { status: 400 });
   }
 
-  const proof = await readProof(id, index, token);
+  const proof = await readProof(id, index);
   if (!proof) return NextResponse.json({ error: "not found" }, { status: 404 });
 
   return new NextResponse(proof.body, {

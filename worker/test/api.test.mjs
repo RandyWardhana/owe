@@ -14,6 +14,8 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
+import { assertNotProduction } from "./guard.mjs";
+
 const here = dirname(fileURLToPath(import.meta.url));
 
 function env(name) {
@@ -30,25 +32,6 @@ function env(name) {
 const BASE = env("OWE_DB_URL").replace(/\/+$/, "");
 const SECRET = env("OWE_DB_SECRET");
 const KEY = "__owe_selftest__";
-
-/**
- * These tests write real rows and upload real objects. Pointed at the deployed
- * Worker they land in the live D1 and the live R2 bucket, and the cleanup only
- * ever removed the rows -- which left ten orphaned receipts sitting in storage
- * until someone noticed the __key/__proof/__rm folders.
- *
- * Run them against `wrangler dev --local`. Set OWE_ALLOW_REMOTE_TESTS=1 to
- * override, deliberately, when you really do mean to exercise production.
- */
-export function assertNotProduction(base) {
-  const local = /^https?:\/\/(127\.0\.0\.1|localhost|\[::1\])(:|\/|$)/.test(base);
-  if (local || process.env.OWE_ALLOW_REMOTE_TESTS === "1") return;
-  throw new Error(
-    `Refusing to run against ${base}: this suite writes to D1 and R2. ` +
-      "Start `wrangler dev --local` and set OWE_DB_URL=http://127.0.0.1:8787, " +
-      "or set OWE_ALLOW_REMOTE_TESTS=1 if you truly mean production.",
-  );
-}
 
 const call = (path, init = {}) =>
   fetch(BASE + path, {

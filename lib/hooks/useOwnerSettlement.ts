@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { fetchPaid, savePaid, subscribePaid } from "@/lib/bills";
-import { ownerToken } from "@/lib/billOwner";
 import { fetchProofs, proofUrl } from "@/lib/proofs";
 import type { Person } from "@/lib/types";
 
@@ -94,9 +93,8 @@ export function useOwnerSettlement(
   const proofFor = useCallback(
     (personId: string) => {
       const i = indexOf(personId);
-      const token = shareId ? ownerToken(shareId) : null;
-      if (i < 0 || !shareId || !token || !proofIdx.includes(i)) return null;
-      return proofUrl(shareId, i, token);
+      if (i < 0 || !shareId || !proofIdx.includes(i)) return null;
+      return proofUrl(shareId, i);
     },
     [indexOf, proofIdx, shareId],
   );

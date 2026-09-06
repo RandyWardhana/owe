@@ -85,6 +85,6 @@ export async function removeProof(
   }
 }
 
-/** URL the creator can open to see one proof. Requires the owner token. */
-export const proofUrl = (billId: string, index: number, token: string): string =>
-  `/api/proof?id=${encodeURIComponent(billId)}&i=${index}&t=${encodeURIComponent(token)}`;
+/** Where a receipt can be viewed. Open to anyone holding the share link. */
+export const proofUrl = (billId: string, index: number): string =>
+  `/api/proof?id=${encodeURIComponent(billId)}&i=${index}`;
