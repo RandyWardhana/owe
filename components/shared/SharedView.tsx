@@ -15,6 +15,7 @@ import { Check } from "@/components/icons";
 import AnimatedMoney from "@/components/ui/AnimatedMoney";
 import AccountRow from "@/components/ui/AccountRow";
 import ProofLightbox from "@/components/ui/ProofLightbox";
+import ClaimList from "./ClaimList";
 import SharedPersonRow from "./SharedPersonRow";
 
 export default function SharedView({
@@ -27,8 +28,18 @@ export default function SharedView({
   onMakeOwn: () => void;
 }) {
   const t = useT();
-  const { paid, proofs, isOwner, uploading, confirm, submitProof, dropProof } =
-    useSettlement(bill, shareId ?? undefined);
+  const {
+    paid,
+    proofs,
+    isOwner,
+    uploading,
+    claims,
+    claimedTotals,
+    claim,
+    confirm,
+    submitProof,
+    dropProof,
+  } = useSettlement(bill, shareId ?? undefined);
   const [viewing, setViewing] = useState<number | null>(null);
   const showToast = useStore((state) => state.showToast);
 
@@ -126,14 +137,14 @@ export default function SharedView({
             i === bill.payerIndex ? null : (
               <SharedPersonRow
                 key={i}
-                person={person}
+                person={{ ...person, total: person.total + claimedTotals[i] }}
                 index={i}
                 currency={currency}
                 isPayer={false}
                 isPaid={paid.has(i)}
                 payerName={payer?.name || "—"}
                 onToggle={() => confirm(i)}
-                copyText={fmtAmountPlain(person.total, currency)}
+                copyText={fmtAmountPlain(person.total + claimedTotals[i], currency)}
                 isOwner={isOwner}
                 hasProof={proofs.has(i)}
                 uploading={uploading === i}
@@ -145,6 +156,16 @@ export default function SharedView({
             ),
           )}
         </div>
+
+        <ClaimList
+          items={bill.claimable}
+          people={bill.people}
+          claims={claims}
+          currency={currency}
+          feeRate={bill.feeRate}
+          paid={paid}
+          onClaim={claim}
+        />
 
         {payer && payer.accounts.length ? (
           <>

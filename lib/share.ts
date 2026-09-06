@@ -25,6 +25,17 @@ function toWire(bill: SharedBill): SharePayload {
       })),
     })),
     pd: bill.paidIndices,
+    ...(bill.claimable.length
+      ? {
+          ui: bill.claimable.map((item) => ({
+            i: item.id,
+            n: item.name,
+            q: item.qty,
+            a: item.amount,
+          })),
+        }
+      : {}),
+    ...(bill.feeRate ? { fr: bill.feeRate } : {}),
   };
 }
 
@@ -50,6 +61,13 @@ function fromWire(payload: SharePayload): SharedBill {
       })),
     })),
     paidIndices: payload.pd || [],
+    claimable: (payload.ui || []).map((item) => ({
+      id: item.i,
+      name: item.n,
+      qty: item.q,
+      amount: item.a,
+    })),
+    feeRate: payload.fr || 0,
   };
 }
 

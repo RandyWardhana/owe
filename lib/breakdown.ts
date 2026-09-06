@@ -1,4 +1,4 @@
-import { settlements } from "./calc";
+import { lineTotal, settlements } from "./calc";
 import { fmtMoney } from "./currency";
 import { methodMeta } from "./payments";
 import type { TFn } from "./i18n";
@@ -44,6 +44,18 @@ export function buildSharedBill(
       };
     }),
     paidIndices,
+    /* Anything still unassigned travels with the link so whoever ordered it can
+       put their name on it, instead of the maker having to chase the table. */
+    claimable: result.unassignedItems.map((item) => ({
+      id: item.id,
+      name: item.name,
+      qty: item.qty,
+      amount: lineTotal(item),
+    })),
+    feeRate:
+      result.itemsSubtotal > 0
+        ? (result.tax + result.service - result.discount) / result.itemsSubtotal
+        : 0,
   };
 }
 

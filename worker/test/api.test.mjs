@@ -78,7 +78,7 @@ describe("auth", () => {
 describe("bills", () => {
   test("an unknown bill reads as empty, not an error", async () => {
     const res = await call("/bill?id=__owe_does_not_exist__");
-    assert.deepEqual(await res.json(), { data: null, paid: [] });
+    assert.deepEqual(await res.json(), { data: null, paid: [], claims: {} });
   });
 
   test("stores the encrypted bill and reads it back", async () => {

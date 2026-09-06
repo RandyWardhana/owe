@@ -49,10 +49,12 @@ export async function saveBill(id: string, data: string): Promise<boolean> {
   }
 }
 
-/** Loads a stored bill (encrypted data + paid state) by id. */
+export type Claims = Record<string, number>;
+
+/** Loads a stored bill (encrypted data + paid state + claims) by id. */
 export async function fetchBill(
   id: string,
-): Promise<{ data: string | null; paid: number[] } | null> {
+): Promise<{ data: string | null; paid: number[]; claims: Claims } | null> {
   if (!hasCloudSync || !isOnline()) return null;
   try {
     const response = await fetch(`/api/bill?id=${encodeURIComponent(id)}`);
@@ -60,10 +62,12 @@ export async function fetchBill(
     const body = (await response.json()) as {
       data?: string | null;
       paid?: number[];
+      claims?: Claims;
     };
     return {
       data: body.data ?? null,
       paid: Array.isArray(body.paid) ? body.paid : [],
+      claims: body.claims && typeof body.claims === "object" ? body.claims : {},
     };
   } catch {
     return null;
@@ -74,6 +78,33 @@ export async function fetchBill(
 export async function fetchPaid(id: string): Promise<number[] | null> {
   const row = await fetchBill(id);
   return row ? row.paid : null;
+}
+
+/**
+ * Puts someone's name on an unassigned item, or takes it off with a null.
+ *
+ * Unlike savePaid this carries no owner token: the person claiming is a guest
+ * on someone else's link. Returns the server's view of the claims so a refused
+ * write (an item whose holder has already settled) cannot leave the screen
+ * showing something the server rejected.
+ */
+export async function saveClaim(
+  id: string,
+  item: string,
+  person: number | null,
+): Promise<{ ok: boolean; claims: Claims | null }> {
+  if (!hasCloudSync || !isOnline()) return { ok: false, claims: null };
+  try {
+    const res = await fetch("/api/claim", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ id, item, person }),
+    });
+    const body = (await res.json()) as { ok?: boolean; claims?: Claims };
+    return { ok: Boolean(body.ok), claims: body.claims ?? null };
+  } catch {
+    return { ok: false, claims: null };
+  }
 }
 
 /**

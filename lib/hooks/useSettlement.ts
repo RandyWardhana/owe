@@ -1,7 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { buzz } from "@/lib/util";
-import { billId, fetchPaid, savePaid, subscribePaid } from "@/lib/bills";
+import {
+  billId,
+  fetchBill,
+  saveClaim,
+  savePaid,
+  subscribePaid,
+  type Claims,
+} from "@/lib/bills";
 import { isOwner as deviceOwnsBill, ownerToken } from "@/lib/billOwner";
 import {
   fetchProofs,
@@ -70,6 +77,12 @@ export interface Settlement {
   proofs: Set<number>;
   isOwner: boolean;
   uploading: number | null;
+  /** itemId -> index of the person who put their name on it. */
+  claims: Claims;
+  /** What each person's claims add to their share, fees included. */
+  claimedTotals: number[];
+  /** Claim an unassigned item for someone, or hand it back with null. */
+  claim: (itemId: string, person: number | null) => Promise<boolean>;
   /** Owner only. No-ops for a guest, who has no token to send. */
   confirm: (index: number) => void;
   /** Guest side: attach the receipt for this person. */
@@ -86,6 +99,7 @@ export function useSettlement(bill: SharedBill, shareId?: string): Settlement {
   const [proofs, setProofs] = useState<Set<number>>(() => readProofs(id));
   const [uploading, setUploading] = useState<number | null>(null);
   const [isOwner, setIsOwner] = useState(false);
+  const [claims, setClaims] = useState<Claims>({});
   const paidRef = useRef(paid);
   paidRef.current = paid;
   const showToast = useStore((state) => state.showToast);
@@ -120,15 +134,26 @@ export function useSettlement(bill: SharedBill, shareId?: string): Settlement {
     refreshProofs();
 
     if (hasCloudSync && online()) {
-      fetchPaid(id).then((server) => {
-        if (!cancelled && server) apply(new Set(server));
+      fetchBill(id).then((row) => {
+        if (cancelled || !row) return;
+        apply(new Set(row.paid));
+        setClaims(row.claims);
       });
     }
 
     const unsubscribe = subscribePaid(id, (server) => {
       if (!cancelled) apply(new Set(server));
     });
-    const poll = setInterval(refreshProofs, 5000);
+    /* Claims arrive from other people's phones, so the screen has to keep
+       asking; there is no push channel and the maker needs to see a name land
+       on an item without reloading. */
+    const poll = setInterval(() => {
+      refreshProofs();
+      if (!hasCloudSync || !online()) return;
+      fetchBill(id).then((row) => {
+        if (!cancelled && row) setClaims(row.claims);
+      });
+    }, 5000);
 
     return () => {
       cancelled = true;
@@ -157,6 +182,40 @@ export function useSettlement(bill: SharedBill, shareId?: string): Settlement {
     },
     [apply, id, isOwner, showToast],
   );
+
+  const claim = useCallback(
+    async (itemId: string, person: number | null): Promise<boolean> => {
+      const before = claims;
+      const next = { ...claims };
+      if (person === null) delete next[itemId];
+      else next[itemId] = person;
+      setClaims(next);
+      buzz(8);
+
+      const result = await saveClaim(id, itemId, person);
+      if (result.ok) {
+        if (result.claims) setClaims(result.claims);
+        return true;
+      }
+      // The server refuses once the holder has been confirmed as paid; showing
+      // the change anyway would promise a total nobody is going to be charged.
+      setClaims(result.claims ?? before);
+      showToast("shared.claimRefused");
+      return false;
+    },
+    [claims, id, showToast],
+  );
+
+  const claimedTotals = useMemo(() => {
+    const totals = bill.people.map(() => 0);
+    const rate = 1 + (bill.feeRate || 0);
+    for (const item of bill.claimable) {
+      const who = claims[item.id];
+      if (who === undefined || who < 0 || who >= totals.length) continue;
+      totals[who] += item.amount * rate;
+    }
+    return totals;
+  }, [bill.claimable, bill.feeRate, bill.people, claims]);
 
   const submitProof = useCallback(
     async (index: number, file: File): Promise<UploadResult> => {
@@ -195,5 +254,16 @@ export function useSettlement(bill: SharedBill, shareId?: string): Settlement {
     [id, refreshProofs],
   );
 
-  return { paid, proofs, isOwner, uploading, confirm, submitProof, dropProof };
+  return {
+    paid,
+    proofs,
+    isOwner,
+    uploading,
+    claims,
+    claimedTotals,
+    claim,
+    confirm,
+    submitProof,
+    dropProof,
+  };
 }

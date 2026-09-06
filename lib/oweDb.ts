@@ -31,12 +31,26 @@ async function call<T>(
   }
 }
 
-export type BillRow = { data: string | null; paid: number[] };
+export type Claims = Record<string, number>;
+export type BillRow = { data: string | null; paid: number[]; claims: Claims };
 
 export const readBill = (id: string): Promise<BillRow> =>
   call(`/bill?id=${encodeURIComponent(id)}`, {
     method: "GET",
-    fallback: { data: null, paid: [] },
+    fallback: { data: null, paid: [], claims: {} },
+  });
+
+/* No owner token: whoever holds the link is the person who ordered the thing,
+   and they are not the device that made the bill. */
+export const writeClaim = (
+  id: string,
+  item: string,
+  person: number | null,
+): Promise<{ ok: boolean; claims?: Claims }> =>
+  call("/claim", {
+    method: "POST",
+    body: JSON.stringify({ id, item, person }),
+    fallback: { ok: false },
   });
 
 export const writeBill = (
