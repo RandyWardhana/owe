@@ -161,14 +161,6 @@ async function putUserBills(env: Env, body: Record<string, unknown>): Promise<Re
   return json({ ok: true });
 }
 
-async function isOwner(env: Env, billId: string, token: string): Promise<boolean> {
-  const row = await env.DB.prepare("SELECT owner_hash FROM bills WHERE id = ?")
-    .bind(billId)
-    .first<{ owner_hash: string | null }>();
-  if (!row?.owner_hash) return false;
-  return token ? (await sha256Hex(token)) === row.owner_hash : false;
-}
-
 async function putProof(env: Env, req: Request, url: URL): Promise<Response> {
   const billId = url.searchParams.get("id") ?? "";
   const index = Number(url.searchParams.get("i"));
@@ -227,14 +219,17 @@ async function listProofs(env: Env, billId: string): Promise<Response> {
   });
 }
 
-async function getProof(env: Env, url: URL, token: string): Promise<Response> {
+async function getProof(env: Env, url: URL): Promise<Response> {
   const billId = url.searchParams.get("id") ?? "";
   const index = Number(url.searchParams.get("i"));
   if (!billId || !Number.isInteger(index)) return json({ error: "bad request" }, 400);
 
-  // Only the creator sees the image itself; everyone else only learns that one
-  // exists, from listProofs.
-  if (!(await isOwner(env, billId, token))) return json({ error: "not the owner" }, 403);
+  // Readable by anyone holding the share link, deliberately: settling up is a
+  // group conversation, and a receipt only one person can see does not settle
+  // an argument about whether it was sent. The link is already the boundary for
+  // the bill itself, so proofs now match it. What still guards the file is the
+  // uuid in its key -- bill ids are derived from the bill and guessable, object
+  // keys are not.
 
   const row = await env.DB.prepare(
     "SELECT r2_key, content_type FROM proofs WHERE bill_id = ? AND person_index = ?",
@@ -359,7 +354,7 @@ export default {
       }
 
       if (req.method === "GET" && path === "/proof") {
-        return await getProof(env, url, req.headers.get("x-owe-owner") ?? "");
+        return await getProof(env, url);
       }
 
       if (req.method === "DELETE" && path === "/bill") {

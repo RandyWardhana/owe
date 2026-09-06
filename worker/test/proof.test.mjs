@@ -5,7 +5,7 @@ import { test, before, describe } from "node:test";
 import assert from "node:assert/strict";
 import { createHash, randomUUID } from "node:crypto";
 
-import { assertNotProduction } from "./api.test.mjs";
+import { assertNotProduction } from "./guard.mjs";
 
 const BASE = (process.env.OWE_DB_URL ?? "").replace(/\/+$/, "");
 const SECRET = process.env.OWE_DB_SECRET ?? "";
@@ -125,13 +125,22 @@ describe("payment proof", () => {
     assert.equal(proofs[0].r2_key, undefined, "must not leak the object key");
   });
 
-  test("only the owner can see the image", async () => {
-    assert.equal((await call(`/proof?id=${id}&i=1`)).status, 403);
+  test("anyone holding the link can see the image", async () => {
+    // Deliberately open: settling up is a group conversation, and a receipt
+    // only one person can see does not settle an argument about whether it was
+    // sent. The un-guessable key is what protects the file.
+    const asGuest = await call(`/proof?id=${id}&i=1`);
+    assert.equal(asGuest.status, 200);
+    assert.equal(asGuest.headers.get("content-type"), "image/png");
+    assert.deepEqual(Buffer.from(await asGuest.arrayBuffer()), PNG);
 
-    const ok = await call(`/proof?id=${id}&i=1`, { headers: { "x-owe-owner": token } });
-    assert.equal(ok.status, 200);
-    assert.equal(ok.headers.get("content-type"), "image/png");
-    assert.deepEqual(Buffer.from(await ok.arrayBuffer()), PNG);
+    const asOwner = await call(`/proof?id=${id}&i=1`, { headers: { "x-owe-owner": token } });
+    assert.equal(asOwner.status, 200);
+  });
+
+  test("but a wrong bill or index still yields nothing", async () => {
+    assert.equal((await call(`/proof?id=__nope__&i=1`)).status, 404);
+    assert.equal((await call(`/proof?id=${id}&i=99`)).status, 404);
   });
 
   test("re-uploading replaces rather than piling up", async () => {
@@ -157,9 +166,8 @@ describe("payment proof", () => {
     assert.equal(res.status, 400);
   });
 
-  test("a proof that was never uploaded is a 404 for the owner", async () => {
-    const res = await call(`/proof?id=${id}&i=7`, { headers: { "x-owe-owner": token } });
-    assert.equal(res.status, 404);
+  test("a proof that was never uploaded is a 404", async () => {
+    assert.equal((await call(`/proof?id=${id}&i=7`)).status, 404);
   });
 });
 
@@ -294,7 +302,7 @@ describe("removing a proof", () => {
     await seed(1);
     // GET serves straight from R2, so a 404 after re-pointing a row at the same
     // proof proves the object itself is gone rather than merely unreferenced.
-    assert.equal((await call(`/proof?id=${id}&i=1`, { headers: { "x-owe-owner": token } })).status, 200);
+    assert.equal((await call(`/proof?id=${id}&i=1`)).status, 200);
     await del(1, token);
 
     // re-upload puts a NEW object at a NEW key; the old one must not resurface
@@ -376,7 +384,7 @@ describe("deleting a whole bill", () => {
     // re-create the bill under the same id and re-point at the old proof slot:
     // a 404 proves the objects themselves are gone.
     await call("/bill", { method: "POST", json: { id, data: "c", owner_hash: sha256(token) } });
-    const res = await call(`/proof?id=${id}&i=1`, { headers: { "x-owe-owner": token } });
+    const res = await call(`/proof?id=${id}&i=1`);
     assert.equal(res.status, 404);
   });
 

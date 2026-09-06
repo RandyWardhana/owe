@@ -6,7 +6,6 @@ import { useT } from "@/lib/i18n";
 import { useStore } from "@/lib/store";
 import { fmtAmountPlain, fmtMoney } from "@/lib/currency";
 import { useSettlement } from "@/lib/hooks/useSettlement";
-import { ownerToken } from "@/lib/billOwner";
 import { billId } from "@/lib/bills";
 import { proofUrl } from "@/lib/proofs";
 import type { SharedBill } from "@/lib/types";
@@ -89,9 +88,9 @@ export default function SharedView({
 
         {payer ? (
           <>
-        {viewing !== null && isOwner ? (
+        {viewing !== null ? (
           <ProofLightbox
-            src={proofUrl(id, viewing, ownerToken(id) ?? "")}
+            src={proofUrl(id, viewing)}
             label={t("shared.viewProof")}
             onClose={() => setViewing(null)}
           />
@@ -141,7 +140,7 @@ export default function SharedView({
                 onProof={(file) => handleProof(i, file)}
                 onViewProof={() => setViewing(i)}
                 onRemoveProof={() => handleRemove(i)}
-                proofSrc={isOwner ? proofUrl(id, i, ownerToken(id) ?? "") : undefined}
+                proofSrc={proofs.has(i) ? proofUrl(id, i) : undefined}
               />
             ),
           )}

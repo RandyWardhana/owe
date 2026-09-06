@@ -64,6 +64,19 @@ export default function SharedPersonRow({
       ? t("breakdown.paid")
       : t("shared.owes", { name: payerName });
 
+  const thumb =
+    hasProof && proofSrc && !thumbFailed ? (
+      <button
+        className="settle__thumb"
+        onClick={onViewProof}
+        aria-label={t("shared.viewProof")}
+      >
+        {/* A receipt can fail to load: deleted in another tab, a flaky
+            connection. Falling back to wording beats a broken-image glyph. */}
+        <img src={proofSrc} alt="" onError={() => setThumbFailed(true)} />
+      </button>
+    ) : null;
+
   const body = (
     <div className="row between">
       <div className="row" style={{ gap: 11, minWidth: 0 }}>
@@ -152,18 +165,7 @@ export default function SharedPersonRow({
         <div className="pp__settle">
           {isOwner ? (
             <>
-              {hasProof && proofSrc && !thumbFailed ? (
-                <button
-                  className="settle__thumb"
-                  onClick={onViewProof}
-                  aria-label={t("shared.viewProof")}
-                >
-                  {/* A receipt can fail to load: deleted in another tab, an
-                      expired token, a flaky connection. Falling back to the
-                      wording beats a broken-image glyph. */}
-                  <img src={proofSrc} alt="" onError={() => setThumbFailed(true)} />
-                </button>
-              ) : null}
+              {thumb}
               {hasProof && (!proofSrc || thumbFailed) ? (
                 <span className="settle__note">{t("shared.proofReceived")}</span>
               ) : null}
@@ -189,9 +191,15 @@ export default function SharedPersonRow({
               </button>
             </>
           ) : isPaid ? (
-            <span className="settle__note settle__note--done">{t("shared.confirmedByPayer", { name: payerName })}</span>
+            <>
+              {thumb}
+              <span className="settle__note settle__note--done">
+                {t("shared.confirmedByPayer", { name: payerName })}
+              </span>
+            </>
           ) : (
             <>
+              {thumb}
               <span className="settle__note">
                 {uploading
                   ? t("shared.proofUploading")
