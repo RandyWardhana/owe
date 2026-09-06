@@ -227,21 +227,91 @@
   position: fixed;
   inset: 0;
   z-index: 10000;
-  display: grid;
-  place-items: center;
-  padding: 24px;
   background: rgba(0, 0, 0, 0.78);
   backdrop-filter: blur(3px);
   cursor: zoom-out;
 }
 
+/* No padding: a receipt should use the whole screen. Inset by 24px, a wide
+   transfer confirmation rendered as a small band floating in a dimmed void --
+   every pixel of margin is a pixel of the amount you are trying to read. */
+.proof-overlay__scroll {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 0;
+}
+
+/* Zoomed shows the receipt's own pixels and pans.
+   Aligned to start, NOT centred: an item wider than its container and centred
+   overflows equally both ways, and the start-side overflow cannot be scrolled
+   to — the left third of a screenshot was simply unreachable. Anchoring the
+   top-left makes every pixel a scroll away. */
+.proof-overlay.is-zoomed .proof-overlay__scroll {
+  place-items: start start;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
 .proof-overlay__img {
-  max-width: 100%;
-  max-height: 100%;
-  border-radius: 12px;
+  /* Viewport units, not percentages. `max-height: 100%` resolves against the
+     grid area, and that area is sized by this very image -- a circular
+     reference the browser resolves by discarding the constraint. A 1080x2340
+     receipt therefore rendered at full natural size with 1440px hanging off the
+     bottom of a 900px window. dvh/dvw are definite and unaffected by the
+     content, and dvh also tracks mobile browser chrome. */
+  max-width: 100dvw;
+  max-height: 100dvh;
+  border-radius: 0;
   background: #fff;
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
   animation: proof-zoom 0.18s ease-out;
+  cursor: zoom-in;
+}
+
+.proof-overlay.is-zoomed .proof-overlay__img {
+  max-width: none;
+  max-height: none;
+  width: auto;
+  height: auto;
+  /* Never smaller than the screen: a zoom that shrinks a small receipt is
+     worse than no zoom at all. */
+  min-width: 100%;
+  border-radius: 0;
+  box-shadow: none;
+  cursor: zoom-out;
+}
+
+.proof-overlay__close {
+  position: absolute;
+  top: calc(12px + var(--safe-top, 0px));
+  right: 12px;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  cursor: pointer;
+  backdrop-filter: blur(4px);
+}
+
+.proof-overlay__hint {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(14px + var(--safe-bottom, 0px));
+  margin: 0;
+  text-align: center;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.72);
+  pointer-events: none;
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.6);
 }
 
 @keyframes proof-zoom {

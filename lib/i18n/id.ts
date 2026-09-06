@@ -13,6 +13,7 @@ const id: Dict = {
     item: "Item",
     next: "Lanjut",
     cancel: "Batal",
+    close: "Tutup",
   },
   home: {
     heroTitle: "Beresin,\ntanpa drama",
@@ -167,6 +168,8 @@ const id: Dict = {
     proofWaiting: "Bukti terkirim — menunggu dikonfirmasi",
     proofUploading: "Mengirim bukti…",
     viewProof: "Lihat bukti",
+    proofZoomIn: "Ketuk buktinya buat perbesar",
+    proofZoomOut: "Ketuk lagi buat pas layar · ✕ buat tutup",
     proofReceived: "Bukti diterima",
     proofTooBig: "File-nya lebih dari 5MB",
     proofBadType: "Pakai JPG, PNG, WebP, atau PDF",
