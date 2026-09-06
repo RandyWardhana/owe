@@ -11,6 +11,7 @@ const en = {
     item: "Item",
     next: "Next",
     cancel: "Cancel",
+    close: "Close",
   },
   home: {
     heroTitle: "Settle up,\nskip the drama",
@@ -165,6 +166,8 @@ const en = {
     proofWaiting: "Receipt sent — waiting to be confirmed",
     proofUploading: "Sending receipt…",
     viewProof: "View receipt",
+    proofZoomIn: "Tap the receipt to zoom in",
+    proofZoomOut: "Tap again to fit · ✕ to close",
     proofReceived: "Receipt received",
     proofTooBig: "That file is over 5MB",
     proofBadType: "Use a JPG, PNG, WebP or PDF",
