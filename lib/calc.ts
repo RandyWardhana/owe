@@ -72,7 +72,13 @@ export function computeSplit(
 
   const perPerson: PersonSplit[] = people.map((person) => {
     const subtotal = base[person.id].subtotal;
-    const fraction = assignedSubtotal > 0 ? subtotal / assignedSubtotal : 0;
+    /* Fees follow the items they were charged on, so an item nobody has taken
+       carries its own tax and service until someone does. Dividing by the
+       ASSIGNED subtotal instead spread the whole tax bill -- including the tax
+       on items still unclaimed -- across whoever happened to be assigned, and
+       then charged it a second time when the item was finally claimed. With
+       every item assigned the two are identical. */
+    const fraction = itemsSubtotal > 0 ? subtotal / itemsSubtotal : 0;
     const taxShare = tax * fraction;
     const serviceShare = service * fraction;
     const discountShare = discount * fraction;

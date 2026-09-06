@@ -76,6 +76,32 @@ export default function Breakdown() {
     if (!same) patchDraft({ paid: owner.paidIds });
   }, [shared, owner.paidIds, paid, patchDraft]);
 
+  /* A claim from the shared link becomes a real assignment here. Keeping it as
+     a separate ledger would mean every total, the summary text and the next
+     share payload each had to remember to add it on; folding it into the draft
+     means the item is simply that person's, the way it would have been had the
+     maker known at the table. */
+  useEffect(() => {
+    if (!shared) return;
+    const known = new Set(draft.people.map((p) => p.id));
+    const pending = Object.entries(owner.claimedBy)
+      .map(([itemId, ids]) => [itemId, ids.filter((id) => known.has(id))] as const)
+      .filter(([itemId, ids]) => {
+        if (!ids.length) return false;
+        const item = draft.items.find((candidate) => candidate.id === itemId);
+        return Boolean(item) && !(item!.assignedTo || []).length;
+      });
+    if (!pending.length) return;
+
+    updateDraft((d) => ({
+      ...d,
+      items: d.items.map((item) => {
+        const claim = pending.find(([itemId]) => itemId === item.id);
+        return claim ? { ...item, assignedTo: [...claim[1]] } : item;
+      }),
+    }));
+  }, [shared, owner.claimedBy, draft.items, draft.people, updateDraft]);
+
   const summary = useMemo(
     () => buildSummaryText(t, draft.title, result, payer, currency, paidList),
     [t, draft.title, result, payer, currency, paidList],

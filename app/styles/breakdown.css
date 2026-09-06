@@ -509,3 +509,99 @@
   height: 34px;
   margin-right: 6px;
 }
+
+/* ---- unclaimed items ---------------------------------------------------- */
+
+.claim {
+  padding: 13px 14px;
+  border-radius: var(--radius-md);
+  border: 1px dashed var(--line-strong);
+  background: var(--card);
+  transition: border-color 0.25s ease, background 0.25s ease;
+}
+.claim.is-taken {
+  border-style: solid;
+  border-color: var(--line);
+  background: var(--card-2);
+}
+.claim__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+.claim__name {
+  font-size: 15px;
+  font-weight: 700;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.claim__price {
+  font-size: 13px;
+  color: var(--ink-2);
+  flex: none;
+}
+.claim__faces {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+.claim__face {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: 2px dashed var(--line-strong);
+  background: transparent;
+  color: var(--ink-3);
+  font-size: 12px;
+  font-weight: 800;
+  font-family: inherit;
+  cursor: pointer;
+  flex: none;
+  transition:
+    transform 0.24s cubic-bezier(0.2, 0.9, 0.3, 1.4),
+    background 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease;
+}
+.claim__face:hover:not(:disabled) {
+  transform: translateY(-2px);
+  border-color: var(--ink-3);
+}
+.claim__face.is-on {
+  background: var(--tint);
+  border-style: solid;
+  border-color: color-mix(in oklab, var(--tint), #000 18%);
+  color: var(--tint-ink);
+  animation: pop 0.32s cubic-bezier(0.2, 0.9, 0.3, 1.5);
+}
+.claim__face:disabled {
+  cursor: default;
+  opacity: 0.75;
+}
+.claim__facecheck {
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+  background: var(--pos);
+  color: #fff;
+  border-radius: 50%;
+  padding: 2px;
+  box-shadow: 0 0 0 2px var(--card);
+}
+.claim.is-taken .claim__facecheck {
+  box-shadow: 0 0 0 2px var(--card-2);
+}
+.claim__each {
+  margin-left: auto;
+  font-size: 12px;
+  font-weight: 700;
+  text-align: right;
+}

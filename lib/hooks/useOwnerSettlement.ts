@@ -1,6 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { fetchPaid, savePaid, subscribePaid } from "@/lib/bills";
+import {
+  fetchBill,
+  saveClaim,
+  savePaid,
+  subscribePaid,
+  type Claims,
+} from "@/lib/bills";
 import { fetchProofs, proofUrl } from "@/lib/proofs";
 import { useStore } from "@/lib/store";
 import type { Person } from "@/lib/types";
@@ -24,6 +30,10 @@ export interface OwnerSettlement {
   togglePaid: (personId: string) => void;
   proofFor: (personId: string) => string | null;
   hasProofFor: (personId: string) => boolean;
+  /** itemId -> ids of the people who claimed it, from the shared link. */
+  claimedBy: Record<string, string[]>;
+  /** Take someone's name back off an item they claimed by mistake. */
+  releaseClaim: (itemId: string) => void;
 }
 
 export function useOwnerSettlement(
@@ -33,6 +43,7 @@ export function useOwnerSettlement(
 ): OwnerSettlement {
   const [paidIdx, setPaidIdx] = useState<number[]>([]);
   const [proofIdx, setProofIdx] = useState<number[]>([]);
+  const [claims, setClaims] = useState<Claims>({});
   const showToast = useStore((state) => state.showToast);
 
   const indexOf = useCallback(
@@ -44,8 +55,10 @@ export function useOwnerSettlement(
     if (!live || !shareId) return;
     let stopped = false;
 
-    fetchPaid(shareId).then((server) => {
-      if (!stopped && server) setPaidIdx(server);
+    fetchBill(shareId).then((row) => {
+      if (stopped || !row) return;
+      setPaidIdx(row.paid);
+      setClaims(row.claims);
     });
     fetchProofs(shareId).then((list) => {
       if (!stopped && list) setProofIdx(list.map((p) => p.index));
@@ -54,9 +67,14 @@ export function useOwnerSettlement(
     const unsubscribe = subscribePaid(shareId, (server) => {
       if (!stopped) setPaidIdx(server);
     });
+    /* Claims land from other people's phones while the maker is looking at
+       this screen -- the one place they actually watch the bill from. */
     const poll = setInterval(() => {
       fetchProofs(shareId).then((list) => {
         if (!stopped && list) setProofIdx(list.map((p) => p.index));
+      });
+      fetchBill(shareId).then((row) => {
+        if (!stopped && row) setClaims(row.claims);
       });
     }, 5000);
 
@@ -93,6 +111,32 @@ export function useOwnerSettlement(
     [indexOf, paidIdx, shareId, showToast],
   );
 
+  const claimedBy = useMemo(() => {
+    const out: Record<string, string[]> = {};
+    for (const [itemId, indexes] of Object.entries(claims)) {
+      const ids = indexes.map((i) => people[i]?.id).filter(Boolean) as string[];
+      if (ids.length) out[itemId] = ids;
+    }
+    return out;
+  }, [claims, people]);
+
+  const releaseClaim = useCallback(
+    (itemId: string) => {
+      if (!shareId) return;
+      const before = claims;
+      const next = { ...claims };
+      delete next[itemId];
+      setClaims(next);
+
+      saveClaim(shareId, itemId, null).then((result) => {
+        if (result.ok) return;
+        setClaims(result.claims ?? before);
+        showToast("shared.claimRefused");
+      });
+    },
+    [claims, shareId, showToast],
+  );
+
   const hasProofFor = useCallback(
     (personId: string) => proofIdx.includes(indexOf(personId)),
     [indexOf, proofIdx],
@@ -107,5 +151,5 @@ export function useOwnerSettlement(
     [indexOf, proofIdx, shareId],
   );
 
-  return { paidIds, togglePaid, proofFor, hasProofFor };
+  return { paidIds, togglePaid, proofFor, hasProofFor, claimedBy, releaseClaim };
 }

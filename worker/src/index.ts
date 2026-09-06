@@ -72,13 +72,98 @@ function parsePaid(raw: unknown): number[] {
   }
 }
 
-async function getBill(env: Env, id: string): Promise<Response> {
-  const row = await env.DB.prepare("SELECT data, paid FROM bills WHERE id = ?")
-    .bind(id)
-    .first<{ data: string | null; paid: string }>();
+/* itemId -> the people who had it. Stored as an array because the items a
+   maker cannot attribute are usually the shared ones -- the extra round, the
+   plate in the middle -- so a single holder was the wrong shape. Older rows
+   hold a bare number; they are read as a one-person set. */
+function parseClaims(raw: string | null): Record<string, number[]> {
+  try {
+    const parsed = JSON.parse(raw || "{}");
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
 
-  if (!row) return json({ data: null, paid: [] });
-  return json({ data: row.data ?? null, paid: parsePaid(row.paid) });
+    const ok = (v: unknown): v is number =>
+      typeof v === "number" && Number.isInteger(v) && v >= 0;
+
+    const out: Record<string, number[]> = {};
+    for (const [item, who] of Object.entries(parsed)) {
+      const list = Array.isArray(who) ? who.filter(ok) : ok(who) ? [who] : [];
+      const unique = [...new Set(list)].sort((a, b) => a - b);
+      if (unique.length) out[item] = unique;
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
+
+async function getBill(env: Env, id: string): Promise<Response> {
+  const row = await env.DB.prepare("SELECT data, paid, claims FROM bills WHERE id = ?")
+    .bind(id)
+    .first<{ data: string | null; paid: string; claims: string | null }>();
+
+  if (!row) return json({ data: null, paid: [], claims: {} });
+  return json({
+    data: row.data ?? null,
+    paid: parsePaid(row.paid),
+    claims: parseClaims(row.claims),
+  });
+}
+
+/**
+ * Add or remove one person from an unassigned item.
+ *
+ * Deliberately NOT owner-gated. The whole point is that the people who ordered
+ * the thing say so from the shared link, and they are not the device that made
+ * the bill. Claiming only ever adds to your own share, so the worst a stranger
+ * can do is take on someone else's debt -- and the maker can undo it.
+ *
+ * One person at a time rather than a whole set, so two phones claiming the same
+ * plate at the same moment cannot overwrite each other: each request is a read
+ * and a toggle, not a replace.
+ */
+async function putClaim(env: Env, body: Record<string, unknown>): Promise<Response> {
+  const id = typeof body.id === "string" ? body.id : "";
+  const item = typeof body.item === "string" ? body.item.slice(0, 64) : "";
+  if (!id || !item) return json({ ok: false }, 400);
+
+  const person =
+    typeof body.person === "number" && Number.isInteger(body.person) && body.person >= 0
+      ? body.person
+      : null;
+  // `on` absent means "put this person on it"; false takes them off, and a
+  // null person with no `on` clears the item entirely.
+  const on = body.on === undefined ? true : Boolean(body.on);
+
+  const row = await env.DB.prepare("SELECT paid, claims FROM bills WHERE id = ?")
+    .bind(id)
+    .first<{ paid: string; claims: string | null }>();
+  if (!row) return json({ ok: false, error: "no such bill" }, 404);
+
+  const claims = parseClaims(row.claims);
+  const settled = parsePaid(row.paid);
+  const holders = claims[item] ?? [];
+
+  // Anyone on this item who has already been confirmed as paid freezes it:
+  // changing the split now would rewrite an amount they have handed over.
+  if (holders.some((who) => settled.includes(who))) {
+    return json({ ok: false, error: "already settled", claims }, 409);
+  }
+
+  if (person === null) {
+    delete claims[item];
+  } else {
+    const next = on
+      ? [...new Set([...holders, person])].sort((a, b) => a - b)
+      : holders.filter((who) => who !== person);
+    if (next.length) claims[item] = next;
+    else delete claims[item];
+  }
+
+  await env.DB.prepare("UPDATE bills SET claims = ?, updated_at = ? WHERE id = ?")
+    .bind(JSON.stringify(claims), new Date().toISOString(), id)
+    .run();
+
+  return json({ ok: true, claims });
 }
 
 async function putBill(
@@ -334,6 +419,7 @@ async function deleteBill(env: Env, url: URL, ownerToken: string): Promise<Respo
 async function adminBills(env: Env): Promise<Response> {
   const { results } = await env.DB.prepare(
     `SELECT b.id, b.data, b.paid, b.updated_at,
+            b.claims,
             b.owner_hash IS NOT NULL AS owned,
             (SELECT COUNT(*) FROM proofs p WHERE p.bill_id = b.id) AS proofs
        FROM bills b ORDER BY b.updated_at DESC LIMIT 500`,
@@ -408,7 +494,11 @@ export default {
     try {
       if (req.method === "GET" && path === "/bill") {
         const id = url.searchParams.get("id");
-        return id ? await getBill(env, id) : json({ data: null, paid: [] });
+        return id ? await getBill(env, id) : json({ data: null, paid: [], claims: {} });
+      }
+
+      if (req.method === "POST" && path === "/claim") {
+        return await putClaim(env, await req.json());
       }
 
       if (req.method === "POST" && path === "/bill") {

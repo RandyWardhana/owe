@@ -9,7 +9,7 @@ const OUT = ".test-build";
 
 execFileSync(
   "npx",
-  ["tsc", "lib/addressBook.ts", "lib/util.ts", "lib/adminDb.ts", "lib/adminRestore.ts", "--outDir", OUT,
+  ["tsc", "lib/addressBook.ts", "lib/util.ts", "lib/adminDb.ts", "lib/adminRestore.ts", "lib/calc.ts", "--outDir", OUT,
    "--module", "es2022", "--target", "es2022",
    "--moduleResolution", "bundler", "--skipLibCheck"],
   { stdio: "inherit" },

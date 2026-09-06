@@ -122,6 +122,7 @@ export type Lang = "en" | "id";
  *   v=version, t=title, c=currency, g=grandTotal, py=payerIndex, pd=paidIndices
  *   pp=people [ n=name, t=total, ac=accounts[k=key, v=value],
  *               it=items[n=name, q=qty, s=share, sp=split] ]
+ *   ui=unclaimed items [ i=id, n=name, q=qty, a=amount ], fr=fee rate
  */
 export interface SharePayload {
   v: number;
@@ -137,6 +138,13 @@ export interface SharePayload {
   }[];
 
   pd?: number[];
+
+  /* Items the maker left for whoever ordered them to claim, and the rate that
+     turns a claimed amount into what that person owes. Both absent on links
+     made before claiming existed, which is why every reader treats them as
+     optional rather than assuming a shape. */
+  ui?: { i: string; n: string; q: number; a: number }[];
+  fr?: number;
 }
 
 /* Readable shared-bill model used throughout the app. Mapped to/from the
@@ -160,6 +168,13 @@ export interface SharedBillPerson {
   items: SharedBillItem[];
 }
 
+export interface ClaimableItem {
+  id: string;
+  name: string;
+  qty: number;
+  amount: number;
+}
+
 export interface SharedBill {
   version: number;
   title: string;
@@ -168,4 +183,9 @@ export interface SharedBill {
   payerIndex: number;
   people: SharedBillPerson[];
   paidIndices: number[];
+  claimable: ClaimableItem[];
+  /* Multiply a claimed amount by (1 + feeRate) to get what it costs its
+     claimer. Every person's total is already subtotal x (1 + feeRate), so a
+     claim lands on exactly the same footing as an item assigned up front. */
+  feeRate: number;
 }

@@ -5,13 +5,15 @@
 --   user_bills — per-device history backup, keyed by sha256(deviceId).
 --
 -- No auth here either: rows are opaque ciphertext and the key is the secret.
--- SQLite has no jsonb/timestamptz, so `paid` is a JSON array as TEXT and
--- `updated_at` an ISO-8601 string. Re-runnable.
+-- SQLite has no jsonb/timestamptz, so `paid` is a JSON array as TEXT,
+-- `claims` a JSON object as TEXT, and `updated_at` an ISO-8601 string.
+-- Re-runnable.
 
 CREATE TABLE IF NOT EXISTS bills (
   id         TEXT PRIMARY KEY,
   data       TEXT,
   paid       TEXT NOT NULL DEFAULT '[]',
+  claims     TEXT NOT NULL DEFAULT '{}',
   updated_at TEXT NOT NULL,
   owner_hash TEXT
 );
