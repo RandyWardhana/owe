@@ -1,38 +1,57 @@
-import { Camera, Sparkle, Users, Wallet, Share, Lock } from "@/components/icons";
+"use client";
+
+import { useState } from "react";
+
+import { Camera, Check, Copy, Lock, Sparkle, Users, Wallet, WifiOff } from "@/components/icons";
+
 import Reveal from "./Reveal";
 
-const FEATURES = [
-  {
-    icon: Camera,
-    title: "Scan any receipt",
-    desc: "Point your camera at the bill. owe pulls out the items and prices so you never type a line.",
-  },
-  {
-    icon: Sparkle,
-    title: "Fair splits, instantly",
-    desc: "Tax, service and discounts spread across everyone automatically. No mental math, no arguing.",
-  },
-  {
-    icon: Users,
-    title: "Tap who had what",
-    desc: "Assign each item to one person or split it across a few. Shared plates are handled cleanly.",
-  },
-  {
-    icon: Wallet,
-    title: "Get paid back",
-    desc: "Attach a bank account or e-wallet — GoPay, OVO, DANA and more — so everyone knows how to pay you.",
-  },
-  {
-    icon: Share,
-    title: "Share a clean link",
-    desc: "Send one link. Anyone can open the totals and copy each person’s payment details — no app needed.",
-  },
-  {
-    icon: Lock,
-    title: "Private & offline",
-    desc: "Everything lives on your device and works without a signal. Backups and links are encrypted.",
-  },
-];
+function ScanArt() {
+  return (
+    <div className="lp-art lp-art--scan" aria-hidden="true">
+      <span className="lp-art__beam" />
+      {[64, 44, 72, 38, 56].map((w, i) => (
+        <span key={i} className="lp-art__line" style={{ width: `${w}%`, ["--i" as string]: i }} />
+      ))}
+    </div>
+  );
+}
+
+function LinkArt() {
+  const [copied, setCopied] = useState(false);
+
+  return (
+    <button
+      type="button"
+      className={`lp-art lp-art--link ${copied ? "is-copied" : ""}`}
+      onClick={() => {
+        setCopied(true);
+        window.setTimeout(() => setCopied(false), 1400);
+      }}
+      aria-label="Preview copying a share link"
+    >
+      <span className="lp-art__url tnum">owe.my.id/s/owe-8k2p1a</span>
+      <span className="lp-art__copy">
+        {copied ? <Check size={14} /> : <Copy size={14} />}
+        {copied ? "Copied" : "Copy"}
+      </span>
+    </button>
+  );
+}
+
+function PrivacyArt() {
+  return (
+    <div className="lp-art lp-art--safe" aria-hidden="true">
+      <span className="lp-art__orb">
+        <Lock size={20} />
+      </span>
+      <span className="lp-art__pulse" />
+      <span className="lp-art__off">
+        <WifiOff size={13} /> still works
+      </span>
+    </div>
+  );
+}
 
 export default function Features() {
   return (
@@ -47,21 +66,86 @@ export default function Features() {
           </p>
         </Reveal>
 
-        <div className="lp-grid">
-          {FEATURES.map((f, i) => {
-            const Icon = f.icon;
-            return (
-              <Reveal key={f.title} delay={(i % 3) * 70} className="lp-grid__cell">
-                <article className="lp-feature card">
-                  <span className="lp-feature__icon">
-                    <Icon size={22} />
-                  </span>
-                  <h3 className="lp-feature__title">{f.title}</h3>
-                  <p className="lp-feature__desc">{f.desc}</p>
-                </article>
-              </Reveal>
-            );
-          })}
+        <div className="lp-bento">
+          <Reveal className="lp-bento__cell lp-bento__cell--wide">
+            <article className="lp-card card">
+              <ScanArt />
+              <span className="lp-card__icon">
+                <Camera size={20} />
+              </span>
+              <h3 className="lp-card__title">Scan any receipt</h3>
+              <p className="lp-card__desc">
+                Point your camera at the bill. owe pulls out the items and prices
+                so you never type a line.
+              </p>
+            </article>
+          </Reveal>
+
+          <Reveal delay={70} className="lp-bento__cell lp-bento__cell--tall">
+            <article className="lp-card card">
+              <PrivacyArt />
+              <span className="lp-card__icon">
+                <Lock size={20} />
+              </span>
+              <h3 className="lp-card__title">Private &amp; offline</h3>
+              <p className="lp-card__desc">
+                Everything lives on your device and works without a signal.
+                Backups and links are encrypted end to end.
+              </p>
+            </article>
+          </Reveal>
+
+          <Reveal delay={140} className="lp-bento__cell">
+            <article className="lp-card card">
+              <span className="lp-card__icon">
+                <Sparkle size={20} />
+              </span>
+              <h3 className="lp-card__title">Fair splits, instantly</h3>
+              <p className="lp-card__desc">
+                Tax, service and discounts spread across everyone automatically.
+              </p>
+            </article>
+          </Reveal>
+
+          <Reveal delay={70} className="lp-bento__cell">
+            <article className="lp-card card">
+              <span className="lp-card__icon">
+                <Users size={20} />
+              </span>
+              <h3 className="lp-card__title">Shared plates, handled</h3>
+              <p className="lp-card__desc">
+                Assign an item to one person or split it across a few. The fees
+                follow the split.
+              </p>
+            </article>
+          </Reveal>
+
+          <Reveal delay={140} className="lp-bento__cell">
+            <article className="lp-card card">
+              <span className="lp-card__icon">
+                <Wallet size={20} />
+              </span>
+              <h3 className="lp-card__title">Get paid back</h3>
+              <p className="lp-card__desc">
+                Attach a bank account or e-wallet so everyone knows exactly how
+                to pay you.
+              </p>
+            </article>
+          </Reveal>
+
+          <Reveal delay={70} className="lp-bento__cell lp-bento__cell--wide">
+            <article className="lp-card card">
+              <span className="lp-card__icon">
+                <Copy size={20} />
+              </span>
+              <h3 className="lp-card__title">Share a clean link</h3>
+              <p className="lp-card__desc">
+                Send one link. Anyone can open the totals and copy each person’s
+                payment details — no app needed.
+              </p>
+              <LinkArt />
+            </article>
+          </Reveal>
         </div>
       </div>
     </section>
