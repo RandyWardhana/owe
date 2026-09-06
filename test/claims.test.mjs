@@ -74,6 +74,25 @@ describe("unassigned items and their fees", () => {
     near(before.perPerson[0].total, after.perPerson[0].total, "Aya unchanged by Ben's claim");
   });
 
+  test("a shared item claimed by several splits between them", () => {
+    const open = computeSplit(bill({ i1: ["a"] }));
+    const rate = feeRate(open);
+    // The beer, taken by both of them.
+    const each = (40000 * (1 + rate)) / 2;
+
+    const assigned = computeSplit(bill({ i1: ["a"], i3: ["a", "b"] }));
+    near(open.perPerson[0].total + each, assigned.perPerson[0].total, "Aya's half");
+    near(open.perPerson[1].total + each, assigned.perPerson[1].total, "Ben's half");
+  });
+
+  test("claiming a shared item costs each of them less than taking it alone", () => {
+    const rate = feeRate(computeSplit(bill({ i1: ["a"] })));
+    const alone = 40000 * (1 + rate);
+    const shared = alone / 2;
+    assert.ok(shared < alone);
+    near(shared * 2, alone, "the two halves are the whole thing, nothing lost");
+  });
+
   test("a bill where nothing is assigned charges nobody anything", () => {
     const r = computeSplit(bill({}));
     near(r.perPerson[0].total, 0, "Aya");

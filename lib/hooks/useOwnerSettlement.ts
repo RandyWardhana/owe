@@ -30,8 +30,8 @@ export interface OwnerSettlement {
   togglePaid: (personId: string) => void;
   proofFor: (personId: string) => string | null;
   hasProofFor: (personId: string) => boolean;
-  /** itemId -> id of the person who claimed it, from the shared link. */
-  claimedBy: Record<string, string>;
+  /** itemId -> ids of the people who claimed it, from the shared link. */
+  claimedBy: Record<string, string[]>;
   /** Take someone's name back off an item they claimed by mistake. */
   releaseClaim: (itemId: string) => void;
 }
@@ -112,10 +112,10 @@ export function useOwnerSettlement(
   );
 
   const claimedBy = useMemo(() => {
-    const out: Record<string, string> = {};
-    for (const [itemId, index] of Object.entries(claims)) {
-      const person = people[index];
-      if (person) out[itemId] = person.id;
+    const out: Record<string, string[]> = {};
+    for (const [itemId, indexes] of Object.entries(claims)) {
+      const ids = indexes.map((i) => people[i]?.id).filter(Boolean) as string[];
+      if (ids.length) out[itemId] = ids;
     }
     return out;
   }, [claims, people]);

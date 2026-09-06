@@ -77,12 +77,12 @@ export interface Settlement {
   proofs: Set<number>;
   isOwner: boolean;
   uploading: number | null;
-  /** itemId -> index of the person who put their name on it. */
+  /** itemId -> the people who put their names on it. */
   claims: Claims;
   /** What each person's claims add to their share, fees included. */
   claimedTotals: number[];
-  /** Claim an unassigned item for someone, or hand it back with null. */
-  claim: (itemId: string, person: number | null) => Promise<boolean>;
+  /** Put someone on an unassigned item, or take them off with on:false. */
+  claim: (itemId: string, person: number, on: boolean) => Promise<boolean>;
   /** Owner only. No-ops for a guest, who has no token to send. */
   confirm: (index: number) => void;
   /** Guest side: attach the receipt for this person. */
@@ -184,15 +184,20 @@ export function useSettlement(bill: SharedBill, shareId?: string): Settlement {
   );
 
   const claim = useCallback(
-    async (itemId: string, person: number | null): Promise<boolean> => {
+    async (itemId: string, person: number, on: boolean): Promise<boolean> => {
       const before = claims;
+      const holders = claims[itemId] ?? [];
+      const updated = on
+        ? [...new Set([...holders, person])].sort((a, b) => a - b)
+        : holders.filter((who) => who !== person);
+
       const next = { ...claims };
-      if (person === null) delete next[itemId];
-      else next[itemId] = person;
+      if (updated.length) next[itemId] = updated;
+      else delete next[itemId];
       setClaims(next);
       buzz(8);
 
-      const result = await saveClaim(id, itemId, person);
+      const result = await saveClaim(id, itemId, person, on);
       if (result.ok) {
         if (result.claims) setClaims(result.claims);
         return true;
@@ -210,9 +215,14 @@ export function useSettlement(bill: SharedBill, shareId?: string): Settlement {
     const totals = bill.people.map(() => 0);
     const rate = 1 + (bill.feeRate || 0);
     for (const item of bill.claimable) {
-      const who = claims[item.id];
-      if (who === undefined || who < 0 || who >= totals.length) continue;
-      totals[who] += item.amount * rate;
+      const holders = (claims[item.id] ?? []).filter(
+        (who) => who >= 0 && who < totals.length,
+      );
+      if (!holders.length) continue;
+      // A plate three people shared costs each of them a third of it, fees and
+      // all -- the same rule the maker's own assign step uses.
+      const each = (item.amount * rate) / holders.length;
+      for (const who of holders) totals[who] += each;
     }
     return totals;
   }, [bill.claimable, bill.feeRate, bill.people, claims]);

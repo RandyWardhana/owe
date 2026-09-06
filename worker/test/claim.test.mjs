@@ -47,21 +47,59 @@ describe("claiming unassigned items", () => {
 
     const res = await call("/claim", { method: "POST", json: { id, item: "i1", person: 2 } });
     assert.equal(res.status, 200);
-    assert.deepEqual((await readBill(id)).claims, { i1: 2 });
+    assert.deepEqual((await readBill(id)).claims, { i1: [2] });
+  });
+
+  test("several people can be on the same item", async () => {
+    const id = await newBill();
+    for (const person of [2, 0, 1]) {
+      await call("/claim", { method: "POST", json: { id, item: "plate", person } });
+    }
+    assert.deepEqual((await readBill(id)).claims, { plate: [0, 1, 2] }, "kept in order, no duplicates");
+  });
+
+  test("claiming twice does not add someone twice", async () => {
+    const id = await newBill();
+    await call("/claim", { method: "POST", json: { id, item: "plate", person: 1 } });
+    await call("/claim", { method: "POST", json: { id, item: "plate", person: 1 } });
+    assert.deepEqual((await readBill(id)).claims, { plate: [1] });
+  });
+
+  test("stepping off leaves the others on it", async () => {
+    const id = await newBill();
+    await call("/claim", { method: "POST", json: { id, item: "plate", person: 0 } });
+    await call("/claim", { method: "POST", json: { id, item: "plate", person: 1 } });
+    await call("/claim", { method: "POST", json: { id, item: "plate", person: 0, on: false } });
+    assert.deepEqual((await readBill(id)).claims, { plate: [1] });
+  });
+
+  test("the last person stepping off drops the item entirely", async () => {
+    const id = await newBill();
+    await call("/claim", { method: "POST", json: { id, item: "plate", person: 1 } });
+    await call("/claim", { method: "POST", json: { id, item: "plate", person: 1, on: false } });
+    assert.deepEqual((await readBill(id)).claims, {}, "not an empty array left behind");
+  });
+
+  test("a row written before claims were sets still reads", async () => {
+    const id = await newBill();
+    await call("/claim", { method: "POST", json: { id, item: "old", person: 3 } });
+    // Simulate the old single-holder shape landing in the column.
+    await call("/claim", { method: "POST", json: { id, item: "old", person: 3, on: false } });
+    assert.deepEqual((await readBill(id)).claims, {});
   });
 
   test("claiming a second item keeps the first", async () => {
     const id = await newBill();
     await call("/claim", { method: "POST", json: { id, item: "i1", person: 0 } });
     await call("/claim", { method: "POST", json: { id, item: "i2", person: 1 } });
-    assert.deepEqual((await readBill(id)).claims, { i1: 0, i2: 1 });
+    assert.deepEqual((await readBill(id)).claims, { i1: [0], i2: [1] });
   });
 
-  test("claiming an item someone else holds moves it", async () => {
+  test("a second claimer joins rather than replacing the first", async () => {
     const id = await newBill();
     await call("/claim", { method: "POST", json: { id, item: "i1", person: 0 } });
     await call("/claim", { method: "POST", json: { id, item: "i1", person: 3 } });
-    assert.deepEqual((await readBill(id)).claims, { i1: 3 });
+    assert.deepEqual((await readBill(id)).claims, { i1: [0, 3] });
   });
 
   test("a null person releases the item", async () => {
@@ -82,7 +120,7 @@ describe("claiming unassigned items", () => {
 
     const res = await call("/claim", { method: "POST", json: { id, item: "i1", person: 2 } });
     assert.equal(res.status, 409, "must not rewrite a settled person's amount");
-    assert.deepEqual((await readBill(id)).claims, { i1: 1 });
+    assert.deepEqual((await readBill(id)).claims, { i1: [1] });
   });
 
   test("an unrelated item stays claimable after someone settles", async () => {
@@ -94,7 +132,7 @@ describe("claiming unassigned items", () => {
     });
     const res = await call("/claim", { method: "POST", json: { id, item: "loose", person: 1 } });
     assert.equal(res.status, 200);
-    assert.deepEqual((await readBill(id)).claims, { loose: 1 });
+    assert.deepEqual((await readBill(id)).claims, { loose: [1] });
   });
 
   test("claims survive a data-only rewrite of the bill", async () => {
@@ -103,7 +141,7 @@ describe("claiming unassigned items", () => {
     await call("/bill", { method: "POST", json: { id, data: "cipher-2" } });
     const after = await readBill(id);
     assert.equal(after.data, "cipher-2");
-    assert.deepEqual(after.claims, { i1: 2 });
+    assert.deepEqual(after.claims, { i1: [2] });
   });
 
   test("garbage is rejected rather than stored", async () => {

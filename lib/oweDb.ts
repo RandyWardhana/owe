@@ -31,7 +31,7 @@ async function call<T>(
   }
 }
 
-export type Claims = Record<string, number>;
+export type Claims = Record<string, number[]>;
 export type BillRow = { data: string | null; paid: number[]; claims: Claims };
 
 export const readBill = (id: string): Promise<BillRow> =>
@@ -46,10 +46,11 @@ export const writeClaim = (
   id: string,
   item: string,
   person: number | null,
+  on: boolean,
 ): Promise<{ ok: boolean; claims?: Claims }> =>
   call("/claim", {
     method: "POST",
-    body: JSON.stringify({ id, item, person }),
+    body: JSON.stringify({ id, item, person, on }),
     fallback: { ok: false },
   });
 

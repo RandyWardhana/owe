@@ -49,7 +49,7 @@ export async function saveBill(id: string, data: string): Promise<boolean> {
   }
 }
 
-export type Claims = Record<string, number>;
+export type Claims = Record<string, number[]>;
 
 /** Loads a stored bill (encrypted data + paid state + claims) by id. */
 export async function fetchBill(
@@ -81,24 +81,26 @@ export async function fetchPaid(id: string): Promise<number[] | null> {
 }
 
 /**
- * Puts someone's name on an unassigned item, or takes it off with a null.
+ * Adds or removes one person on an unassigned item.
  *
  * Unlike savePaid this carries no owner token: the person claiming is a guest
- * on someone else's link. Returns the server's view of the claims so a refused
- * write (an item whose holder has already settled) cannot leave the screen
- * showing something the server rejected.
+ * on someone else's link. One person per call rather than the whole set, so
+ * two people claiming the same plate at once cannot overwrite each other.
+ * Returns the server's view so a refused write (an item somebody on it has
+ * already settled) cannot leave the screen showing what the server rejected.
  */
 export async function saveClaim(
   id: string,
   item: string,
   person: number | null,
+  on = true,
 ): Promise<{ ok: boolean; claims: Claims | null }> {
   if (!hasCloudSync || !isOnline()) return { ok: false, claims: null };
   try {
     const res = await fetch("/api/claim", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ id, item, person }),
+      body: JSON.stringify({ id, item, person, on }),
     });
     const body = (await res.json()) as { ok?: boolean; claims?: Claims };
     return { ok: Boolean(body.ok), claims: body.claims ?? null };

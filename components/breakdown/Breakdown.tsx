@@ -83,17 +83,21 @@ export default function Breakdown() {
      maker known at the table. */
   useEffect(() => {
     if (!shared) return;
-    const pending = Object.entries(owner.claimedBy).filter(([itemId, personId]) => {
-      const item = draft.items.find((candidate) => candidate.id === itemId);
-      return item && !(item.assignedTo || []).length && draft.people.some((p) => p.id === personId);
-    });
+    const known = new Set(draft.people.map((p) => p.id));
+    const pending = Object.entries(owner.claimedBy)
+      .map(([itemId, ids]) => [itemId, ids.filter((id) => known.has(id))] as const)
+      .filter(([itemId, ids]) => {
+        if (!ids.length) return false;
+        const item = draft.items.find((candidate) => candidate.id === itemId);
+        return Boolean(item) && !(item!.assignedTo || []).length;
+      });
     if (!pending.length) return;
 
     updateDraft((d) => ({
       ...d,
       items: d.items.map((item) => {
         const claim = pending.find(([itemId]) => itemId === item.id);
-        return claim ? { ...item, assignedTo: [claim[1]] } : item;
+        return claim ? { ...item, assignedTo: [...claim[1]] } : item;
       }),
     }));
   }, [shared, owner.claimedBy, draft.items, draft.people, updateDraft]);
