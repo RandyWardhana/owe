@@ -30,7 +30,7 @@ export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
 
   const mounted = useMounted();
-  const { shared, clear } = useSharedBill();
+  const { shared, shareId, clear } = useSharedBill();
   useAppliedAppearance();
   useBillBackup();
 
@@ -41,7 +41,7 @@ export default function App() {
   if (shared) {
     return (
       <div className="shell">
-        <SharedView bill={shared} onMakeOwn={clear} />
+        <SharedView bill={shared} shareId={shareId} onMakeOwn={clear} />
         <Toast />
         <ClickSpark />
         <InstallPrompt />

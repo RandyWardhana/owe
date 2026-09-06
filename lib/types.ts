@@ -56,6 +56,16 @@ export interface Draft {
   summary?: { grandTotal: number };
 
   paid?: string[];
+
+  /* Last time anything on this bill changed. createdAt cannot serve: it is set
+     once, so two devices editing the same bill always tied and the merge kept
+     whichever copy happened to be local. */
+  updatedAt?: number;
+
+  /* The id its share link points at. Minted once and then frozen: deriving it
+     from the bill's contents meant every correction published a new link and
+     abandoned the one already sent to everyone. */
+  shareId?: string;
 }
 
 export interface ScanResult {

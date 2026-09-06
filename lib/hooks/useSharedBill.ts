@@ -11,6 +11,7 @@ type SharedState = SharedBill | null | undefined;
    - long:   /s?s=<payload>  → the bill is self-contained in the link */
 export function useSharedBill() {
   const [shared, setShared] = useState<SharedState>(undefined);
+  const [shareId, setShareId] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -32,6 +33,7 @@ export function useSharedBill() {
     };
 
     if (shortMatch) {
+      setShareId(shortMatch[1]);
       fetchBill(shortMatch[1]).then((row) => {
         if (cancelled) return;
         resolve(row?.data ?? null);
@@ -50,5 +52,5 @@ export function useSharedBill() {
     setShared(null);
   };
 
-  return { shared, clear };
+  return { shared, shareId, clear };
 }

@@ -5,16 +5,20 @@ import { fmtMoney } from "@/lib/currency";
 import { initials, personColor, personInk } from "@/lib/util";
 import type { Draft } from "@/lib/types";
 
+import { Trash } from "@/components/icons";
+
 export default function HistoryRow({
   draft,
   index,
   currency,
   onOpen,
+  onDelete,
 }: {
   draft: Draft;
   index: number;
   currency: string;
   onOpen: () => void;
+  onDelete: () => void;
 }) {
   const t = useT();
   const total = draft.summary?.grandTotal ?? 0;
@@ -24,7 +28,8 @@ export default function HistoryRow({
   });
 
   return (
-    <button className="card hist tappable" style={{ ["--i" as string]: index }} onClick={onOpen}>
+    <div className="card hist" style={{ ["--i" as string]: index }}>
+      <button className="hist__open tappable" onClick={onOpen}>
       <div className="hist__avatars">
         {draft.people.slice(0, 3).map((p, k) => (
           <span
@@ -46,7 +51,15 @@ export default function HistoryRow({
           {date} · {t("home.peopleCount", { n: draft.people.length })}
         </div>
       </div>
-      <div className="hist__total disp tnum">{fmtMoney(total, draft.currency || currency)}</div>
-    </button>
+        <div className="hist__total disp tnum">{fmtMoney(total, draft.currency || currency)}</div>
+      </button>
+      <button
+        className="iconbtn ghost hist__del"
+        aria-label={t("home.deleteBill", { name: draft.title || t("shared.defaultTitle") })}
+        onClick={onDelete}
+      >
+        <Trash size={17} />
+      </button>
+    </div>
   );
 }

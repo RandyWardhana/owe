@@ -1,5 +1,6 @@
 import { hasCloudSync } from "./cloudSync";
 import { deviceId } from "./device";
+import { adoptTokens, allTokens } from "./billOwner";
 import type { Draft } from "./types";
 
 function online(): boolean {
@@ -40,10 +41,21 @@ function fromB64(str: string): Uint8Array {
   return out;
 }
 
-async function encrypt(history: Draft[], id: string): Promise<string> {
+interface Payload {
+  history: Draft[];
+  /* Bills deleted on any device. Without these a delete is undone by the very
+     next sync, which reads as the app losing your instruction. */
+  tombstones?: Record<string, number>;
+  /* billId -> owner token. Without these, your other device can see a bill it
+     created but cannot confirm anyone's payment on it: the token proving
+     ownership lived only in the browser that first shared it. */
+  owners?: Record<string, string>;
+}
+
+async function encrypt(payload: Payload, id: string): Promise<string> {
   const key = await keyFor(id);
   const iv = crypto.getRandomValues(new Uint8Array(12));
-  const raw = new TextEncoder().encode(JSON.stringify(history));
+  const raw = new TextEncoder().encode(JSON.stringify(payload));
   const ct = new Uint8Array(
     await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, raw),
   );
@@ -53,7 +65,7 @@ async function encrypt(history: Draft[], id: string): Promise<string> {
   return toB64(packed);
 }
 
-async function decrypt(data: string, id: string): Promise<Draft[] | null> {
+async function decrypt(data: string, id: string): Promise<Payload | null> {
   try {
     const key = await keyFor(id);
     const packed = fromB64(data);
@@ -63,13 +75,16 @@ async function decrypt(data: string, id: string): Promise<Draft[] | null> {
       await crypto.subtle.decrypt({ name: "AES-GCM", iv }, key, ct),
     );
     const parsed = JSON.parse(new TextDecoder().decode(raw));
-    return Array.isArray(parsed) ? (parsed as Draft[]) : null;
+    // Older backups are a bare array; newer ones wrap it so tokens can ride along.
+    if (Array.isArray(parsed)) return { history: parsed as Draft[] };
+    if (parsed && Array.isArray(parsed.history)) return parsed as Payload;
+    return null;
   } catch {
     return null;
   }
 }
 
-export async function pullHistory(): Promise<Draft[] | null> {
+export async function pullHistory(): Promise<Payload | null> {
   const id = deviceId();
   if (!hasCloudSync || !id || !online()) return null;
   try {
@@ -78,21 +93,43 @@ export async function pullHistory(): Promise<Draft[] | null> {
     if (!response.ok) return null;
     const json = (await response.json()) as { data?: string | null };
     if (!json.data) return null;
-    return decrypt(json.data, id);
+    const payload = await decrypt(json.data, id);
+    if (!payload) return null;
+    if (payload.owners) adoptTokens(payload.owners);
+    return payload;
   } catch {
     return null;
   }
 }
 
-export async function pushHistory(history: Draft[]): Promise<void> {
+/**
+ * What actually goes over the wire.
+ *
+ * `step` is where the user is standing in the wizard, not a property of the
+ * bill. syncSaved mirrors the live draft into its history entry on every
+ * keystroke, so a bill being edited was pushed carrying step:"assign" -- and
+ * the other device rendered a finished split as an unfinished draft. History is
+ * a list of finished bills by definition, so it is normalised on the way out.
+ */
+function forSync(history: Draft[]): Draft[] {
+  return history.map((entry) => ({ ...entry, step: "breakdown" as const }));
+}
+
+export async function pushHistory(
+  history: Draft[],
+  tombstones: Record<string, number> = {},
+): Promise<void> {
   // never overwrite the cloud copy with an empty list — a failed restore on a
   // fresh/evicted context would otherwise wipe a good backup
-  if (!history.length) return;
+  if (!history.length && !Object.keys(tombstones).length) return;
   const id = deviceId();
   if (!hasCloudSync || !id || !online()) return;
   try {
     const key = await digestHex(id);
-    const data = await encrypt(history, id);
+    const data = await encrypt(
+      { history: forSync(history), owners: allTokens(), tombstones },
+      id,
+    );
     await fetch("/api/sync", {
       method: "POST",
       headers: { "content-type": "application/json" },

@@ -1,5 +1,5 @@
 import { hasCloudSync } from "./cloudSync";
-import { claimBill, ownerToken } from "./billOwner";
+import { claimBill, forgetBill, ownerToken } from "./billOwner";
 import type { SharedBill } from "./types";
 
 /* Cloud layer for shared bills, proxied through our own server (/api/bill) so
@@ -117,4 +117,29 @@ export function subscribePaid(
     stopped = true;
     clearInterval(interval);
   };
+}
+
+/**
+ * Erase a shared bill from the server: its row, its receipts, and the R2 objects
+ * behind them. Only the device that created it can; everyone else holds a link,
+ * not a claim. Succeeds quietly when the bill was never shared, so the caller
+ * can always follow it with a local delete.
+ */
+export async function deleteBill(id: string): Promise<boolean> {
+  const token = ownerToken(id);
+  if (!hasCloudSync || !isOnline() || !token) {
+    forgetBill(id);
+    return !token;
+  }
+  try {
+    const res = await fetch(
+      `/api/bill?id=${encodeURIComponent(id)}&t=${encodeURIComponent(token)}`,
+      { method: "DELETE" },
+    );
+    const body = (await res.json()) as { ok?: boolean };
+    if (body.ok) forgetBill(id);
+    return Boolean(body.ok);
+  } catch {
+    return false;
+  }
 }

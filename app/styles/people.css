@@ -42,3 +42,89 @@
 .method-chip {
   cursor: pointer;
 }
+
+/* Saved people, in a sheet. A dropdown was fine for three contacts and useless
+   for thirty -- no comfortable scroll, and on a phone it covered the field you
+   were typing into. */
+.saved__search {
+  width: 100%;
+  margin-bottom: 10px;
+}
+
+.saved__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 52vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.saved__row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.saved__pick {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 9px 8px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.saved__pick:active {
+  background: var(--card-2);
+}
+
+.saved__pick:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.saved__av {
+  width: 34px;
+  height: 34px;
+  font-size: 12px;
+  flex: 0 0 auto;
+}
+
+.saved__body {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.saved__name {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.saved__meta {
+  font-size: 12.5px;
+  color: var(--ink-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.saved__forget {
+  flex: 0 0 auto;
+}
+
+.saved__empty {
+  margin-top: 4px;
+}

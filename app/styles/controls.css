@@ -189,3 +189,17 @@
   font-weight: 700;
   color: var(--ink);
 }
+
+/* Destructive confirm. Deleting a split reaches other people's links, so the
+   button that does it should not look like the one that cancels. */
+.btn.danger {
+  background: var(--neg, #d4553f);
+  color: #fff;
+  /* .btn carries an accent-coloured lip; a destructive button wearing the
+     brand's green underline reads as half-confirmed. */
+  box-shadow: 0 var(--btn-lip) 0 0 color-mix(in oklab, var(--neg, #d4553f), #000 26%);
+}
+.btn.danger:active {
+  transform: translateY(var(--btn-lip));
+  box-shadow: 0 0 0 0 color-mix(in oklab, var(--neg, #d4553f), #000 26%);
+}

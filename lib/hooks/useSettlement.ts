@@ -77,8 +77,10 @@ export interface Settlement {
   dropProof: (index: number) => Promise<RemoveResult>;
 }
 
-export function useSettlement(bill: SharedBill): Settlement {
-  const id = useMemo(() => billId(bill), [bill]);
+export function useSettlement(bill: SharedBill, shareId?: string): Settlement {
+  // The link that was opened is the source of truth. Re-hashing the bill
+  // would miss every edit made since it was shared.
+  const id = useMemo(() => shareId || billId(bill), [bill, shareId]);
   const [paid, setPaid] = useState<Set<number>>(() => readLocal(id, bill));
   const [proofs, setProofs] = useState<Set<number>>(() => readProofs(id));
   const [uploading, setUploading] = useState<number | null>(null);

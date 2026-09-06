@@ -20,6 +20,10 @@ interface Props {
   summary: string;
   onSetPayer: (id: string) => void;
   onTogglePaid: (id: string) => void;
+  /* Receipts uploaded through the share link, by person id. Empty until the
+     bill has been shared — an unshared split has nobody to upload one. */
+  proofOf?: (personId: string) => string | null;
+  onViewProof?: (personId: string) => void;
 }
 
 export default function SettleUp({
@@ -32,6 +36,8 @@ export default function SettleUp({
   summary,
   onSetPayer,
   onTogglePaid,
+  proofOf,
+  onViewProof,
 }: Props) {
   const t = useT();
   const summaryCopy = useCopyAnim();
@@ -77,6 +83,7 @@ export default function SettleUp({
           <div className="col-gap" style={{ marginTop: 14 }}>
             {settle.map((s) => {
               const isPaid = paid.includes(s.from);
+              const proof = proofOf?.(s.from) ?? null;
               return (
                 <div className={`owe-row ${isPaid ? "is-paid" : ""}`} key={s.from}>
                   <button
@@ -92,9 +99,20 @@ export default function SettleUp({
                     <div className="muted owe-row__sub">
                       {isPaid
                         ? t("breakdown.paid")
-                        : t("shared.owes", { name: payer.name || "—" })}
+                        : proof
+                          ? t("shared.proofWaiting")
+                          : t("shared.owes", { name: payer.name || "—" })}
                     </div>
                   </div>
+                  {proof ? (
+                    <button
+                      className="settle__thumb owe-row__proof"
+                      onClick={() => onViewProof?.(s.from)}
+                      aria-label={t("shared.viewProof")}
+                    >
+                      <img src={proof} alt="" onError={(e) => { e.currentTarget.style.display = "none"; }} />
+                    </button>
+                  ) : null}
                   <span className="owe-row__amt disp tnum">
                     <AnimatedMoney value={s.amount} currency={currency} />
                   </span>

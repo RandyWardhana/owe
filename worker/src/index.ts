@@ -291,6 +291,43 @@ async function deleteProof(env: Env, url: URL, ownerToken: string): Promise<Resp
   return json({ ok: true });
 }
 
+/**
+ * Delete a bill and everything hanging off it.
+ *
+ * Owner only: the share link is public, so anyone could otherwise erase a split
+ * they merely received. Removes the R2 objects before the rows, because an
+ * orphaned object is invisible -- nothing references it and no listing in the
+ * app will ever show it again -- whereas an orphaned row is at worst a broken
+ * thumbnail that the next delete can still clean up.
+ */
+async function deleteBill(env: Env, url: URL, ownerToken: string): Promise<Response> {
+  const id = url.searchParams.get("id") ?? "";
+  if (!id) return json({ ok: false }, 400);
+
+  const bill = await env.DB.prepare("SELECT owner_hash FROM bills WHERE id = ?")
+    .bind(id)
+    .first<{ owner_hash: string | null }>();
+  if (!bill) return json({ ok: true, alreadyGone: true });
+
+  const presented = ownerToken ? await sha256Hex(ownerToken) : "";
+  if (!bill.owner_hash || presented !== bill.owner_hash) {
+    return json({ ok: false, error: "not the owner" }, 403);
+  }
+
+  const { results } = await env.DB.prepare("SELECT r2_key FROM proofs WHERE bill_id = ?")
+    .bind(id)
+    .all<{ r2_key: string }>();
+
+  for (const row of results ?? []) await env.PROOFS.delete(row.r2_key);
+
+  await env.DB.batch([
+    env.DB.prepare("DELETE FROM proofs WHERE bill_id = ?").bind(id),
+    env.DB.prepare("DELETE FROM bills WHERE id = ?").bind(id),
+  ]);
+
+  return json({ ok: true, proofs: (results ?? []).length });
+}
+
 export default {
   async fetch(req: Request, env: Env): Promise<Response> {
     if (!authorized(req, env)) return json({ error: "unauthorized" }, 401);
@@ -323,6 +360,10 @@ export default {
 
       if (req.method === "GET" && path === "/proof") {
         return await getProof(env, url, req.headers.get("x-owe-owner") ?? "");
+      }
+
+      if (req.method === "DELETE" && path === "/bill") {
+        return await deleteBill(env, url, req.headers.get("x-owe-owner") ?? "");
       }
 
       if (req.method === "DELETE" && path === "/proof") {
