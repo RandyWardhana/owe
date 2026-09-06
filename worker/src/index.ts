@@ -323,6 +323,81 @@ async function deleteBill(env: Env, url: URL, ownerToken: string): Promise<Respo
   return json({ ok: true, proofs: (results ?? []).length });
 }
 
+/* ---- Admin ------------------------------------------------------------- *
+ * Read-mostly views for recovering a bill someone has lost. Gated by the same
+ * shared secret as everything else, and reachable only through owe's /admin
+ * routes, which sit behind their own password. Nothing here can read a device
+ * backup: those are encrypted with the sync code itself, which the server never
+ * sees. Listing them is all that is possible.
+ * ------------------------------------------------------------------------ */
+
+async function adminBills(env: Env): Promise<Response> {
+  const { results } = await env.DB.prepare(
+    `SELECT b.id, b.data, b.paid, b.updated_at,
+            b.owner_hash IS NOT NULL AS owned,
+            (SELECT COUNT(*) FROM proofs p WHERE p.bill_id = b.id) AS proofs
+       FROM bills b ORDER BY b.updated_at DESC LIMIT 500`,
+  ).all();
+  return json({ bills: results ?? [] });
+}
+
+async function adminBackups(env: Env): Promise<Response> {
+  const { results } = await env.DB.prepare(
+    "SELECT key, length(data) AS size, updated_at FROM user_bills ORDER BY updated_at DESC LIMIT 500",
+  ).all();
+  return json({ backups: results ?? [] });
+}
+
+async function adminBackup(env: Env, key: string): Promise<Response> {
+  const row = await env.DB.prepare("SELECT data, updated_at FROM user_bills WHERE key = ?")
+    .bind(key)
+    .first<{ data: string; updated_at: string }>();
+  return json({ backup: row ?? null });
+}
+
+/**
+ * Release an ownership claim.
+ *
+ * The token behind owner_hash lives in one browser's localStorage. Lose that —
+ * clear site data, change domain, change phone — and the bill can never be
+ * changed again by anyone, because only the hash is stored. Clearing it reopens
+ * the bill so the next share re-claims it.
+ */
+async function adminRelease(env: Env, id: string): Promise<Response> {
+  if (!id) return json({ ok: false }, 400);
+  const { meta } = await env.DB.prepare(
+    "UPDATE bills SET owner_hash = NULL WHERE id = ? AND owner_hash IS NOT NULL",
+  )
+    .bind(id)
+    .run();
+  return json({ ok: true, changed: meta?.changes ?? 0 });
+}
+
+async function adminObjects(env: Env, prefix: string): Promise<Response> {
+  const objects: { key: string; size: number; uploaded: string }[] = [];
+  let cursor: string | undefined;
+  do {
+    const page = await env.PROOFS.list({ prefix: prefix || undefined, cursor, limit: 1000 });
+    page.objects.forEach((o) =>
+      objects.push({ key: o.key, size: o.size, uploaded: o.uploaded.toISOString() }),
+    );
+    cursor = page.truncated ? page.cursor : undefined;
+  } while (cursor);
+
+  const { results } = await env.DB.prepare("SELECT r2_key FROM proofs").all<{ r2_key: string }>();
+  const referenced = new Set((results ?? []).map((r) => r.r2_key));
+
+  return json({
+    objects: objects.map((o) => ({ ...o, orphan: !referenced.has(o.key) })),
+  });
+}
+
+async function adminDeleteObject(env: Env, key: string): Promise<Response> {
+  if (!key) return json({ ok: false }, 400);
+  await env.PROOFS.delete(key);
+  return json({ ok: true });
+}
+
 export default {
   async fetch(req: Request, env: Env): Promise<Response> {
     if (!authorized(req, env)) return json({ error: "unauthorized" }, 401);
@@ -355,6 +430,24 @@ export default {
 
       if (req.method === "GET" && path === "/proof") {
         return await getProof(env, url);
+      }
+
+      if (path.startsWith("/admin/")) {
+        if (req.method === "GET" && path === "/admin/bills") return await adminBills(env);
+        if (req.method === "GET" && path === "/admin/backups") return await adminBackups(env);
+        if (req.method === "GET" && path === "/admin/backup") {
+          return await adminBackup(env, url.searchParams.get("key") ?? "");
+        }
+        if (req.method === "GET" && path === "/admin/objects") {
+          return await adminObjects(env, url.searchParams.get("prefix") ?? "");
+        }
+        if (req.method === "POST" && path === "/admin/release") {
+          return await adminRelease(env, url.searchParams.get("id") ?? "");
+        }
+        if (req.method === "DELETE" && path === "/admin/object") {
+          return await adminDeleteObject(env, url.searchParams.get("key") ?? "");
+        }
+        return json({ error: "not found" }, 404);
       }
 
       if (req.method === "DELETE" && path === "/bill") {

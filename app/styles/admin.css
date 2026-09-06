@@ -1,0 +1,246 @@
+/* #root is a fixed, centred flex box and body has overflow:hidden -- the app is
+   one non-scrolling screen. The console is a long list, so it has to stretch
+   across that container and carry its own scroll. */
+.adm {
+  flex: 1 1 auto;
+  align-self: stretch;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  background: var(--bg);
+  color: var(--ink);
+  padding: calc(24px + var(--safe-top)) 20px calc(40px + var(--safe-bottom));
+}
+/* On desktop the app renders as an inset rounded shell on a darker backdrop
+   (#root gets 24px of padding at 600px). Match it so the console looks like
+   part of owe rather than a bare page dropped inside the frame. */
+@media (min-width: 600px) {
+  .adm,
+  .adm__gate {
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-lg);
+  }
+}
+
+.adm__wrap {
+  max-width: 1040px;
+  margin: 0 auto;
+  display: grid;
+  gap: 18px;
+}
+.adm__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.adm__title {
+  font-family: var(--font-display);
+  font-size: 26px;
+  letter-spacing: -0.02em;
+}
+.adm__tabs {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.adm__tab {
+  border: 1px solid var(--line);
+  background: var(--card);
+  color: var(--ink-2);
+  border-radius: 999px;
+  padding: 7px 14px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.adm__tab[aria-selected="true"] {
+  background: var(--accent);
+  border-color: var(--accent-edge);
+  color: var(--on-accent);
+}
+.adm__panel {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  display: grid;
+  gap: 12px;
+}
+.adm__bar {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.adm__input {
+  flex: 1 1 200px;
+  min-width: 0;
+  border: 1px solid var(--line-strong);
+  background: var(--bg);
+  color: var(--ink);
+  border-radius: var(--radius-sm);
+  padding: 9px 12px;
+  font: inherit;
+  font-size: 14px;
+}
+.adm__btn {
+  border: 1px solid var(--line-strong);
+  background: var(--card-2);
+  color: var(--ink);
+  border-radius: var(--radius-sm);
+  padding: 9px 14px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.adm__btn--go {
+  background: var(--accent);
+  border-color: var(--accent-edge);
+  color: var(--on-accent);
+}
+.adm__btn--warn {
+  color: var(--warn);
+}
+.adm__btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.adm__scroll {
+  overflow-x: auto;
+}
+.adm__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.adm__table th {
+  text-align: left;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  font-weight: 700;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+}
+.adm__table td {
+  padding: 9px 8px;
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+}
+.adm__table tr:last-child td {
+  border-bottom: 0;
+}
+.adm__mono {
+  font-variant-numeric: tabular-nums;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+}
+.adm__sub {
+  color: var(--ink-3);
+  font-size: 12px;
+}
+.adm__tag {
+  display: inline-block;
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  background: var(--card-2);
+  color: var(--ink-2);
+  border: 1px solid var(--line);
+}
+.adm__tag--pos {
+  color: var(--pos);
+  border-color: color-mix(in oklab, var(--pos) 40%, var(--line));
+}
+.adm__tag--warn {
+  color: var(--warn);
+  border-color: color-mix(in oklab, var(--warn) 40%, var(--line));
+}
+.adm__note {
+  font-size: 13px;
+  color: var(--ink-2);
+  background: var(--card-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  word-break: break-word;
+}
+.adm__note--bad {
+  color: var(--warn);
+  border-color: color-mix(in oklab, var(--warn) 40%, var(--line));
+}
+.adm__gate {
+  flex: 1 1 auto;
+  align-self: stretch;
+  display: grid;
+  place-items: center;
+  background: var(--bg);
+  padding: 20px;
+}
+.adm__gate form {
+  width: min(340px, 100%);
+  display: grid;
+  gap: 10px;
+}
+
+/* Below ~720px the eight columns stop being a table and become one card per
+   bill: a horizontally scrolling table on a phone is unreadable, and this is a
+   tool that gets opened on a phone when a bill has gone missing. */
+@media (max-width: 720px) {
+  .adm__table,
+  .adm__table tbody,
+  .adm__table tr,
+  .adm__table td {
+    display: block;
+    width: auto;
+  }
+  .adm__table thead {
+    display: none;
+  }
+  .adm__table tr {
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+    padding: 10px 12px;
+    margin-bottom: 10px;
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 4px 10px;
+    align-items: start;
+  }
+  .adm__table td {
+    border: 0;
+    padding: 0;
+  }
+  .adm__table td:first-child {
+    grid-row: 1 / span 2;
+  }
+  .adm__table td:not(:first-child) {
+    grid-column: 2;
+  }
+  .adm__table td:empty {
+    display: none;
+  }
+  .adm__table td[data-label] {
+    display: flex;
+    gap: 8px;
+    align-items: baseline;
+    justify-content: space-between;
+    white-space: nowrap;
+  }
+  .adm__table td[data-label]::before {
+    content: attr(data-label);
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    font-weight: 700;
+    font-family: var(--font-sans);
+  }
+}
