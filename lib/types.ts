@@ -26,6 +26,15 @@ export interface Item {
   qty: number;
   price: number;
   assignedTo: string[];
+  /* How many of the line each assignee had, keyed by person id. Absent, or
+     missing a person, means 1 -- so an even split needs no entry at all, and
+     drafts saved before this existed read exactly as they did. Only weights
+     the split; assignedTo still decides who is on the item. */
+  units?: Record<string, number>;
+  /* Whether units apply at all. Off (the default) the line is shared: everyone
+     on it pays the same part, however many there were. On, it is split by how
+     many each person had. */
+  countEach?: boolean;
   _new?: boolean;
 }
 
@@ -87,7 +96,7 @@ export interface PersonSplit {
   discount: number;
   total: number;
   rawTotal: number;
-  items: { name: string; qty: number; share: number; split: number }[];
+  items: { name: string; qty: number; share: number; split: number; units?: number }[];
 }
 
 export interface SplitResult {
@@ -121,7 +130,7 @@ export type Lang = "en" | "id";
  * boundary in lib/share.ts instead. Key legend:
  *   v=version, t=title, c=currency, g=grandTotal, py=payerIndex, pd=paidIndices
  *   pp=people [ n=name, t=total, ac=accounts[k=key, v=value],
- *               it=items[n=name, q=qty, s=share, sp=split] ]
+ *               it=items[n=name, q=qty, s=share, sp=split, u=units] ]
  *   ui=unclaimed items [ i=id, n=name, q=qty, a=amount ], fr=fee rate
  */
 export interface SharePayload {
@@ -134,7 +143,7 @@ export interface SharePayload {
     n: string;
     t: number;
     ac: { k: PayMethodKey; v: string }[];
-    it?: { n: string; q: number; s: number; sp?: number }[];
+    it?: { n: string; q: number; s: number; sp?: number; u?: number }[];
   }[];
 
   pd?: number[];
@@ -154,6 +163,8 @@ export interface SharedBillItem {
   qty: number;
   share: number;
   split?: number;
+  /* How many of a shared line this person had, when it was not one each. */
+  units?: number;
 }
 
 export interface SharedBillAccount {

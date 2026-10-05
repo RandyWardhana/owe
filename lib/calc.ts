@@ -11,6 +11,13 @@ export function lineTotal(it: Pick<Item, "qty" | "price">): number {
   return (Number(it.qty) || 0) * (Number(it.price) || 0);
 }
 
+/* How many of the line this person had: at least 1, at most the line's qty. */
+export function unitsOf(it: Pick<Item, "qty" | "units">, personId: string): number {
+  const max = Math.max(1, Math.floor(Number(it.qty) || 1));
+  const n = Math.floor(Number(it.units?.[personId]) || 1);
+  return Math.min(max, Math.max(1, n));
+}
+
 export function roundVal(value: number, mode: Rounding): number {
   if (mode === "whole") return Math.round(value);
   if (mode === "up5") return Math.ceil(value / 5) * 5;
@@ -45,14 +52,21 @@ export function computeSplit(
       if (lineAmount > 0 || item.name) unassignedItems.push(item);
       return;
     }
-    const share = lineAmount / assignees.length;
-    assignees.forEach((id) => {
+    /* Someone who had two of the six drinks pays for two: a line counted per
+       person divides by units, not heads. A shared line, or one where every
+       count is 1, is the plain even split. */
+    const weights = assignees.map((id) => (item.countEach ? unitsOf(item, id) : 1));
+    const totalUnits = weights.reduce((sum, w) => sum + w, 0);
+    const uneven = weights.some((w) => w !== 1);
+    assignees.forEach((id, index) => {
+      const share = (lineAmount * weights[index]) / totalUnits;
       base[id].subtotal += share;
       base[id].items.push({
         name: item.name,
         qty: item.qty,
         share,
         split: assignees.length > 1 ? assignees.length : 0,
+        ...(uneven && assignees.length > 1 ? { units: weights[index] } : {}),
       });
     });
   });

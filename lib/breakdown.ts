@@ -40,6 +40,7 @@ export function buildSharedBill(
           // Only carry the split count when shared; keeps exclusive-item
           // entries compact in the URL.
           ...(item.split ? { split: item.split } : {}),
+          ...(item.units ? { units: item.units } : {}),
         })),
       };
     }),
