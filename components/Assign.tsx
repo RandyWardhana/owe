@@ -42,17 +42,19 @@ export default function Assign() {
     buzz(5);
     updateDraft((d) => ({
       ...d,
-      items: d.items.map((it) =>
-        it.id === itemId
-          ? {
-              ...it,
-              units: {
-                ...it.units,
-                [personId]: Math.min(it.qty, Math.max(1, unitsOf(it, personId) + delta)),
-              },
-            }
-          : it,
-      ),
+      items: d.items.map((it) => {
+        if (it.id !== itemId) return it;
+        // Nobody can take one more once the whole line is accounted for.
+        const counted = it.assignedTo.reduce((sum, id) => sum + unitsOf(it, id), 0);
+        if (delta > 0 && counted >= it.qty) return it;
+        return {
+          ...it,
+          units: {
+            ...it.units,
+            [personId]: Math.min(it.qty, Math.max(1, unitsOf(it, personId) + delta)),
+          },
+        };
+      }),
     }));
   };
 
@@ -225,7 +227,7 @@ export default function Assign() {
                             <button
                               className="units__btn"
                               aria-label={t("assign.more", { name: p.name || "—" })}
-                              disabled={n >= it.qty}
+                              disabled={counted >= it.qty}
                               onClick={() => step(it.id, p.id, 1)}
                             >
                               <Plus size={15} />
