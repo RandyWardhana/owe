@@ -22,6 +22,7 @@ function toWire(bill: SharedBill): SharePayload {
         s: item.share,
         // Carry the split count only when shared — keeps the URL compact.
         ...(item.split ? { sp: item.split } : {}),
+        ...(item.units ? { u: item.units } : {}),
       })),
     })),
     pd: bill.paidIndices,
@@ -58,6 +59,7 @@ function fromWire(payload: SharePayload): SharedBill {
         qty: item.q,
         share: item.s,
         split: item.sp,
+        units: item.u,
       })),
     })),
     paidIndices: payload.pd || [],
