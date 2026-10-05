@@ -20,9 +20,13 @@ const ROUNDINGS: { value: Rounding; key: string }[] = [
 export default function Settings({
   open,
   onClose,
+  billCurrency,
 }: {
   open: boolean;
   onClose: () => void;
+  /* Set when opened over a shared bill: money settings then mean "show this
+     bill in", and rounding and backups -- which act on your own bills -- go. */
+  billCurrency?: string;
 }) {
   const t = useT();
   const theme = useStore((s) => s.theme);
@@ -37,6 +41,8 @@ export default function Settings({
   const setAnim = useStore((s) => s.setAnim);
   const setCurrency = useStore((s) => s.setCurrency);
   const setRounding = useStore((s) => s.setRounding);
+  const viewCurrency = useStore((s) => s.viewCurrency);
+  const setViewCurrency = useStore((s) => s.setViewCurrency);
 
   const pickTheme = (next: Theme) => {
     buzz(8);
@@ -127,47 +133,72 @@ export default function Settings({
       </div>
 
       <p className="label">{t("settings.money")}</p>
-      <div className="set-group">
-        <div className="set-item">
-          <span className="set-item__label">{t("settings.currency")}</span>
-          <div className="set-select">
-            <select
-              value={currency}
-              onChange={(e) => {
-                buzz(5);
-                setCurrency(e.target.value);
-              }}
-            >
-              {Object.keys(CURRENCIES).map((code) => (
-                <option key={code} value={code}>
-                  {CURRENCIES[code].sym} {code}
-                </option>
-              ))}
-            </select>
-            <Chevron size={16} className="set-select__chev" />
-          </div>
-        </div>
-
-        <div className="set-item">
-          <span className="set-item__label">{t("settings.rounding")}</span>
-          <div className="seg">
-            {ROUNDINGS.map((r) => (
-              <button
-                key={r.value}
-                className={`seg__btn ${rounding === r.value ? "on" : ""}`}
-                onClick={() => {
+      {billCurrency ? (
+        <div className="set-group">
+          <div className="set-item">
+            <span className="set-item__label">{t("settings.viewIn")}</span>
+            <div className="set-select">
+              <select
+                value={viewCurrency && viewCurrency !== billCurrency ? viewCurrency : billCurrency}
+                onChange={(e) => {
                   buzz(5);
-                  setRounding(r.value);
+                  setViewCurrency(e.target.value === billCurrency ? null : e.target.value);
                 }}
               >
-                {t(r.key)}
-              </button>
-            ))}
+                {Object.keys(CURRENCIES).map((code) => (
+                  <option key={code} value={code}>
+                    {CURRENCIES[code].sym} {code}
+                    {code === billCurrency ? ` · ${t("settings.billsOwn")}` : ""}
+                  </option>
+                ))}
+              </select>
+              <Chevron size={16} className="set-select__chev" />
+            </div>
           </div>
         </div>
-      </div>
+      ) : (
+        <div className="set-group">
+          <div className="set-item">
+            <span className="set-item__label">{t("settings.currency")}</span>
+            <div className="set-select">
+              <select
+                value={currency}
+                onChange={(e) => {
+                  buzz(5);
+                  setCurrency(e.target.value);
+                }}
+              >
+                {Object.keys(CURRENCIES).map((code) => (
+                  <option key={code} value={code}>
+                    {CURRENCIES[code].sym} {code}
+                  </option>
+                ))}
+              </select>
+              <Chevron size={16} className="set-select__chev" />
+            </div>
+          </div>
 
-      <SyncSettings />
+          <div className="set-item">
+            <span className="set-item__label">{t("settings.rounding")}</span>
+            <div className="seg">
+              {ROUNDINGS.map((r) => (
+                <button
+                  key={r.value}
+                  className={`seg__btn ${rounding === r.value ? "on" : ""}`}
+                  onClick={() => {
+                    buzz(5);
+                    setRounding(r.value);
+                  }}
+                >
+                  {t(r.key)}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {billCurrency ? null : <SyncSettings />}
 
       <p className="muted about">{t("settings.about")}</p>
     </Sheet>
