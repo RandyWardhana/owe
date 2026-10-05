@@ -1,5 +1,7 @@
 "use client";
 
+import { useCallback } from "react";
+
 import { useStore } from "@/lib/store";
 import { useT } from "@/lib/i18n";
 import { fmtMoney, CURRENCIES } from "@/lib/currency";
@@ -8,9 +10,10 @@ import { buzz, uid, clampNum } from "@/lib/util";
 import type { ChargeMode, Item } from "@/lib/types";
 
 import Screen from "@/components/Screen";
-import { Plus, Trash, ArrowRight } from "@/components/icons";
+import { Plus, Trash, ArrowRight, Grip } from "@/components/icons";
 import ChargeRow from "./ChargeRow";
 import QtyInput from "./QtyInput";
+import { useReorder } from "./useReorder";
 
 export default function Review() {
   const t = useT();
@@ -34,6 +37,20 @@ export default function Review() {
     buzz(6);
     updateDraft((d) => ({ ...d, items: d.items.filter((it) => it.id !== id) }));
   };
+
+  const moveItem = useCallback(
+    (from: number, to: number) => {
+      buzz(8);
+      updateDraft((d) => {
+        const items = [...d.items];
+        const [moved] = items.splice(from, 1);
+        items.splice(to, 0, moved);
+        return { ...d, items };
+      });
+    },
+    [updateDraft],
+  );
+  const reorder = useReorder(draft.items.length, moveItem);
 
   const addItem = () => {
     buzz(8);
@@ -88,44 +105,59 @@ export default function Review() {
 
         <div className="col-gap stagger" style={{ marginTop: 14 }}>
           {draft.items.map((it, i) => (
+            /* The slot carries the entry animation, the card the drag offset:
+               an animation's held transform would otherwise override it. */
             <div
-              className={`card item ${it._new ? "pop" : ""}`}
+              className={it._new ? "pop" : undefined}
               key={it.id}
               style={{ ["--i" as string]: i }}
             >
-              <input
-                className="item__name"
-                value={it.name}
-                placeholder={t("review.itemName")}
-                onChange={(e) => setItem(it.id, { name: e.target.value })}
-              />
-              <button
-                className="iconbtn ghost item__del"
-                aria-label="delete"
-                onClick={() => delItem(it.id)}
+              <div
+                className={`card item ${reorder.drag?.from === i ? "item--dragging" : ""}`}
+                ref={reorder.rowRef(i)}
+                style={reorder.rowStyle(i)}
               >
-                <Trash size={18} />
-              </button>
-              <div className="item__nums">
-                <label className="qtybox">
-                  <span className="qtybox__x">×</span>
-                  <QtyInput
-                    value={it.qty}
-                    onChange={(n) => setItem(it.id, { qty: n })}
-                  />
-                </label>
-                <label className="pricebox">
-                  <span className="muted">{t("review.each")}</span>
-                  <input
-                    className="pricebox__in tnum"
-                    inputMode="decimal"
-                    value={it.price || ""}
-                    placeholder="0"
-                    onFocus={(e) => e.target.select()}
-                    onChange={(e) => setItem(it.id, { price: clampNum(e.target.value) })}
-                  />
-                </label>
-                <div className="item__line disp tnum">{fmtMoney(lineTotal(it), currency)}</div>
+                <button
+                  className="item__grip"
+                  aria-label={t("review.reorder", { name: it.name || t("common.item") })}
+                  {...reorder.handleProps(i)}
+                >
+                  <Grip size={18} />
+                </button>
+                <input
+                  className="item__name"
+                  value={it.name}
+                  placeholder={t("review.itemName")}
+                  onChange={(e) => setItem(it.id, { name: e.target.value })}
+                />
+                <button
+                  className="iconbtn ghost item__del"
+                  aria-label="delete"
+                  onClick={() => delItem(it.id)}
+                >
+                  <Trash size={18} />
+                </button>
+                <div className="item__nums">
+                  <label className="qtybox">
+                    <span className="qtybox__x">×</span>
+                    <QtyInput
+                      value={it.qty}
+                      onChange={(n) => setItem(it.id, { qty: n })}
+                    />
+                  </label>
+                  <label className="pricebox">
+                    <span className="muted">{t("review.each")}</span>
+                    <input
+                      className="pricebox__in tnum"
+                      inputMode="decimal"
+                      value={it.price || ""}
+                      placeholder="0"
+                      onFocus={(e) => e.target.select()}
+                      onChange={(e) => setItem(it.id, { price: clampNum(e.target.value) })}
+                    />
+                  </label>
+                  <div className="item__line disp tnum">{fmtMoney(lineTotal(it), currency)}</div>
+                </div>
               </div>
             </div>
           ))}
