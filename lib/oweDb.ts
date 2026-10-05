@@ -34,10 +34,13 @@ async function call<T>(
 export type Claims = Record<string, number[]>;
 export type BillRow = { data: string | null; paid: number[]; claims: Claims };
 
-export const readBill = (id: string): Promise<BillRow> =>
-  call(`/bill?id=${encodeURIComponent(id)}`, {
+/* null when the Worker could not be asked (not configured, unreachable, or it
+   errored) -- as opposed to a row with no data, which is a bill that is not
+   there. Callers that show a link need to tell those apart. */
+export const readBill = (id: string): Promise<BillRow | null> =>
+  call<BillRow | null>(`/bill?id=${encodeURIComponent(id)}`, {
     method: "GET",
-    fallback: { data: null, paid: [], claims: {} },
+    fallback: null,
   });
 
 /* No owner token: whoever holds the link is the person who ordered the thing,
@@ -177,6 +180,5 @@ export async function removeBill(
 
 /* Server-rendered share pages read the bill straight from here. */
 export async function getBillData(id: string): Promise<string | null> {
-  const { data } = await readBill(id);
-  return data;
+  return (await readBill(id))?.data ?? null;
 }

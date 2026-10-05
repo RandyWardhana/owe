@@ -6,12 +6,15 @@ import { useT } from "@/lib/i18n";
 import { useStore } from "@/lib/store";
 import { fmtAmountPlain, fmtMoney } from "@/lib/currency";
 import { useSettlement } from "@/lib/hooks/useSettlement";
+import { useRate } from "@/lib/hooks/useRate";
 import { billId } from "@/lib/bills";
 import { proofUrl } from "@/lib/proofs";
 import type { SharedBill } from "@/lib/types";
+import { convertBill } from "@/lib/convert";
 
 import Screen from "@/components/Screen";
-import { Check } from "@/components/icons";
+import { Check, Gear } from "@/components/icons";
+import Settings from "@/components/Settings";
 import AnimatedMoney from "@/components/ui/AnimatedMoney";
 import AccountRow from "@/components/ui/AccountRow";
 import ProofLightbox from "@/components/ui/ProofLightbox";
@@ -42,6 +45,9 @@ export default function SharedView({
   } = useSettlement(bill, shareId ?? undefined);
   const [viewing, setViewing] = useState<number | null>(null);
   const showToast = useStore((state) => state.showToast);
+  const viewCurrency = useStore((state) => state.viewCurrency);
+  const lang = useStore((state) => state.lang);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   // uploadProof reports why it failed; without this the file simply vanished.
   const handleRemove = async (index: number) => {
@@ -67,8 +73,19 @@ export default function SharedView({
   };
   const id = useMemo(() => shareId || billId(bill), [bill, shareId]);
 
-  const currency = bill.currency || "USD";
-  const payer = bill.payerIndex >= 0 ? bill.people[bill.payerIndex] : null;
+  /* Shown -- and copied -- in the viewer's currency if they picked one: a
+     friend paying from a Malaysian account sends ringgit, so the amount they
+     paste into their banking app has to be ringgit too. The bill's own amount
+     stays under each total for whoever pays in it. */
+  const billCurrency = bill.currency || "USD";
+  const rateState = useRate(billCurrency, viewCurrency);
+  const rate = rateState.status === "ready" ? rateState.rate : 1;
+  const converting = rateState.status === "ready";
+  const currency = converting ? (viewCurrency as string) : billCurrency;
+  const shown = useMemo(() => convertBill(bill, rate, currency), [bill, rate, currency]);
+  const payer = shown.payerIndex >= 0 ? shown.people[shown.payerIndex] : null;
+  const originalOf = (amount: number) =>
+    converting ? fmtMoney(amount, billCurrency) : undefined;
 
 
   return (
@@ -80,22 +97,52 @@ export default function SharedView({
       }
     >
       <div className="pad rise" style={{ paddingTop: "calc(20px + var(--safe-top))" }}>
-        <div className="shared-mark disp">{t("app.name")}</div>
+        <div className="row between">
+          <div className="shared-mark disp">{t("app.name")}</div>
+          <button
+            className="iconbtn"
+            aria-label={t("settings.title")}
+            onClick={() => setSettingsOpen(true)}
+          >
+            <Gear size={20} />
+          </button>
+        </div>
         <p className="label" style={{ marginTop: 18 }}>
           {t("shared.intro")}
         </p>
         <div className="card hero-total">
           <h2 className="disp shared-title">{bill.title || t("shared.defaultTitle")}</h2>
           <div className="grand disp tnum">
-            <AnimatedMoney value={bill.grandTotal} currency={currency} />
+            <AnimatedMoney value={shown.grandTotal} currency={currency} />
           </div>
+          {converting ? (
+            <div className="muted grand__orig tnum">{fmtMoney(bill.grandTotal, billCurrency)}</div>
+          ) : null}
           <div className="muted grand__sub">
             {t("shared.splitBetween", {
-              n: bill.people.length,
+              n: shown.people.length,
               name: payer ? payer.name || "—" : "—",
             })}
           </div>
         </div>
+
+        {rateState.status === "ready" ? (
+          <div className="banner rate-note">
+            {t("shared.rateNote", {
+              one: fmtMoney(1, currency),
+              rate: fmtMoney(1 / rate, billCurrency),
+              date: rateState.date
+                ? new Date(`${rateState.date}T00:00:00`).toLocaleDateString(
+                    lang === "id" ? "id-ID" : "en-GB",
+                    { day: "numeric", month: "short", year: "numeric" },
+                  )
+                : "—",
+              bill: billCurrency,
+            })}
+          </div>
+        ) : rateState.status === "failed" ? (
+          <div className="banner rate-note">{t("shared.rateFailed", { bill: billCurrency })}</div>
+        ) : null}
 
         {payer ? (
           <>
@@ -115,6 +162,7 @@ export default function SharedView({
                 person={payer}
                 index={bill.payerIndex}
                 currency={currency}
+                original={originalOf(bill.people[bill.payerIndex].total)}
                 isPayer
                 isPaid={false}
                 payerName={payer.name || "—"}
@@ -133,18 +181,19 @@ export default function SharedView({
           {isOwner ? t("shared.markHint") : t("shared.markHintGuest")}
         </p>
         <div className="col-gap stagger">
-          {bill.people.map((person, i) =>
+          {shown.people.map((person, i) =>
             i === bill.payerIndex ? null : (
               <SharedPersonRow
                 key={i}
-                person={{ ...person, total: person.total + claimedTotals[i] }}
+                person={{ ...person, total: person.total + claimedTotals[i] * rate }}
                 index={i}
                 currency={currency}
+                original={originalOf(bill.people[i].total + claimedTotals[i])}
                 isPayer={false}
                 isPaid={paid.has(i)}
                 payerName={payer?.name || "—"}
                 onToggle={() => confirm(i)}
-                copyText={fmtAmountPlain(person.total + claimedTotals[i], currency)}
+                copyText={fmtAmountPlain(person.total + claimedTotals[i] * rate, currency)}
                 isOwner={isOwner}
                 hasProof={proofs.has(i)}
                 uploading={uploading === i}
@@ -158,8 +207,8 @@ export default function SharedView({
         </div>
 
         <ClaimList
-          items={bill.claimable}
-          people={bill.people}
+          items={shown.claimable}
+          people={shown.people}
           claims={claims}
           currency={currency}
           feeRate={bill.feeRate}
@@ -184,6 +233,11 @@ export default function SharedView({
           <Check size={13} /> {t("shared.footer")}
         </p>
       </div>
+      <Settings
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        billCurrency={billCurrency}
+      />
     </Screen>
   );
 }

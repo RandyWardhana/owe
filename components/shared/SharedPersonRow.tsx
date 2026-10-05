@@ -16,6 +16,8 @@ interface Props {
   person: SharedBillPerson;
   index: number;
   currency: string;
+  /* The total in the bill's own currency, when it is shown converted. */
+  original?: string;
   isPayer: boolean;
   isPaid: boolean;
   payerName: string;
@@ -35,6 +37,7 @@ export default function SharedPersonRow({
   person,
   index,
   currency,
+  original,
   isPayer,
   isPaid,
   payerName,
@@ -99,6 +102,7 @@ export default function SharedPersonRow({
         className={`pp__total disp tnum ${isPayer ? "is-payer" : ""} ${settled ? "is-struck" : ""}`}
       >
         <AnimatedMoney value={person.total} currency={currency} />
+        {original ? <div className="pp__orig muted">{original}</div> : null}
       </div>
     </div>
   );

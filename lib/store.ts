@@ -45,6 +45,10 @@ interface State {
   currency: string;
   rounding: Rounding;
   anim: boolean;
+  /* The currency a shared bill is shown in, or null for the bill's own. Kept
+     apart from `currency`, which is what new bills are entered in: converting
+     what you type would be wrong, converting what you read is the point. */
+  viewCurrency: string | null;
 
   history: Draft[];
   /* Bills deleted here, so a sync cannot resurrect them. id -> when. */
@@ -64,6 +68,7 @@ interface State {
   setCurrency: (c: string) => void;
   setRounding: (r: Rounding) => void;
   setAnim: (v: boolean) => void;
+  setViewCurrency: (c: string | null) => void;
 
   patchDraft: (patch: Partial<Draft>) => void;
   updateDraft: (fn: (d: Draft) => Draft) => void;
@@ -94,6 +99,7 @@ export const useStore = create<State>()(
       currency: "IDR",
       rounding: "none",
       anim: true,
+      viewCurrency: null,
 
       history: [],
       tombstones: {},
@@ -115,6 +121,7 @@ export const useStore = create<State>()(
       setCurrency: (currency) => set({ currency }),
       setRounding: (rounding) => set({ rounding }),
       setAnim: (anim) => set({ anim }),
+      setViewCurrency: (viewCurrency) => set({ viewCurrency }),
 
       patchDraft: (patch) =>
         set((s) => {
@@ -300,6 +307,7 @@ export const useStore = create<State>()(
         currency: s.currency,
         rounding: s.rounding,
         anim: s.anim,
+        viewCurrency: s.viewCurrency,
         history: s.history,
         tombstones: s.tombstones,
         draft: s.draft,

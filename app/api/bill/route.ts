@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { readBill, removeBill, writeBill } from "@/lib/oweDb";
+import { readBill, removeBill, serverHasDb, writeBill } from "@/lib/oweDb";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -8,7 +8,16 @@ export const dynamic = "force-dynamic";
 export async function GET(req: Request) {
   const id = new URL(req.url).searchParams.get("id");
   if (!id) return NextResponse.json({ data: null, paid: [] });
-  return NextResponse.json(await readBill(id));
+  /* Say why there is no bill. Answering every failure with `data: null` made a
+     server missing OWE_DB_URL look exactly like a link to a deleted bill. */
+  if (!serverHasDb) {
+    return NextResponse.json({ error: "no-db", data: null, paid: [] }, { status: 503 });
+  }
+  const row = await readBill(id);
+  if (!row) {
+    return NextResponse.json({ error: "db-unreachable", data: null, paid: [] }, { status: 502 });
+  }
+  return NextResponse.json(row);
 }
 
 export async function POST(req: Request) {

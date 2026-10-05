@@ -16,6 +16,8 @@ import Assign from "@/components/Assign";
 import Breakdown from "@/components/breakdown/Breakdown";
 import Settings from "@/components/Settings";
 
+import SharedMissing from "@/components/shared/SharedMissing";
+
 const SharedView = dynamic(() => import("@/components/shared/SharedView"), {
   ssr: false,
   loading: () => <div className="shell" />,
@@ -30,7 +32,7 @@ export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
 
   const mounted = useMounted();
-  const { shared, shareId, clear } = useSharedBill();
+  const { shared, shareId, missing, clear } = useSharedBill();
   useAppliedAppearance();
   useBillBackup();
 
@@ -45,6 +47,15 @@ export default function App() {
         <Toast />
         <ClickSpark />
         <InstallPrompt />
+        <OfflineBar />
+      </div>
+    );
+  }
+
+  if (missing) {
+    return (
+      <div className="shell">
+        <SharedMissing reason={missing} onMakeOwn={clear} />
         <OfflineBar />
       </div>
     );
