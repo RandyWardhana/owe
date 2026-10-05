@@ -52,26 +52,54 @@ export async function saveBill(id: string, data: string): Promise<boolean> {
 export type Claims = Record<string, number[]>;
 
 /** Loads a stored bill (encrypted data + paid state + claims) by id. */
-export async function fetchBill(
+export type BillRowData = { data: string | null; paid: number[]; claims: Claims };
+
+/* Why a short link has no bill behind it. Each one needs a different answer
+   for the person holding the link, so they are kept apart rather than all
+   collapsing into "nothing here". */
+export type BillMissing =
+  | "no-cloud" // this build was made without NEXT_PUBLIC_OWE_CLOUD
+  | "offline"
+  | "no-db" // the server has no OWE_DB_URL / OWE_DB_SECRET
+  | "db-unreachable" // the server could not reach the owe-db Worker
+  | "server" // /api/bill itself failed
+  | "not-found" // the server answered, and there is no bill under that id
+  | "unreadable"; // there is a bill, but it would not decrypt
+
+export async function loadBill(
   id: string,
-): Promise<{ data: string | null; paid: number[]; claims: Claims } | null> {
-  if (!hasCloudSync || !isOnline()) return null;
+): Promise<{ ok: true; row: BillRowData } | { ok: false; reason: BillMissing }> {
+  if (!hasCloudSync) return { ok: false, reason: "no-cloud" };
+  if (!isOnline()) return { ok: false, reason: "offline" };
   try {
     const response = await fetch(`/api/bill?id=${encodeURIComponent(id)}`);
-    if (!response.ok) return null;
-    const body = (await response.json()) as {
+    const body = (await response.json().catch(() => ({}))) as {
+      error?: string;
       data?: string | null;
       paid?: number[];
       claims?: Claims;
     };
+    if (!response.ok) {
+      const reason =
+        body.error === "no-db" || body.error === "db-unreachable" ? body.error : "server";
+      return { ok: false, reason };
+    }
     return {
-      data: body.data ?? null,
-      paid: Array.isArray(body.paid) ? body.paid : [],
-      claims: body.claims && typeof body.claims === "object" ? body.claims : {},
+      ok: true,
+      row: {
+        data: body.data ?? null,
+        paid: Array.isArray(body.paid) ? body.paid : [],
+        claims: body.claims && typeof body.claims === "object" ? body.claims : {},
+      },
     };
   } catch {
-    return null;
+    return { ok: false, reason: isOnline() ? "server" : "offline" };
   }
+}
+
+export async function fetchBill(id: string): Promise<BillRowData | null> {
+  const result = await loadBill(id);
+  return result.ok ? result.row : null;
 }
 
 /** Returns the server's paid indices, or null if unavailable / not found. */

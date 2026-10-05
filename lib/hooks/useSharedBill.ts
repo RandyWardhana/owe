@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 
 import { decryptShare } from "@/lib/share";
-import { fetchBill } from "@/lib/bills";
+import { loadBill, type BillMissing } from "@/lib/bills";
 import type { SharedBill } from "@/lib/types";
 
 type SharedState = SharedBill | null | undefined;
@@ -12,6 +12,9 @@ type SharedState = SharedBill | null | undefined;
 export function useSharedBill() {
   const [shared, setShared] = useState<SharedState>(undefined);
   const [shareId, setShareId] = useState<string | null>(null);
+  /* Set when the URL is a shared link that could not be opened, so the app can
+     say why instead of quietly showing home as if no link had been followed. */
+  const [missing, setMissing] = useState<BillMissing | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -22,24 +25,33 @@ export function useSharedBill() {
     const raw =
       params.get("s") || (hash.startsWith("#s=") ? hash.slice(3) : "");
 
-    const resolve = (token: string | null) => {
-      if (!token) {
-        if (!cancelled) setShared(null);
-        return;
-      }
+    const fail = (reason: BillMissing) => {
+      if (cancelled) return;
+      console.warn(`[owe] shared link could not be opened: ${reason}`);
+      setMissing(reason);
+      setShared(null);
+    };
+
+    const resolve = (token: string) => {
       decryptShare(token).then((payload) => {
-        if (!cancelled) setShared(payload);
+        if (cancelled) return;
+        if (payload) setShared(payload);
+        else fail("unreadable");
       });
     };
 
     if (shortMatch) {
       setShareId(shortMatch[1]);
-      fetchBill(shortMatch[1]).then((row) => {
+      loadBill(shortMatch[1]).then((result) => {
         if (cancelled) return;
-        resolve(row?.data ?? null);
+        if (!result.ok) fail(result.reason);
+        else if (!result.row.data) fail("not-found");
+        else resolve(result.row.data);
       });
-    } else {
+    } else if (raw) {
       resolve(raw);
+    } else {
+      setShared(null);
     }
 
     return () => {
@@ -49,8 +61,9 @@ export function useSharedBill() {
 
   const clear = () => {
     window.history.replaceState(null, "", "/");
+    setMissing(null);
     setShared(null);
   };
 
-  return { shared, shareId, clear };
+  return { shared, shareId, missing, clear };
 }
