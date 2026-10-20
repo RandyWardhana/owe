@@ -2,473 +2,1081 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import type { BillView } from "@/lib/adminDb";
+import { NO_HOLDER, type AdminDevice, type AdminObject, type BackupSummary, type BillSummary } from "@/lib/adminTypes";
 
-type Tab = "bills" | "backups" | "storage";
-type Backup = { key: string; size: number; updated_at: string };
-type OweObject = { key: string; size: number; uploaded: string; orphan: boolean };
+import {
+  Accounts,
+  Avatar,
+  Chip,
+  GiveDialog,
+  Gate,
+  Notice,
+  PhoneIcon,
+  SyncId,
+  knownCodes,
+  rememberCode,
+  ago,
+  money,
+  size,
+  when,
+} from "./ui";
+import { Receipts } from "./Receipts";
 
-const money = (n: number, c: string) =>
-  `${c ? c + " " : ""}${new Intl.NumberFormat("en-US").format(Math.round(n))}`;
+type Tab = "bills" | "codes" | "receipts";
+type Group = "code" | "holder";
+type Place = { holder: string | null; device: string | null; group: Group };
+const UNLINKED = "unlinked";
+type Lookup = {
+  exists: boolean;
+  readable?: boolean;
+  size?: number;
+  updatedAt?: string | null;
+  summary?: BackupSummary | null;
+  linked?: boolean;
+};
 
-const when = (iso: string) => (iso ? iso.replace("T", " ").slice(0, 16) : "—");
+interface HolderGroup {
+  key: string;
+  name: string;
+  accounts: BillSummary["holder"]["accounts"];
+  bills: BillSummary[];
+  totals: Record<string, number>;
+  last: string;
+}
 
-const size = (n: number) => (n < 1024 ? `${n} B` : `${(n / 1024).toFixed(1)} kB`);
+interface DeviceGroup {
+  key: string;
+  updatedAt: string;
+  size: number;
+  bills: BillSummary[];
+  name: string | null;
+}
+
+function readUrl(): { tab: Tab } & Place {
+  if (typeof window === "undefined") return { tab: "bills", holder: null, device: null, group: "code" };
+  const params = new URLSearchParams(window.location.search);
+  const tab = params.get("tab");
+  return {
+    tab: tab === "codes" || tab === "receipts" ? tab : "bills",
+    holder: params.get("holder"),
+    device: params.get("device"),
+    group: params.get("group") === "holder" || params.get("holder") ? "holder" : "code",
+  };
+}
+
+function writeUrl(tab: Tab, place: Partial<Place> = {}) {
+  const params = new URLSearchParams();
+  if (tab !== "bills") params.set("tab", tab);
+  if (place.group === "holder") params.set("group", "holder");
+  if (place.holder) params.set("holder", place.holder);
+  if (place.device) params.set("device", place.device);
+  const query = params.toString();
+  window.history.replaceState(null, "", `/admin${query ? `?${query}` : ""}`);
+}
+
+async function fingerprint(code: string): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(code));
+  return Array.from(new Uint8Array(digest))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+const owing = (b: BillSummary) =>
+  b.holder.key === NO_HOLDER ? b.names.length : Math.max(b.names.length - 1, 0);
+
+const billHref = (id: string) => `/admin/bills/${encodeURIComponent(id)}`;
 
 export default function AdminConsole() {
   const [authed, setAuthed] = useState<boolean | null>(null);
-  const [password, setPassword] = useState("");
-  const [gateError, setGateError] = useState("");
+  const [tab, setTabState] = useState<Tab>("bills");
+  const [holderKey, setHolderKey] = useState<string | null>(null);
+  const [deviceKey, setDeviceKey] = useState<string | null>(null);
+  const [group, setGroup] = useState<Group>("code");
+  const [indexed, setIndexed] = useState(true);
+  const [findCode, setFindCode] = useState("");
+  const [findError, setFindError] = useState("");
 
-  const [tab, setTab] = useState<Tab>("bills");
-  const [bills, setBills] = useState<BillView[]>([]);
-  const [backups, setBackups] = useState<Backup[]>([]);
-  const [objects, setObjects] = useState<OweObject[]>([]);
-  const [busy, setBusy] = useState(false);
-  const [note, setNote] = useState("");
-  const [error, setError] = useState("");
+  const [bills, setBills] = useState<BillSummary[]>([]);
+  const [backups, setBackups] = useState<AdminDevice[] | null>(null);
+  const [objects, setObjects] = useState<AdminObject[] | null>(null);
+  const [loading, setLoading] = useState(false);
 
   const [query, setQuery] = useState("");
   const [picked, setPicked] = useState<string[]>([]);
-  const [restoreCode, setRestoreCode] = useState("");
-  const [lookup, setLookup] = useState("");
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [giving, setGiving] = useState<{ id: string; title: string }[] | null>(null);
+
+  const [code, setCode] = useState("");
+  const [lookup, setLookup] = useState<Lookup | null>(null);
+  const [looking, setLooking] = useState(false);
+  const [reclaim, setReclaim] = useState<{ busy: boolean; message: string; tone: "pos" | "bad" } | null>(null);
+
+  const [error, setError] = useState("");
+  const [codes, setCodes] = useState<Record<string, string>>({});
+  const [droppingBackups, setDroppingBackups] = useState(false);
 
   const loadBills = useCallback(async () => {
-    const res = await fetch("/api/admin/bills");
-    if (res.status === 401) {
-      setAuthed(false);
-      return;
+    setLoading(true);
+    try {
+      const res = await fetch("/api/admin/bills");
+      if (res.status === 401) {
+        setAuthed(false);
+        return;
+      }
+      const body = (await res.json()) as { bills: BillSummary[] };
+      setBills(body.bills ?? []);
+      setAuthed(true);
+    } catch {
+      setError("Couldn't load bills.");
+    } finally {
+      setLoading(false);
     }
-    const body = (await res.json()) as { bills: BillView[] };
-    setBills(body.bills ?? []);
-    setAuthed(true);
+  }, []);
+
+  const loadBackups = useCallback(async () => {
+    const res = await fetch("/api/admin/backups");
+    const body = (await res.json()) as { backups?: AdminDevice[]; indexed?: boolean };
+    setBackups(body.backups ?? []);
+    setIndexed(Boolean(body.indexed));
+  }, []);
+
+  const loadObjects = useCallback(async () => {
+    const res = await fetch("/api/admin/objects");
+    const body = (await res.json()) as { objects?: AdminObject[] };
+    setObjects(body.objects ?? []);
   }, []);
 
   useEffect(() => {
+    setCodes(knownCodes());
+    const initial = readUrl();
+    setTabState(initial.tab);
+    setHolderKey(initial.holder);
+    setDeviceKey(initial.device);
+    setGroup(initial.group);
     loadBills();
   }, [loadBills]);
 
   useEffect(() => {
     if (authed !== true) return;
-    if (tab === "backups" && !backups.length) {
-      fetch("/api/admin/backups")
-        .then((r) => r.json())
-        .then((b) => setBackups(b.backups ?? []))
-        .catch(() => undefined);
-    }
-    if (tab === "storage" && !objects.length) {
-      fetch("/api/admin/objects")
-        .then((r) => r.json())
-        .then((b) => setObjects(b.objects ?? []))
-        .catch(() => undefined);
-    }
-  }, [authed, tab, backups.length, objects.length]);
+    if (backups === null) loadBackups().catch(() => setBackups([]));
+    if (objects === null) loadObjects().catch(() => setObjects([]));
+  }, [authed, backups, objects, loadBackups, loadObjects]);
 
-  const signIn = async (e: React.FormEvent) => {
+  const setTab = (next: Tab) => {
+    setTabState(next);
+    setHolderKey(null);
+    setDeviceKey(null);
+    setPicked([]);
+    writeUrl(next, { group });
+  };
+
+  const openHolder = (key: string | null) => {
+    setHolderKey(key);
+    setDeviceKey(null);
+    setPicked([]);
+    writeUrl("bills", { group: "holder", holder: key });
+  };
+
+  const openDevice = (key: string | null) => {
+    setDeviceKey(key);
+    setHolderKey(null);
+    setPicked([]);
+    writeUrl("bills", { group: "code", device: key });
+  };
+
+  const switchGroup = (next: Group) => {
+    setGroup(next);
+    setHolderKey(null);
+    setDeviceKey(null);
+    setPicked([]);
+    writeUrl("bills", { group: next });
+  };
+
+  const jumpToCode = async (e: React.FormEvent) => {
     e.preventDefault();
-    setGateError("");
-    const res = await fetch("/api/admin/login", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ password }),
-    });
-    if (!res.ok) {
-      setGateError(res.status === 503 ? "Admin is not configured." : "Wrong password.");
-      return;
+    setFindError("");
+    const value = findCode.trim();
+    if (!value) return;
+    const key = await fingerprint(value);
+    if ((backups ?? []).some((d) => d.key === key)) {
+      setCodes(rememberCode(key, value));
+      setFindCode("");
+      openDevice(key);
+    } else {
+      setFindError("No backup under that code. The phone may never have synced, or the code has a typo.");
     }
-    setPassword("");
-    loadBills();
   };
 
   const signOut = async () => {
     await fetch("/api/admin/login", { method: "DELETE" });
     setAuthed(false);
     setBills([]);
-    setBackups([]);
-    setObjects([]);
+    setBackups(null);
+    setObjects(null);
   };
 
-  const shown = useMemo(() => {
+  const holders = useMemo<HolderGroup[]>(() => {
+    const map = new Map<string, HolderGroup>();
+    bills.forEach((b) => {
+      const group =
+        map.get(b.holder.key) ??
+        ({ key: b.holder.key, name: b.holder.name, accounts: b.holder.accounts, bills: [], totals: {}, last: "" } as HolderGroup);
+      group.bills.push(b);
+      if (b.readable) group.totals[b.currency] = (group.totals[b.currency] ?? 0) + b.grandTotal;
+      if (b.updatedAt > group.last) group.last = b.updatedAt;
+      map.set(b.holder.key, group);
+    });
+    return [...map.values()].sort((a, b) => (a.last < b.last ? 1 : -1));
+  }, [bills]);
+
+  const billById = useMemo(() => new Map(bills.map((b) => [b.id, b])), [bills]);
+
+  const devices = useMemo<DeviceGroup[]>(() => {
+    const backupByKey = new Map((backups ?? []).map((d) => [d.key, d]));
+    const groups = new Map<string, BillSummary[]>();
+    const add = (key: string, b: BillSummary) => {
+      const own = groups.get(key) ?? [];
+      if (!own.includes(b)) own.push(b);
+      groups.set(key, own);
+    };
+    bills.forEach((b) => {
+      if (b.syncKey) add(b.syncKey, b);
+    });
+    (backups ?? []).forEach((d) =>
+      d.billIds.forEach((id) => {
+        const b = billById.get(id);
+        if (b && !b.syncKey) add(d.key, b);
+      }),
+    );
+    const linked = new Set([...groups.values()].flat().map((b) => b.id));
+    const latest = (own: BillSummary[]) => own.reduce((m, b) => (b.updatedAt > m ? b.updatedAt : m), "");
+    const list: DeviceGroup[] = [...groups.entries()]
+      .map(([key, own]) => {
+        const backup = backupByKey.get(key);
+        return {
+          key,
+          updatedAt: backup?.updatedAt ?? latest(own),
+          size: backup?.size ?? 0,
+          bills: own,
+          name: backup?.name ?? null,
+        };
+      })
+      .sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1));
+    const rest = bills.filter((b) => !linked.has(b.id));
+    if (rest.length) {
+      list.push({ key: UNLINKED, updatedAt: latest(rest), size: 0, bills: rest, name: null });
+    }
+    return list;
+  }, [backups, bills, billById]);
+
+  const searchHits = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return bills;
+    if (!q) return null;
     return bills.filter(
       (b) =>
         b.id.toLowerCase().includes(q) ||
         b.title.toLowerCase().includes(q) ||
-        b.people.some((p) => p.name.toLowerCase().includes(q)),
+        b.holder.name.toLowerCase().includes(q) ||
+        b.holder.accounts.some((a) => a.value.toLowerCase().includes(q)) ||
+        b.names.some((n) => n.toLowerCase().includes(q)),
     );
   }, [bills, query]);
 
-  const toggle = (id: string) =>
-    setPicked((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]));
+  const holder = holderKey ? holders.find((h) => h.key === holderKey) ?? null : null;
+  const device = deviceKey ? devices.find((d) => d.key === deviceKey) ?? null : null;
+  const listing = !holder && !device;
 
-  const run = async (fn: () => Promise<void>) => {
-    setBusy(true);
-    setNote("");
-    setError("");
+  const dropBackups = async (keys: string[]) => {
+    if (!keys.length) return;
+    const one = keys.length === 1;
+    const label = one ? (backups?.find((b) => b.key === keys[0])?.name ?? codes[keys[0]] ?? "this backup") : `${keys.length} backups`;
+    if (
+      !window.confirm(
+        `Delete ${one ? `the backup for ${label}` : label} from the server? Bills stay as they are, and a phone still using ${one ? "that code" : "those codes"} uploads a fresh backup on its next sync.`,
+      )
+    )
+      return;
+    setDroppingBackups(true);
+    const results = await Promise.all(
+      keys.map(async (key) => {
+        try {
+          const res = await fetch(`/api/admin/backups?key=${encodeURIComponent(key)}`, { method: "DELETE" });
+          const body = (await res.json()) as { ok?: boolean; error?: string };
+          return body.ok ? { key } : { key, error: body.error ?? "Couldn't delete that backup." };
+        } catch {
+          return { key, error: "Couldn't delete that backup." };
+        }
+      }),
+    );
+    setDroppingBackups(false);
+    const failed = results.filter((r) => "error" in r);
+    if (failed.length) setError((failed[0] as { error: string }).error);
+    const gone = new Set(results.filter((r) => !("error" in r)).map((r) => r.key));
+    setBackups((cur) => (cur ?? []).filter((b) => !gone.has(b.key)));
+  };
+
+  const clearLookup = () => {
+    setCode("");
+    setLookup(null);
+    setReclaim(null);
+  };
+
+  const runLookup = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!code.trim()) return;
+    setLooking(true);
+    setLookup(null);
+    setReclaim(null);
     try {
-      await fn();
+      const res = await fetch(`/api/admin/backups?code=${encodeURIComponent(code.trim())}`);
+      const found = (await res.json()) as Lookup;
+      setLookup(found);
+      if (found.readable) setCodes(rememberCode(await fingerprint(code.trim()), code.trim()));
+      if (found.linked) loadBackups().catch(() => undefined);
     } catch {
-      setError("Something went wrong. Try again.");
+      setError("Lookup failed.");
     } finally {
-      setBusy(false);
+      setLooking(false);
     }
   };
 
-  const restore = () =>
-    run(async () => {
-      const res = await fetch("/api/admin/restore", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ ids: picked, code: restoreCode.trim() || undefined }),
-      });
-      const body = (await res.json()) as {
-        ok?: boolean;
-        code?: string;
-        titles?: string[];
-        kept?: number;
-        error?: string;
-      };
+  const deleteBill = async (id: string) => {
+    try {
+      const res = await fetch(`/api/admin/bills/${encodeURIComponent(id)}`, { method: "DELETE" });
+      const body = (await res.json()) as { ok?: boolean; error?: string };
       if (!body.ok) {
-        setError(body.error || "Restore failed.");
-        return;
+        setError(body.error ?? "Couldn't delete that bill.");
+        return false;
       }
-      setNote(
-        `Sync code ${body.code} now carries ${body.titles?.join(", ")}` +
-          (body.kept ? ` alongside ${body.kept} bill(s) already in it.` : "."),
-      );
-      setRestoreCode(body.code ?? "");
-      setBackups([]);
-    });
+    } catch {
+      setError("Couldn't delete that bill.");
+      return false;
+    }
+    setBills((cur) => cur.filter((b) => b.id !== id));
+    setObjects((cur) => (cur ?? []).filter((o) => o.billId !== id));
+    setPicked((cur) => cur.filter((x) => x !== id));
+    return true;
+  };
 
-  const release = (id: string) =>
-    run(async () => {
-      const res = await fetch("/api/admin/release", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ id }),
-      });
-      const body = (await res.json()) as { ok?: boolean };
-      if (!body.ok) {
-        setError("Could not release that bill.");
-        return;
-      }
-      setNote(`${id} is unclaimed — the next device to open it becomes the owner.`);
-      await loadBills();
-    });
-
-  const checkCode = () =>
-    run(async () => {
-      const res = await fetch(`/api/admin/backups?code=${encodeURIComponent(lookup.trim())}`);
-      const body = (await res.json()) as { exists: boolean; size: number; updatedAt: string | null };
-      setNote(
-        body.exists
-          ? `That code has a backup: ${size(body.size)}, last written ${when(body.updatedAt ?? "")}.`
-          : "No backup stored for that code yet.",
-      );
-    });
-
-  const dropObject = (key: string) =>
-    run(async () => {
-      if (!window.confirm(`Delete ${key} from R2? This cannot be undone.`)) return;
-      const res = await fetch(`/api/admin/objects?key=${encodeURIComponent(key)}`, {
-        method: "DELETE",
-      });
-      const body = (await res.json()) as { ok?: boolean };
-      if (!body.ok) {
-        setError("Delete failed.");
-        return;
-      }
-      setObjects((cur) => cur.filter((o) => o.key !== key));
-      setNote(`Deleted ${key}.`);
-    });
+  const deleteObjects = async (keys: string[]) => {
+    const results = await Promise.all(
+      keys.map(async (key) => {
+        const res = await fetch(`/api/admin/objects?key=${encodeURIComponent(key)}`, { method: "DELETE" });
+        return ((await res.json()) as { ok?: boolean }).ok ? key : null;
+      }),
+    );
+    const gone = new Set(results.filter((key): key is string => Boolean(key)));
+    if (gone.size < keys.length) setError(`Couldn't delete ${keys.length - gone.size} file(s).`);
+    setObjects((cur) => (cur ?? []).filter((o) => !gone.has(o.key)));
+  };
 
   if (authed === null) {
     return (
-      <div className="adm__gate">
-        <span className="adm__sub">Loading…</span>
+      <div className="adm-gate">
+        <span className="adm-muted">Loading…</span>
       </div>
     );
   }
 
-  if (!authed) {
+  if (!authed) return <Gate onSignedIn={loadBills} />;
+
+  const togglePick = (id: string) =>
+    setPicked((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]));
+
+  const deletePicked = async (list: BillSummary[]) => {
+    const targets = list.filter((b) => picked.includes(b.id));
+    if (!targets.length) return;
+    const receipts = targets.reduce((n, b) => n + b.proofs, 0);
+    const names = targets
+      .slice(0, 3)
+      .map((b) => `“${b.title}”`)
+      .join(", ");
+    const more = targets.length > 3 ? ` and ${targets.length - 3} more` : "";
+    const files = receipts ? `, with ${receipts} receipt${receipts === 1 ? "" : "s"}` : "";
+    if (
+      !window.confirm(
+        `Delete ${names}${more}${files}? Their share links stop working for everyone. This can't be undone.`,
+      )
+    )
+      return;
+    setBulkDeleting(true);
+    const done = await Promise.all(targets.map((b) => deleteBill(b.id)));
+    setBulkDeleting(false);
+    const failed = done.filter((ok) => !ok).length;
+    if (failed) setError(`Couldn't delete ${failed} of ${targets.length} bills.`);
+  };
+
+  const pickActions = (list: BillSummary[]) => {
+    const count = list.filter((b) => picked.includes(b.id)).length;
     return (
-      <div className="adm__gate">
-        <form onSubmit={signIn}>
-          <div className="adm__title">owe · admin</div>
-          <input
-            className="adm__input"
-            type="password"
-            value={password}
-            autoFocus
-            placeholder="Password"
-            onChange={(e) => setPassword(e.target.value)}
-          />
-          <button className="adm__btn adm__btn--go" type="submit">
-            Sign in
-          </button>
-          {gateError ? <div className="adm__note adm__note--bad">{gateError}</div> : null}
-        </form>
+      <div className="adm-row">
+        <button
+          className="adm-btn adm-btn--danger adm-btn--sm"
+          disabled={!count || bulkDeleting}
+          onClick={() => deletePicked(list)}
+        >
+          {bulkDeleting ? "Deleting…" : `Delete ${count || ""}`}
+        </button>
+        <button
+          className="adm-btn adm-btn--primary adm-btn--sm"
+          disabled={!count || bulkDeleting}
+          onClick={() =>
+            setGiving(
+              list.filter((b) => picked.includes(b.id)).map((b) => ({ id: b.id, title: b.title })),
+            )
+          }
+        >
+          Give {count || ""} to someone
+        </button>
       </div>
     );
-  }
+  };
 
-  const orphans = objects.filter((o) => o.orphan).length;
+  const billTable = (list: BillSummary[], selectable: boolean) => (
+    <div className="adm-tablewrap">
+      <table className="adm-table">
+        <thead>
+          <tr>
+            {selectable ? (
+              <th className="adm-table__check">
+                <input
+                  type="checkbox"
+                  aria-label="Select all"
+                  checked={list.length > 0 && list.every((b) => picked.includes(b.id))}
+                  onChange={(e) => setPicked(e.target.checked ? list.map((b) => b.id) : [])}
+                />
+              </th>
+            ) : null}
+            <th>Bill</th>
+            {selectable ? null : <th>Holder</th>}
+            <th>People</th>
+            <th className="adm-num">Total</th>
+            <th>Status</th>
+            <th>Updated</th>
+          </tr>
+        </thead>
+        <tbody>
+          {list.map((b) => (
+            <tr key={b.id} className="adm-table__link" onClick={() => (window.location.href = billHref(b.id))}>
+              {selectable ? (
+                <td className="adm-table__check" onClick={(e) => e.stopPropagation()}>
+                  <input
+                    type="checkbox"
+                    checked={picked.includes(b.id)}
+                    onChange={() => togglePick(b.id)}
+                    aria-label={`Select ${b.title}`}
+                  />
+                </td>
+              ) : null}
+              <td>
+                <a className="adm-strong" href={billHref(b.id)} onClick={(e) => e.stopPropagation()}>
+                  {b.title}
+                </a>
+                <div className="adm-muted adm-mono adm-small">{b.id}</div>
+              </td>
+              {selectable ? null : <td>{b.holder.name}</td>}
+              <td>
+                <span className="adm-clamp">{b.names.join(", ") || "—"}</span>
+              </td>
+              <td className="adm-num adm-mono">{b.readable ? money(b.grandTotal, b.currency) : "—"}</td>
+              <td>
+                <span className="adm-chips">
+                  {!b.readable ? <Chip tone="bad">unreadable</Chip> : null}
+                  {b.readable ? (
+                    <Chip tone={b.paidCount >= owing(b) && owing(b) > 0 ? "pos" : "neutral"}>
+                      {b.paidCount}/{owing(b)} paid
+                    </Chip>
+                  ) : null}
+                  {b.proofs ? <Chip tone="accent">{b.proofs} receipt{b.proofs > 1 ? "s" : ""}</Chip> : null}
+                  {b.unclaimed ? <Chip tone="warn">{b.unclaimed} unclaimed</Chip> : null}
+                  {b.owned ? null : <Chip tone="warn">no owner</Chip>}
+                </span>
+              </td>
+              <td className="adm-muted adm-small" title={when(b.updatedAt)}>
+                {ago(b.updatedAt)}
+              </td>
+            </tr>
+          ))}
+          {!list.length ? (
+            <tr>
+              <td colSpan={7} className="adm-empty">
+                Nothing here.
+              </td>
+            </tr>
+          ) : null}
+        </tbody>
+      </table>
+    </div>
+  );
 
   return (
     <div className="adm">
-      <div className="adm__wrap">
-        <div className="adm__head">
-          <div className="adm__title">owe · admin</div>
-          <button className="adm__btn" onClick={signOut}>
+      <header className="adm-top">
+        <div className="adm-top__in">
+          <a className="adm-brand" href="/admin">
+            <span className="adm-brand__mark">owe</span>
+            <span className="adm-brand__label">Admin</span>
+          </a>
+          <nav className="adm-tabs" role="tablist">
+            {(
+              [
+                ["bills", "Bills", bills.length],
+                ["codes", "Sync codes", backups?.length ?? null],
+                ["receipts", "Receipts", objects?.length ?? null],
+              ] as [Tab, string, number | null][]
+            ).map(([key, label, count]) => (
+              <button
+                key={key}
+                role="tab"
+                aria-selected={tab === key}
+                className="adm-tab"
+                onClick={() => setTab(key)}
+              >
+                {label}
+                {count !== null ? <span className="adm-tab__count">{count}</span> : null}
+              </button>
+            ))}
+          </nav>
+          <button className="adm-btn adm-btn--ghost adm-btn--sm" onClick={signOut}>
             Sign out
           </button>
         </div>
+      </header>
 
-        <div className="adm__tabs" role="tablist">
-          {(
-            [
-              ["bills", `Bills ${bills.length}`],
-              ["backups", `Backups ${backups.length || ""}`.trim()],
-              ["storage", `Storage ${objects.length || ""}`.trim()],
-            ] as [Tab, string][]
-          ).map(([key, label]) => (
-            <button
-              key={key}
-              role="tab"
-              aria-selected={tab === key}
-              className="adm__tab"
-              onClick={() => setTab(key)}
-            >
-              {label}
+      <main className="adm-main">
+        {error ? (
+          <Notice tone="bad">
+            {error}{" "}
+            <button className="adm-link" onClick={() => setError("")}>
+              Dismiss
             </button>
-          ))}
-        </div>
+          </Notice>
+        ) : null}
 
-        {note ? <div className="adm__note">{note}</div> : null}
-        {error ? <div className="adm__note adm__note--bad">{error}</div> : null}
+        {tab === "bills" && listing ? (
+          <>
+            <section className="adm-hero">
+              <div>
+                <h1>Bills</h1>
+                <p className="adm-muted">
+                  {group === "code"
+                    ? "Grouped by sync code: every bill that came from the same phone. When someone asks for their bills back, find their phone here and give the bills to their new code."
+                    : "Grouped by account holder: the person who paid and gets paid back. Open someone to see all their bills."}
+                </p>
+              </div>
+              <div className="adm-stats">
+                <div className="adm-stat">
+                  <b>{bills.length}</b>
+                  <span>shared bills</span>
+                </div>
+                <div className="adm-stat">
+                  <b>{devices.filter((d) => d.key !== UNLINKED).length}</b>
+                  <span>sync codes</span>
+                </div>
+                <div className="adm-stat">
+                  <b>{holders.length}</b>
+                  <span>holders</span>
+                </div>
+                <div className="adm-stat">
+                  <b>{bills.reduce((n, b) => n + b.proofs, 0)}</b>
+                  <span>receipts</span>
+                </div>
+              </div>
+            </section>
 
-        {tab === "bills" ? (
-          <div className="adm__panel">
-            <div className="adm__bar">
+            <div className="adm-toolbar">
               <input
-                className="adm__input"
+                className="adm-input adm-input--search"
                 value={query}
-                placeholder="Search by title, id or person"
+                placeholder="Search a bill, person, account number or id"
                 onChange={(e) => setQuery(e.target.value)}
               />
-              <button className="adm__btn" onClick={loadBills} disabled={busy}>
-                Refresh
+              <button className="adm-btn adm-btn--ghost" onClick={loadBills} disabled={loading}>
+                {loading ? "Refreshing…" : "Refresh"}
               </button>
             </div>
 
-            <div className="adm__bar">
-              <input
-                className="adm__input adm__mono"
-                value={restoreCode}
-                placeholder="Sync code to restore into — blank makes a new one"
-                onChange={(e) => setRestoreCode(e.target.value)}
-              />
-              <button
-                className="adm__btn adm__btn--go"
-                onClick={restore}
-                disabled={busy || !picked.length}
-              >
-                Restore {picked.length || ""}
-              </button>
-            </div>
+            {!searchHits ? (
+              <div className="adm-toolbar">
+                <div className="adm-seg">
+                  <button className={`adm-seg__btn${group === "code" ? " on" : ""}`} onClick={() => switchGroup("code")}>
+                    By sync code
+                  </button>
+                  <button
+                    className={`adm-seg__btn${group === "holder" ? " on" : ""}`}
+                    onClick={() => switchGroup("holder")}
+                  >
+                    By account holder
+                  </button>
+                </div>
+                {group === "code" ? (
+                  <form className="adm-find" onSubmit={jumpToCode}>
+                    <input
+                      className="adm-input adm-mono"
+                      value={findCode}
+                      placeholder="Have their sync code? Paste it to jump there"
+                      onChange={(e) => setFindCode(e.target.value)}
+                    />
+                    <button className="adm-btn" disabled={!findCode.trim()}>
+                      Find
+                    </button>
+                  </form>
+                ) : null}
+              </div>
+            ) : null}
+            {findError && group === "code" && !searchHits ? <Notice tone="bad">{findError}</Notice> : null}
+            {group === "code" && !searchHits && backups !== null && !indexed ? (
+              <Notice>
+                The Worker doesn&apos;t record which bills each phone holds yet. Run the migration and redeploy it,
+                then every phone shows up here the next time it syncs.
+              </Notice>
+            ) : null}
 
-            <div className="adm__scroll">
-              <table className="adm__table">
-                <thead>
-                  <tr>
-                    <th />
-                    <th>Bill</th>
-                    <th>People</th>
-                    <th>Total</th>
-                    <th>Proofs</th>
-                    <th>Owner</th>
-                    <th>Updated</th>
-                    <th />
-                  </tr>
-                </thead>
-                <tbody>
-                  {shown.map((b) => (
-                    <tr key={b.id}>
-                      <td>
-                        <input
-                          type="checkbox"
-                          checked={picked.includes(b.id)}
-                          onChange={() => toggle(b.id)}
-                          aria-label={`Select ${b.title}`}
-                        />
-                      </td>
-                      <td>
-                        <div style={{ fontWeight: 600 }}>{b.title}</div>
-                        <div className="adm__sub adm__mono">{b.id}</div>
-                      </td>
-                      <td>
-                        <div>{b.people.map((p) => p.name).join(", ") || "—"}</div>
-                        {b.payer ? <div className="adm__sub">paid by {b.payer}</div> : null}
-                        {b.paid.length ? (
-                          <div className="adm__sub">{b.paid.length} settled</div>
-                        ) : null}
-                      </td>
-                      <td className="adm__mono" data-label="Total">
-                        {b.readable ? money(b.grandTotal, b.currency) : "—"}
-                      </td>
-                      <td className="adm__mono" data-label="Proofs">
-                        {b.proofs || "none"}
-                      </td>
-                      <td data-label="Owner">
-                        {b.owned ? (
-                          <span className="adm__tag adm__tag--pos">claimed</span>
+            {searchHits ? (
+              <section className="adm-card">
+                <div className="adm-card__head">
+                  <h2>
+                    {searchHits.length} result{searchHits.length === 1 ? "" : "s"}
+                  </h2>
+                </div>
+                {billTable(searchHits, false)}
+              </section>
+            ) : group === "code" ? (
+              <section className="adm-holders">
+                {devices.map((d) => (
+                  <button key={d.key} className="adm-holder" onClick={() => openDevice(d.key)}>
+                    <span className={`adm-device${d.key === UNLINKED ? " adm-device--none" : ""}`} aria-hidden="true">
+                      {d.key === UNLINKED ? "?" : <PhoneIcon />}
+                    </span>
+                    <span className="adm-holder__main">
+                      <span className="adm-holder__name">
+                        {d.key === UNLINKED ? (
+                          "Not linked to a sync code yet"
+                        ) : d.name ? (
+                          d.name
                         ) : (
-                          <span className="adm__tag">open</span>
+                          <SyncId id={d.key} code={codes[d.key]} />
                         )}
-                      </td>
-                      <td className="adm__sub adm__mono" data-label="Updated">
-                        {when(b.updatedAt)}
-                      </td>
-                      <td>
-                        {b.owned ? (
-                          <button
-                            className="adm__btn adm__btn--warn"
-                            onClick={() => release(b.id)}
-                            disabled={busy}
-                          >
-                            Release
-                          </button>
-                        ) : null}
-                        {!b.readable ? (
-                          <span className="adm__tag adm__tag--warn">unreadable</span>
-                        ) : null}
-                      </td>
-                    </tr>
-                  ))}
-                  {!shown.length ? (
-                    <tr>
-                      <td colSpan={8} className="adm__sub">
-                        Nothing matches.
-                      </td>
-                    </tr>
-                  ) : null}
-                </tbody>
-              </table>
-            </div>
-          </div>
+                      </span>
+                      <span className="adm-muted adm-small">
+                        {d.key === UNLINKED ? (
+                          "Shared before bills carried a sync code. They link when the owner's phone next syncs, re-shares or ticks a payment."
+                        ) : (
+                          <>
+                            {d.name ? <SyncId id={d.key} code={codes[d.key]} /> : "No name set in Settings"}
+                            {codes[d.key] ? "" : " · open its code under Sync codes to show it here"}
+                          </>
+                        )}
+                      </span>
+                      <span className="adm-clamp adm-small">
+                        {d.bills
+                          .slice(0, 4)
+                          .map((b) => b.title)
+                          .join(" · ")}
+                        {d.bills.length > 4 ? ` · +${d.bills.length - 4}` : ""}
+                      </span>
+                    </span>
+                    <span className="adm-holder__meta">
+                      <b>
+                        {d.bills.length} bill{d.bills.length === 1 ? "" : "s"}
+                      </b>
+                      <span className="adm-muted adm-small">
+                        {d.key === UNLINKED ? "" : `synced ${ago(d.updatedAt)}`}
+                      </span>
+                    </span>
+                    <span className="adm-holder__chev" aria-hidden="true">
+                      ›
+                    </span>
+                  </button>
+                ))}
+                {!devices.length ? <div className="adm-card adm-empty">No shared bills yet.</div> : null}
+              </section>
+            ) : (
+              <section className="adm-holders">
+                {holders.map((h) => (
+                  <button key={h.key} className="adm-holder" onClick={() => openHolder(h.key)}>
+                    <Avatar name={h.name} />
+                    <span className="adm-holder__main">
+                      <span className="adm-holder__name">{h.name}</span>
+                      <Accounts accounts={h.accounts} />
+                    </span>
+                    <span className="adm-holder__meta">
+                      <b>
+                        {h.bills.length} bill{h.bills.length === 1 ? "" : "s"}
+                      </b>
+                      <span className="adm-muted adm-small">
+                        {Object.entries(h.totals)
+                          .map(([c, t]) => money(t, c))
+                          .join(" · ") || "—"}
+                      </span>
+                      <span className="adm-muted adm-small">{ago(h.last)}</span>
+                    </span>
+                    <span className="adm-holder__chev" aria-hidden="true">
+                      ›
+                    </span>
+                  </button>
+                ))}
+                {!holders.length ? <div className="adm-card adm-empty">No shared bills yet.</div> : null}
+              </section>
+            )}
+          </>
         ) : null}
 
-        {tab === "backups" ? (
-          <div className="adm__panel">
-            <div className="adm__bar">
-              <input
-                className="adm__input adm__mono"
-                value={lookup}
-                placeholder="Check a sync code"
-                onChange={(e) => setLookup(e.target.value)}
-              />
-              <button className="adm__btn" onClick={checkCode} disabled={busy || !lookup.trim()}>
-                Check
-              </button>
-            </div>
-            <div className="adm__sub">
-              Backups are encrypted with the sync code itself, which the server never stores. The
-              list shows only that one exists.
-            </div>
-            <div className="adm__scroll">
-              <table className="adm__table">
-                <thead>
-                  <tr>
-                    <th>Key (sha256 of the code)</th>
-                    <th>Size</th>
-                    <th>Last sync</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {backups.map((b) => (
-                    <tr key={b.key}>
-                      <td className="adm__mono">{b.key}</td>
-                      <td className="adm__mono" data-label="Size">{size(b.size)}</td>
-                      <td className="adm__sub adm__mono" data-label="Last sync">{when(b.updated_at)}</td>
-                    </tr>
-                  ))}
-                  {!backups.length ? (
-                    <tr>
-                      <td colSpan={3} className="adm__sub">
-                        No backups stored.
-                      </td>
-                    </tr>
-                  ) : null}
-                </tbody>
-              </table>
-            </div>
-          </div>
+        {tab === "bills" && holder ? (
+          <>
+            <button className="adm-back" onClick={() => openHolder(null)}>
+              ‹ All holders
+            </button>
+            <section className="adm-card adm-profile">
+              <Avatar name={holder.name} large />
+              <div className="adm-profile__main">
+                <h1>{holder.name}</h1>
+                <Accounts accounts={holder.accounts} />
+              </div>
+              <div className="adm-stats">
+                <div className="adm-stat">
+                  <b>{holder.bills.length}</b>
+                  <span>bills</span>
+                </div>
+                {Object.entries(holder.totals).map(([c, t]) => (
+                  <div className="adm-stat" key={c}>
+                    <b>{money(t, c)}</b>
+                    <span>total</span>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            <section className="adm-card">
+              <div className="adm-card__head">
+                <h2>Their bills</h2>
+                {pickActions(holder.bills)}
+              </div>
+              {billTable(holder.bills, true)}
+            </section>
+          </>
         ) : null}
 
-        {tab === "storage" ? (
-          <div className="adm__panel">
-            <div className="adm__bar">
-              <button
-                className="adm__btn"
-                onClick={() =>
-                  fetch("/api/admin/objects")
-                    .then((r) => r.json())
-                    .then((b) => setObjects(b.objects ?? []))
-                    .catch(() => undefined)
-                }
-                disabled={busy}
-              >
-                Refresh
-              </button>
-              <span className="adm__sub">
-                {orphans ? `${orphans} orphan(s) — no bill points at them.` : "No orphans."}
+        {tab === "bills" && device ? (
+          <>
+            <button className="adm-back" onClick={() => openDevice(null)}>
+              ‹ All sync codes
+            </button>
+            <section className="adm-card adm-profile">
+              <span className={`adm-device adm-device--lg${device.key === UNLINKED ? " adm-device--none" : ""}`} aria-hidden="true">
+                {device.key === UNLINKED ? "?" : <PhoneIcon size={30} />}
               </span>
-            </div>
-            <div className="adm__scroll">
-              <table className="adm__table">
-                <thead>
-                  <tr>
-                    <th>Object</th>
-                    <th>Size</th>
-                    <th>Uploaded</th>
-                    <th />
-                  </tr>
-                </thead>
-                <tbody>
-                  {objects.map((o) => (
-                    <tr key={o.key}>
-                      <td className="adm__mono">{o.key}</td>
-                      <td className="adm__mono" data-label="Size">{size(o.size)}</td>
-                      <td className="adm__sub adm__mono" data-label="Uploaded">{when(o.uploaded)}</td>
-                      <td>
-                        {o.orphan ? (
+              <div className="adm-profile__main">
+                <h1>
+                  {device.key === UNLINKED ? (
+                    "Not linked to a sync code yet"
+                  ) : device.name ? (
+                    device.name
+                  ) : (
+                    <SyncId id={device.key} code={codes[device.key]} />
+                  )}
+                </h1>
+                {device.key === UNLINKED ? (
+                  <span className="adm-muted">
+                    These were shared before bills carried their owner&apos;s sync code. Each one links itself the next
+                    time the owner&apos;s phone syncs, re-shares it or ticks a payment. Bills with no owner never link,
+                    because nothing proves whose they are. Paste a sync code under Sync codes to link its bills now.
+                  </span>
+                ) : (
+                  <span className="adm-muted adm-small">
+                    {device.name ? "" : "No name set in Settings · "}
+                    {codes[device.key] ? "Sync code" : "Fingerprint"} <SyncId id={device.key} code={codes[device.key]} /> ·
+                    last synced {when(device.updatedAt)} · {size(device.size)}
+                  </span>
+                )}
+              </div>
+              <div className="adm-stats">
+                <div className="adm-stat">
+                  <b>{device.bills.length}</b>
+                  <span>shared bills</span>
+                </div>
+              </div>
+            </section>
+            <section className="adm-card">
+              <div className="adm-card__head">
+                <h2>Bills from this phone</h2>
+                {pickActions(device.bills)}
+              </div>
+              {billTable(device.bills, true)}
+            </section>
+          </>
+        ) : null}
+
+        {tab === "codes" ? (
+          <>
+            <section className="adm-hero">
+              <div>
+                <h1>Sync codes</h1>
+                <p className="adm-muted">
+                  Every phone backs up its bills under a sync code (Settings → Sync across devices). The backup is
+                  locked with that code, so the server can only open it when you paste the code here.
+                </p>
+              </div>
+              <div className="adm-stats">
+                <div className="adm-stat">
+                  <b>{backups?.length ?? "…"}</b>
+                  <span>phones backing up</span>
+                </div>
+              </div>
+            </section>
+
+            <section className="adm-card">
+              <div className="adm-card__head">
+                <h2>Look inside a sync code</h2>
+              </div>
+              <form className="adm-toolbar" onSubmit={runLookup}>
+                <input
+                  className="adm-input adm-mono"
+                  value={code}
+                  readOnly={looking}
+                  placeholder="Paste the sync code someone sent you"
+                  onChange={(e) => {
+                    setCode(e.target.value);
+                    setLookup(null);
+                    setReclaim(null);
+                  }}
+                />
+                <button className="adm-btn adm-btn--primary" disabled={looking || !code.trim()}>
+                  {looking ? "Opening…" : "Open"}
+                </button>
+                {code || lookup ? (
+                  <button type="button" className="adm-btn adm-btn--ghost" disabled={looking} onClick={clearLookup}>
+                    Clear
+                  </button>
+                ) : null}
+              </form>
+
+              {lookup && !lookup.exists ? (
+                <Notice>No backup under that code yet. The phone may never have synced, or the code has a typo.</Notice>
+              ) : null}
+              {lookup?.exists && !lookup.readable ? (
+                <Notice tone="bad">There&apos;s a backup, but this code doesn&apos;t unlock it.</Notice>
+              ) : null}
+              {lookup?.summary ? (
+                <div className="adm-stack">
+                  {(() => {
+                    const lost = lookup.summary.bills.filter(
+                      (b) => b.owner && b.shareId && billById.get(b.shareId) && !billById.get(b.shareId)?.owned,
+                    );
+                    if (!lost.length) return null;
+                    return (
+                      <Notice tone="bad">
+                        <b>
+                          {lost.length} bill{lost.length === 1 ? "" : "s"} lost {lost.length === 1 ? "its" : "their"} owner
+                          on the server
+                        </b>{" "}
+                        ({lost.map((b) => b.title).join(", ")}). This phone still holds the owner key, but the server
+                        forgot it, usually because the bill was released or shared before ownership existed. Until
+                        it&apos;s fixed, anyone with the link can tick people off as paid.
+                        <div style={{ marginTop: 10 }}>
                           <button
-                            className="adm__btn adm__btn--warn"
-                            onClick={() => dropObject(o.key)}
-                            disabled={busy}
+                            className="adm-btn adm-btn--primary adm-btn--sm"
+                            disabled={reclaim?.busy}
+                            onClick={async () => {
+                              setReclaim({ busy: true, message: "", tone: "pos" });
+                              try {
+                                const res = await fetch("/api/admin/reclaim", {
+                                  method: "POST",
+                                  headers: { "content-type": "application/json" },
+                                  body: JSON.stringify({ code: code.trim() }),
+                                });
+                                const body = (await res.json()) as {
+                                  ok?: boolean;
+                                  fixed?: number;
+                                  workerOutdated?: boolean;
+                                  error?: string;
+                                };
+                                if (!body.ok) {
+                                  setReclaim({ busy: false, message: body.error ?? "Didn't work.", tone: "bad" });
+                                } else if (body.workerOutdated) {
+                                  setReclaim({
+                                    busy: false,
+                                    tone: "bad",
+                                    message: "The Worker needs redeploying first (npx wrangler deploy in worker/).",
+                                  });
+                                } else {
+                                  setReclaim({
+                                    busy: false,
+                                    tone: "pos",
+                                    message: `Done: this phone owns ${body.fixed} more bill${body.fixed === 1 ? "" : "s"} again.`,
+                                  });
+                                  loadBills();
+                                }
+                              } catch {
+                                setReclaim({ busy: false, message: "Something went wrong. Try again.", tone: "bad" });
+                              }
+                            }}
+                          >
+                            {reclaim?.busy ? "Fixing…" : "Give ownership back to this phone"}
+                          </button>
+                        </div>
+                      </Notice>
+                    );
+                  })()}
+                  {reclaim?.message ? <Notice tone={reclaim.tone}>{reclaim.message}</Notice> : null}
+                  <button
+                    className="adm-btn adm-btn--sm adm-btn--ghost"
+                    style={{ justifySelf: "start" }}
+                    onClick={async () => {
+                      const key = await fingerprint(code.trim());
+                      setTabState("bills");
+                      openDevice(key);
+                    }}
+                  >
+                    See this phone&apos;s shared bills ›
+                  </button>
+                  <p className="adm-muted adm-small">
+                    Sync code <span className="adm-mono adm-key adm-strong">{code.trim()}</span> ·{" "}
+                    {lookup.summary.name ? (
+                      <>
+                        Name set on the phone: <b>{lookup.summary.name}</b> ·{" "}
+                      </>
+                    ) : (
+                      "No name set on the phone · "
+                    )}
+                    Last synced {when(lookup.updatedAt)} · {size(lookup.size ?? 0)} · {lookup.summary.contacts} saved
+                    contact{lookup.summary.contacts === 1 ? "" : "s"} · {lookup.summary.deleted} deleted bill
+                    {lookup.summary.deleted === 1 ? "" : "s"}
+                  </p>
+                  <div className="adm-tablewrap">
+                    <table className="adm-table">
+                      <thead>
+                        <tr>
+                          <th>Bill on that phone</th>
+                          <th>People</th>
+                          <th className="adm-num">Total</th>
+                          <th>Status</th>
+                          <th>Changed</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {lookup.summary.bills.map((b) => {
+                          const shared = b.shareId ? billById.get(b.shareId) : undefined;
+                          return (
+                            <tr key={b.id}>
+                              <td>
+                                {shared ? (
+                                  <a className="adm-strong" href={billHref(shared.id)}>
+                                    {b.title}
+                                  </a>
+                                ) : (
+                                  <span className="adm-strong">{b.title}</span>
+                                )}
+                              </td>
+                              <td>{b.people}</td>
+                              <td className="adm-num adm-mono">{money(b.total, b.currency)}</td>
+                              <td>
+                                <span className="adm-chips">
+                                  {shared ? <Chip tone="accent">shared</Chip> : <Chip>only on phone</Chip>}
+                                  {shared && b.owner && shared.owned ? <Chip tone="pos">owner</Chip> : null}
+                                  {shared && b.owner && !shared.owned ? <Chip tone="warn">server lost its owner</Chip> : null}
+                                  {shared && !b.owner ? <Chip>someone else&apos;s bill</Chip> : null}
+                                </span>
+                              </td>
+                              <td className="adm-muted adm-small">{ago(b.updatedAt)}</td>
+                            </tr>
+                          );
+                        })}
+                        {!lookup.summary.bills.length ? (
+                          <tr>
+                            <td colSpan={5} className="adm-empty">
+                              This backup has no bills.
+                            </td>
+                          </tr>
+                        ) : null}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ) : null}
+            </section>
+
+            <section className="adm-card">
+              <div className="adm-card__head">
+                <h2>Recent backups</h2>
+                {(backups?.length ?? 0) > 1 ? (
+                  <button
+                    className="adm-btn adm-btn--danger adm-btn--sm"
+                    disabled={droppingBackups}
+                    onClick={() => dropBackups((backups ?? []).slice(1).map((b) => b.key))}
+                  >
+                    {droppingBackups ? "Deleting…" : `Keep only the newest · delete ${(backups?.length ?? 1) - 1}`}
+                  </button>
+                ) : null}
+              </div>
+              <span className="adm-muted adm-small">
+                The server only keeps a fingerprint. Codes you open here are remembered in this browser. Deleting a
+                backup only removes the server copy: bills stay, and a phone still using that code uploads a fresh one
+                on its next sync.
+              </span>
+              <div className="adm-tablewrap">
+                <table className="adm-table">
+                  <thead>
+                    <tr>
+                      <th>Name</th>
+                      <th>Sync code</th>
+                      <th className="adm-num">Shared bills</th>
+                      <th className="adm-num">Size</th>
+                      <th>Last sync</th>
+                      <th aria-label="Actions" />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(backups ?? []).map((b) => (
+                      <tr key={b.key} className="adm-table__link" onClick={() => { setTabState("bills"); openDevice(b.key); }}>
+                        <td className={b.name ? "adm-strong" : "adm-muted"}>{b.name ?? "—"}</td>
+                        <td className="adm-small">
+                          <SyncId id={b.key} code={codes[b.key]} className={codes[b.key] ? "adm-strong" : "adm-muted"} />
+                        </td>
+                        <td className="adm-num">{b.billIds.length || "—"}</td>
+                        <td className="adm-num adm-mono">{size(b.size)}</td>
+                        <td className="adm-muted adm-small" title={when(b.updatedAt)}>
+                          {ago(b.updatedAt)}
+                        </td>
+                        <td className="adm-num" onClick={(e) => e.stopPropagation()}>
+                          <button
+                            className="adm-btn adm-btn--ghost adm-btn--sm"
+                            disabled={droppingBackups}
+                            onClick={() => dropBackups([b.key])}
+                            aria-label={`Delete the backup for ${b.name ?? codes[b.key] ?? b.key}`}
                           >
                             Delete
                           </button>
-                        ) : (
-                          <span className="adm__tag adm__tag--pos">in use</span>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                  {!objects.length ? (
-                    <tr>
-                      <td colSpan={4} className="adm__sub">
-                        Bucket is empty.
-                      </td>
-                    </tr>
-                  ) : null}
-                </tbody>
-              </table>
-            </div>
-          </div>
+                        </td>
+                      </tr>
+                    ))}
+                    {backups && !backups.length ? (
+                      <tr>
+                        <td colSpan={6} className="adm-empty">
+                          No backups yet.
+                        </td>
+                      </tr>
+                    ) : null}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          </>
         ) : null}
-      </div>
+
+        {tab === "receipts" ? (
+          <Receipts
+            objects={objects}
+            billById={billById}
+            billHref={billHref}
+            onRefresh={() => loadObjects()}
+            onDelete={deleteObjects}
+            onDeleteBill={deleteBill}
+          />
+        ) : null}
+      </main>
+
+      {giving ? <GiveDialog bills={giving} onClose={() => setGiving(null)} onDone={() => setPicked([])} /> : null}
     </div>
   );
 }

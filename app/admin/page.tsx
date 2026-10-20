@@ -10,8 +10,8 @@ export const metadata = { title: "owe · admin", robots: { index: false, follow:
 export default function AdminPage() {
   if (!adminConfigured() || !adminReady()) {
     return (
-      <div className="adm__gate">
-        <div className="adm__note adm__note--bad">
+      <div className="adm-gate">
+        <div className="adm-notice adm-notice--bad">
           Admin is off. Set <code>ADMIN_PASSWORD</code> (8+ characters),{" "}
           <code>OWE_DB_URL</code> and <code>OWE_DB_SECRET</code>, then restart.
         </div>
