@@ -27,7 +27,7 @@
 - 💸 **Settle up** — see who pays whom, with each person's bank / e-wallet number one tap to copy.
 - ☁️ **Your bills, backed up** — saved splits sync to an anonymous, end-to-end-encrypted cloud row keyed to your device, so they survive a cleared cache — still no account.
 - 🔗 **Share without an app** — lock a split in, then share a link; whoever opens it sees the totals, each person's items, and payment numbers right in their browser.
-- 🌍 **Bilingual** — English and Bahasa Indonesia.
+- 🌍 **Bilingual** — English and Indonesia.
 - 🎨 **Make it yours** — light / dark theme, six accent colors, currency, rounding, and a motion toggle.
 - 📲 **Installable** — add to your home screen and run it standalone; the split-and-settle flow works with no connection.
 
@@ -146,7 +146,7 @@ Everything is tweakable from the in-app settings sheet:
 - **Theme** — light or dark (native form controls follow the theme via `color-scheme`).
 - **Accent** — six accent colors that recolor the whole UI.
 - **Animations** — a single toggle that respects `prefers-reduced-motion`.
-- **Language** — English or Bahasa Indonesia.
+- **Language** — English or Indonesia.
 - **Currency** — IDR (default), every other ASEAN currency (MYR, SGD, THB, PHP, VND, BND, KHR, LAK, MMK), plus USD, JPY and TWD.
 - **Rounding** — exact, whole, or round up to the nearest 5.
 
