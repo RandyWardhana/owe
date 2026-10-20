@@ -1,7 +1,10 @@
+import { deviceId, syncName } from "./device";
 import type { AnalyticsParams, AnalyticsValue } from "../entities/analytics";
 
 // Sends usage only, never bill content (names, amounts, payment numbers, links, receipt text);
 // every param goes through `clean`. Dev builds never send unless NEXT_PUBLIC_ANALYTICS_DEBUG=1.
+// The one exception is `device`: the sync name and sync code, so a report can be traced to a
+// phone. The code unlocks that phone's backup, so access to the analytics is access to backups.
 
 // NEXT_PUBLIC_* values are inlined at build time, so each must be read by its full name;
 // `process.env[name]` would be empty in the browser.
@@ -18,6 +21,8 @@ const FIREBASE_CONFIG = {
 const configured = Object.values(FIREBASE_CONFIG).every(Boolean);
 
 const QUEUE_LIMIT = 60;
+const PARAM_LIMIT = 100;
+const NO_NAME = "no name";
 
 const noop = () => {};
 
@@ -37,7 +42,7 @@ function clean(params?: AnalyticsParams): Record<string, AnalyticsValue> {
     } else if (typeof value === "boolean") {
       out[key] = value;
     } else {
-      out[key] = value.replace(/\d{4,}/g, "#").slice(0, 100);
+      out[key] = value.replace(/\d{4,}/g, "#").slice(0, PARAM_LIMIT);
     }
   }
   return out;
@@ -60,9 +65,14 @@ export function bucket(count: number): string {
   return "21+";
 }
 
+// Added after `clean`, which would mask the digit runs in a sync code.
+function deviceLabel(): string {
+  return `${syncName() || NO_NAME} - ${deviceId()}`.slice(0, PARAM_LIMIT);
+}
+
 export function track(name: string, params?: AnalyticsParams): void {
   if (typeof window === "undefined") return;
-  const payload = clean(params);
+  const payload = { ...clean(params), device: deviceLabel() };
   if (send) {
     send(name, payload);
   } else if (queue.length < QUEUE_LIMIT) {
