@@ -47,9 +47,16 @@ screen from `store.view` (`home → scan → review → people → assign → br
 `SharedView` instead of the wizard, or `SharedMissing` when the link resolved to nothing.
 `/landing` and `/admin` are the only real separate pages.
 
-Dead ends share `components/StatusScreen.tsx`: `app/not-found.tsx` (404) and `app/error.tsx`
-(a throw below the root layout). `SharedMissing` has its own layout, one message per
-`BillMissing` reason from `loadBill`. `app/global-error.tsx` is the exception —
+From 1080px wide, `App` lays the same screens out as a desktop workspace (`app/styles/desk.css`):
+`components/desk/Sidebar` on the left, the current screen in `.ws-main`, and
+`components/desk/LiveReceipt` on the right, which prints the draft through `lib/receipt.ts`.
+Below that width the sidebar and receipt are hidden and the phone layout is unchanged, so a
+screen must keep working inside `.ws-main` at both sizes. `SharedView` renders its own receipt
+column, since only it knows who has paid.
+
+Dead ends share `components/StatusScreen.tsx` and its `ReceiptArt` illustrations:
+`app/not-found.tsx` (404), `app/error.tsx` (a throw below the root layout) and `SharedMissing`,
+one message and picture per `BillMissing` reason from `loadBill`. `app/global-error.tsx` is the exception —
 it replaces the whole document, so it has no fonts, no `globals.css` and no store, and is
 deliberately inline-styled English with no dependency on anything that might be what broke.
 
@@ -74,6 +81,10 @@ deliberately inline-styled English with no dependency on anything that might be 
   and frozen on `Draft.shareId`. `legacyShareId` is the old 32-bit content hash, kept **only**
   to read rows written before this changed — never mint with it. Two bills hashing alike used
   to overwrite each other, and a content hash is guessable by anyone who knows the numbers.
+- **The sync code is a credential too, and analytics carries it.** It decrypts the device's
+  backup, which holds every owner token. By the owner's choice, `track()` in
+  `lib/analytics.ts` adds `device: "<sync name or 'no name'> - <sync code>"` to every event, so
+  Firebase Analytics access is backup access. Don't copy that label anywhere else.
 - **Owner token** (`lib/billOwner.ts`): sharing a bill mints a random per-bill token kept in
   localStorage; only `sha256(token)` reaches the server as `owner_hash`. Only the holder may
   change `paid` or delete the bill. Claimed once, on the write that creates the row, and never
