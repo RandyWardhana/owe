@@ -7,3 +7,6 @@ export { useAutoDismiss } from "./useAutoDismiss";
 export { useClipboard } from "./useClipboard";
 export { useCopyAnim } from "./useCopyAnim";
 export { useCountUp } from "./useCountUp";
+export { useBillDeletion } from "./useBillDeletion";
+export { useStartSplit } from "./useStartSplit";
+export { useSplash } from "./useSplash";

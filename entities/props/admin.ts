@@ -126,3 +126,14 @@ export interface GiveDialogProps {
   onClose: () => void;
   onDone?: () => void;
 }
+
+export interface SkeletonProps {
+  width?: number | string;
+  height?: number;
+  radius?: number;
+  className?: string;
+}
+
+export interface SkeletonRowsProps {
+  rows: number;
+}

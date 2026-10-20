@@ -190,6 +190,30 @@ export const WifiOff = (props: IconProps) => (
   </Svg>
 );
 
+export const ReceiptX = (props: IconProps) => (
+  <Svg {...props}>
+    <path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1-2-1z" />
+    <path d="m9.5 9.5 5 5M14.5 9.5l-5 5" />
+  </Svg>
+);
+
+export const LinkOff = (props: IconProps) => (
+  <Svg {...props}>
+    <path d="M9 17H7A5 5 0 0 1 7 7" />
+    <path d="M15 7h2a5 5 0 0 1 4 8" />
+    <path d="M8 12h4" />
+    <path d="m2 2 20 20" />
+  </Svg>
+);
+
+export const CloudOff = (props: IconProps) => (
+  <Svg {...props}>
+    <path d="m2 2 20 20" />
+    <path d="M5.782 5.782A7 7 0 0 0 9 19h8.5a4.5 4.5 0 0 0 1.307-.193" />
+    <path d="M21.532 16.5A4.5 4.5 0 0 0 17.5 10h-1.79A7.008 7.008 0 0 0 10 5.07" />
+  </Svg>
+);
+
 export const Wifi = (props: IconProps) => (
   <Svg {...props}>
     <path d="M12 20h.01" />

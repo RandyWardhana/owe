@@ -20,6 +20,7 @@ export default function Scan() {
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState(0);
   const [preview, setPreview] = useState<string | null>(null);
+  const [dragging, setDragging] = useState(false);
 
   const cameraRef = useRef<HTMLInputElement>(null);
   const uploadRef = useRef<HTMLInputElement>(null);
@@ -68,14 +69,24 @@ export default function Scan() {
     e.target.value = "";
   };
 
+  const offline = () => {
+    if (typeof navigator === "undefined" || navigator.onLine) return false;
+    buzz(20);
+    track("scan_result", { outcome: "offline" });
+    showToast("scan.offline");
+    return true;
+  };
+
   const pick = (ref: React.RefObject<HTMLInputElement | null>) => {
-    if (typeof navigator !== "undefined" && !navigator.onLine) {
-      buzz(20);
-      track("scan_result", { outcome: "offline" });
-      showToast("scan.offline");
-      return;
-    }
-    ref.current?.click();
+    if (!offline()) ref.current?.click();
+  };
+
+  const onDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setDragging(false);
+    const file = [...e.dataTransfer.files].find((dropped) => dropped.type.startsWith("image/"));
+    if (busy || !file) return;
+    if (!offline()) run(file);
   };
 
   return (
@@ -97,7 +108,15 @@ export default function Scan() {
           onChange={onPick}
         />
 
-        <div className={`viewfinder ${busy ? "is-busy" : ""}`}>
+        <div
+          className={`viewfinder ${busy ? "is-busy" : ""}${dragging ? " is-dragging" : ""}`}
+          onDragOver={(e) => {
+            e.preventDefault();
+            if (!busy) setDragging(true);
+          }}
+          onDragLeave={() => setDragging(false)}
+          onDrop={onDrop}
+        >
           <span className="vf-corner tl" />
           <span className="vf-corner tr" />
           <span className="vf-corner bl" />
@@ -118,6 +137,7 @@ export default function Scan() {
             <div className="vf-hint">
               <Camera size={34} />
               <div className="disp">{t("scan.point")}</div>
+              <p className="vf-drop">{t("desk.scan.drop")}</p>
               <p className="muted vf-privacy">{t("scan.privacy")}</p>
             </div>
           )}
@@ -125,10 +145,10 @@ export default function Scan() {
 
         {!busy ? (
           <div className="col-gap" style={{ marginTop: 18 }}>
-            <button className="btn" onClick={() => pick(cameraRef)}>
+            <button className="btn scan-take" onClick={() => pick(cameraRef)}>
               <Camera size={20} /> {t("scan.takePhoto")}
             </button>
-            <button className="btn secondary" onClick={() => pick(uploadRef)}>
+            <button className="btn secondary scan-upload" onClick={() => pick(uploadRef)}>
               <ImageIcon size={18} /> {t("scan.upload")}
             </button>
           </div>

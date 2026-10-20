@@ -31,6 +31,7 @@ export interface StepsInfo {
 }
 
 export interface ScreenProps {
+  className?: string;
   title?: ReactNode;
   sub?: ReactNode;
   onBack?: () => void;
@@ -101,4 +102,8 @@ export interface ProofLightboxProps {
   src: string;
   label: string;
   onClose: () => void;
+}
+
+export interface SplashCoverProps {
+  leaving: boolean;
 }

@@ -21,6 +21,7 @@ import {
   size,
   when,
 } from "./ui";
+import { BillSkeleton } from "./Skeletons";
 import type { AdminBillProps, BillDevice } from "@/entities/props/admin";
 
 export default function AdminBill({ id }: AdminBillProps) {
@@ -66,7 +67,7 @@ export default function AdminBill({ id }: AdminBillProps) {
           <a className="adm-back" href="/admin">
             ‹ All bills
           </a>
-          {state === "loading" ? <div className="adm-card adm-empty">Loading…</div> : null}
+          {state === "loading" ? <BillSkeleton /> : null}
           {state === "missing" ? <Notice tone="bad">There&apos;s no bill with the id {id}.</Notice> : null}
           {state === "error" ? <Notice tone="bad">Couldn&apos;t load this bill. Try again.</Notice> : null}
         </main>

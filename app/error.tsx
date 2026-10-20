@@ -19,7 +19,7 @@ export default function AppError({
 
   return (
     <StatusScreen
-      icon={<Warning size={28} />}
+      icon={<Warning />}
       tone="warn"
       title={t("status.errorTitle")}
       body={t("status.errorBody")}

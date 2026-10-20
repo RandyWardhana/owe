@@ -144,9 +144,11 @@
   z-index: 2;
 }
 
+.theme-reveal--dark .ws-theme .seg__sun,
 .theme-reveal--light .seg__btn.on .seg__sun {
   animation: seg-sunrise 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
+.theme-reveal--light .ws-theme .seg__moon,
 .theme-reveal--dark .seg__btn.on .seg__moon {
   animation: seg-moonrise 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
 }

@@ -22,6 +22,7 @@ import {
   when,
 } from "./ui";
 import { Receipts } from "./Receipts";
+import { ConsoleSkeleton, Skeleton, SkeletonRows } from "./Skeletons";
 import type { AdminGroup, AdminPlace, AdminTab, CodeLookup, DeviceGroup, HolderGroup } from "@/entities/props/admin";
 
 const UNLINKED = "unlinked";
@@ -345,13 +346,7 @@ export default function AdminConsole() {
     setObjects((cur) => (cur ?? []).filter((file) => !gone.has(file.key)));
   };
 
-  if (authed === null) {
-    return (
-      <div className="adm-gate">
-        <span className="adm-muted">Loading…</span>
-      </div>
-    );
-  }
+  if (authed === null) return <ConsoleSkeleton />;
 
   if (!authed) return <Gate onSignedIn={loadBills} />;
 
@@ -794,7 +789,7 @@ export default function AdminConsole() {
               </div>
               <div className="adm-stats">
                 <div className="adm-stat">
-                  <b>{backups?.length ?? "…"}</b>
+                  <b>{backups ? backups.length : <Skeleton width={36} height={22} radius={6} />}</b>
                   <span>phones backing up</span>
                 </div>
               </div>
@@ -1002,6 +997,13 @@ export default function AdminConsole() {
                     </tr>
                   </thead>
                   <tbody>
+                    {backups === null ? (
+                      <tr>
+                        <td colSpan={6}>
+                          <SkeletonRows rows={4} />
+                        </td>
+                      </tr>
+                    ) : null}
                     {(backups ?? []).map((backup) => (
                       <tr key={backup.key} className="adm-table__link" onClick={() => { setTabState("bills"); openDevice(backup.key); }}>
                         <td className={backup.name ? "adm-strong" : "adm-muted"}>{backup.name ?? "—"}</td>

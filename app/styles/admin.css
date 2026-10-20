@@ -1437,3 +1437,76 @@ h1 .adm-key {
   letter-spacing: 0;
   line-height: 1.35;
 }
+
+.adm-sk {
+  display: block;
+  flex-shrink: 0;
+  max-width: 100%;
+  background: linear-gradient(
+    90deg,
+    color-mix(in oklab, var(--ink) 6%, transparent) 25%,
+    color-mix(in oklab, var(--ink) 12%, transparent) 50%,
+    color-mix(in oklab, var(--ink) 6%, transparent) 75%
+  );
+  background-size: 300% 100%;
+  animation: adm-shimmer 1.4s ease-in-out infinite;
+}
+.adm-stat b .adm-sk {
+  display: inline-block;
+  vertical-align: middle;
+}
+.adm-sk-stack {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+.adm-sk-end {
+  justify-items: end;
+}
+.adm-sk-tabs {
+  display: flex;
+  gap: 6px;
+}
+.adm-sk-stat {
+  gap: 8px;
+}
+.adm-sk-holder {
+  cursor: default;
+  grid-template-columns: auto 1fr auto;
+}
+.adm-sk-rows {
+  display: grid;
+}
+.adm-sk-row {
+  display: grid;
+  grid-template-columns: 1.6fr 1fr 0.7fr 0.8fr;
+  gap: 18px;
+  align-items: center;
+  padding: 16px 4px;
+  border-bottom: 1px solid var(--line);
+}
+.adm-sk-row:last-child {
+  border-bottom: 0;
+}
+.adm-sk-slip {
+  pointer-events: none;
+}
+.adm-sk-polaroids {
+  display: flex;
+  gap: 14px;
+}
+
+@keyframes adm-shimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -100% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .adm-sk {
+    animation: none;
+  }
+}

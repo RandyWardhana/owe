@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import type { AdminObject } from "@/entities/admin";
 import { Chip, ago, fileUrl, money, size, when } from "./ui";
+import { SlipsSkeleton, Skeleton } from "./Skeletons";
 import type { ReceiptPhotoProps, ReceiptSlip, ReceiptSlot, ReceiptsProps, ReceiptsView } from "@/entities/props/admin";
 
 const tilt = (seed: string) => {
@@ -76,7 +77,7 @@ export function Receipts({
   }, [slips, query]);
 
   const openSlip = open ? (slips.find((slip) => slip.id === open.slip) ?? null) : null;
-  const reel = openSlip ? openSlip.slots.filter((slot) => slot.file) : [];
+  const reel = useMemo(() => (openSlip ? openSlip.slots.filter((slot) => slot.file) : []), [openSlip]);
   const at = reel.findIndex((slot) => slot.file?.key === open?.key);
   const current = at >= 0 ? reel[at] : null;
 
@@ -138,13 +139,13 @@ export function Receipts({
         </div>
         <div className="adm-stats">
           <div className="adm-stat">
-            <b>{objects ? used.length : "…"}</b>
+            <b>{objects ? used.length : <Skeleton width={36} height={22} radius={6} />}</b>
             <span>
               on {slips.length} bill{slips.length === 1 ? "" : "s"}
             </span>
           </div>
           <div className="adm-stat">
-            <b>{objects ? size(totalBytes) : "…"}</b>
+            <b>{objects ? size(totalBytes) : <Skeleton width={70} height={22} radius={6} />}</b>
             <span>in storage</span>
           </div>
         </div>
@@ -175,6 +176,7 @@ export function Receipts({
 
       {view === "board" ? (
         <section className="rcp-board">
+          {objects === null ? <SlipsSkeleton /> : null}
           {shown.map((slip) => {
             const sent = slip.slots.filter((slot) => slot.file).length;
             const settled = slip.slots.filter((slot) => slot.paid).length;
