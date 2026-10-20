@@ -1,0 +1,406 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+
+import type { AdminObject, BillSummary } from "@/lib/adminTypes";
+import { Chip, ago, fileUrl, money, size, when } from "./ui";
+
+type View = "board" | "lost";
+
+interface Slot {
+  index: number;
+  name: string;
+  file: AdminObject | null;
+  paid: boolean;
+}
+
+interface Slip {
+  id: string;
+  bill: BillSummary | undefined;
+  files: AdminObject[];
+  slots: Slot[];
+  latest: string;
+}
+
+const tilt = (seed: string) => {
+  let h = 0;
+  for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) % 997;
+  return ((h % 9) - 4) * 0.75;
+};
+
+const isPdf = (o: AdminObject) => (o.contentType ?? o.key).includes("pdf");
+
+function Photo({ file, alt }: { file: AdminObject; alt: string }) {
+  return isPdf(file) ? (
+    <span className="rcp-pdf">PDF</span>
+  ) : (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img src={fileUrl(file.key)} alt={alt} loading="lazy" />
+  );
+}
+
+export function Receipts({
+  objects,
+  billById,
+  billHref,
+  onRefresh,
+  onDelete,
+  onDeleteBill,
+}: {
+  objects: AdminObject[] | null;
+  billById: Map<string, BillSummary>;
+  billHref: (id: string) => string;
+  onRefresh: () => void;
+  onDelete: (keys: string[]) => Promise<void>;
+  onDeleteBill: (id: string) => Promise<boolean>;
+}) {
+  const [view, setView] = useState<View>("board");
+  const [query, setQuery] = useState("");
+  const [open, setOpen] = useState<{ slip: string; key: string } | null>(null);
+  const [sweeping, setSweeping] = useState(false);
+  const [binning, setBinning] = useState<string | null>(null);
+
+  const used = useMemo(() => (objects ?? []).filter((o) => !o.orphan), [objects]);
+  const lost = useMemo(() => (objects ?? []).filter((o) => o.orphan), [objects]);
+
+  const slips = useMemo<Slip[]>(() => {
+    const byBill = new Map<string, AdminObject[]>();
+    used.forEach((o) => {
+      const id = o.billId ?? "?";
+      byBill.set(id, [...(byBill.get(id) ?? []), o]);
+    });
+    return [...byBill.entries()]
+      .map(([id, files]) => {
+        const bill = billById.get(id);
+        const byPerson = new Map(files.map((f) => [f.personIndex, f]));
+        const named: Slot[] = (bill?.readable ? bill.names : [])
+          .map((name, index) => ({
+            index,
+            name,
+            file: byPerson.get(index) ?? null,
+            paid: Boolean(bill?.paid.includes(index)),
+          }))
+          .filter((slot) => slot.index !== bill?.payer);
+        const covered = new Set(named.filter((slot) => slot.file).map((slot) => slot.file!.key));
+        const loose: Slot[] = files
+          .filter((f) => !covered.has(f.key))
+          .map((f, i) => ({
+            index: f.personIndex ?? -1 - i,
+            name: f.personIndex !== null ? `Person ${f.personIndex + 1}` : "Someone",
+            file: f,
+            paid: f.personIndex !== null && Boolean(bill?.paid.includes(f.personIndex)),
+          }));
+        const slots = [...named, ...loose];
+        const latest = files.reduce((m, f) => (f.uploaded > m ? f.uploaded : m), "");
+        return { id, bill, files, slots, latest };
+      })
+      .sort((a, b) => (a.latest < b.latest ? 1 : -1));
+  }, [used, billById]);
+
+  const shown = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return slips;
+    return slips.filter(
+      (s) =>
+        (s.bill?.title ?? s.id).toLowerCase().includes(q) ||
+        s.slots.some((slot) => slot.file && slot.name.toLowerCase().includes(q)),
+    );
+  }, [slips, query]);
+
+  const openSlip = open ? (slips.find((s) => s.id === open.slip) ?? null) : null;
+  const reel = openSlip ? openSlip.slots.filter((s) => s.file) : [];
+  const at = reel.findIndex((s) => s.file?.key === open?.key);
+  const current = at >= 0 ? reel[at] : null;
+
+  useEffect(() => {
+    if (!open || !reel.length) return;
+    const step = (by: number) => {
+      const next = reel[(at + by + reel.length) % reel.length];
+      if (next?.file) setOpen({ slip: open.slip, key: next.file.key });
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(null);
+      if (e.key === "ArrowRight") step(1);
+      if (e.key === "ArrowLeft") step(-1);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, reel, at]);
+
+  const lostBytes = lost.reduce((n, o) => n + o.size, 0);
+  const totalBytes = (objects ?? []).reduce((n, o) => n + o.size, 0);
+
+  const binBill = async (slip: Slip) => {
+    const title = slip.bill?.title ?? slip.id;
+    const n = slip.files.length;
+    if (
+      !window.confirm(
+        `Delete “${title}” and its ${n} receipt${n === 1 ? "" : "s"}? The share link stops working for everyone. This can't be undone.`,
+      )
+    )
+      return;
+    setBinning(slip.id);
+    try {
+      await onDeleteBill(slip.id);
+    } finally {
+      setBinning(null);
+    }
+  };
+
+  const sweep = async () => {
+    if (!lost.length) return;
+    if (!window.confirm(`Delete all ${lost.length} unused file${lost.length === 1 ? "" : "s"}? This can't be undone.`))
+      return;
+    setSweeping(true);
+    try {
+      await onDelete(lost.map((o) => o.key));
+    } finally {
+      setSweeping(false);
+    }
+  };
+
+  return (
+    <>
+      <section className="adm-hero">
+        <div>
+          <h1>Receipts</h1>
+          <p className="adm-muted">
+            Every &ldquo;I&apos;ve paid!&rdquo; with the screenshot to prove it, pinned to the bill it settles.
+          </p>
+        </div>
+        <div className="adm-stats">
+          <div className="adm-stat">
+            <b>{objects ? used.length : "…"}</b>
+            <span>
+              on {slips.length} bill{slips.length === 1 ? "" : "s"}
+            </span>
+          </div>
+          <div className="adm-stat">
+            <b>{objects ? size(totalBytes) : "…"}</b>
+            <span>in storage</span>
+          </div>
+        </div>
+      </section>
+
+      <div className="adm-toolbar">
+        <div className="adm-seg">
+          <button className={`adm-seg__btn${view === "board" ? " on" : ""}`} onClick={() => setView("board")}>
+            Board
+          </button>
+          <button className={`adm-seg__btn${view === "lost" ? " on" : ""}`} onClick={() => setView("lost")}>
+            Lost &amp; found{lost.length ? ` · ${lost.length}` : ""}
+          </button>
+        </div>
+        {view === "board" ? (
+          <input
+            className="adm-input adm-input--search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Find a bill or a person"
+            aria-label="Find a bill or a person"
+          />
+        ) : null}
+        <button className="adm-btn adm-btn--ghost" onClick={onRefresh}>
+          Refresh
+        </button>
+      </div>
+
+      {view === "board" ? (
+        <section className="rcp-board">
+          {shown.map((slip) => {
+            const sent = slip.slots.filter((s) => s.file).length;
+            const settled = slip.slots.filter((s) => s.paid).length;
+            const readable = Boolean(slip.bill?.readable);
+            const done = readable && slip.slots.length > 0 && settled === slip.slots.length;
+            return (
+              <article
+                key={slip.id}
+                className={`rcp-slip${done ? " rcp-slip--done" : ""}${binning === slip.id ? " rcp-slip--going" : ""}`}
+              >
+                {done ? (
+                  <span className="rcp-stamp" aria-hidden="true">
+                    settled
+                  </span>
+                ) : null}
+                <header className="rcp-slip__head">
+                  {slip.bill ? (
+                    <a className="rcp-slip__title" href={billHref(slip.id)}>
+                      {slip.bill.title}
+                    </a>
+                  ) : (
+                    <span className="rcp-slip__title adm-mono">{slip.id}</span>
+                  )}
+                  <span className="rcp-slip__meta">
+                    {slip.bill?.readable ? `${money(slip.bill.grandTotal, slip.bill.currency)} · ` : ""}
+                    last receipt {ago(slip.latest)}
+                  </span>
+                  <button
+                    className="rcp-slip__bin"
+                    onClick={() => binBill(slip)}
+                    disabled={binning !== null}
+                    aria-label={`Delete ${slip.bill?.title ?? "this bill"} and its receipts`}
+                    title="Delete bill and receipts"
+                  >
+                    <svg
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      aria-hidden="true"
+                    >
+                      <path d="M4 7h16M10 11v6M14 11v6M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2l1-12M9 7V4h6v3" />
+                    </svg>
+                  </button>
+                </header>
+                {readable ? (
+                  <div className="rcp-tally" aria-label={`${sent} receipts, ${settled} of ${slip.slots.length} paid`}>
+                    <span className="rcp-tally__bar">
+                      <span
+                        style={{
+                          width: `${slip.slots.length ? (settled / slip.slots.length) * 100 : 0}%`,
+                        }}
+                      />
+                    </span>
+                    <span>
+                      {settled}/{slip.slots.length} paid
+                    </span>
+                  </div>
+                ) : null}
+                <div className="rcp-line">
+                  {slip.slots.map((slot) =>
+                    slot.file ? (
+                      <button
+                        key={slot.index}
+                        className="rcp-polaroid"
+                        style={
+                          {
+                            "--tilt": `${tilt(slot.file.key)}deg`,
+                          } as React.CSSProperties
+                        }
+                        onClick={() => setOpen({ slip: slip.id, key: slot.file!.key })}
+                      >
+                        <span className="rcp-polaroid__img">
+                          <Photo file={slot.file} alt={`Receipt from ${slot.name}`} />
+                        </span>
+                        <span className="rcp-polaroid__name">{slot.name}</span>
+                        {slot.paid ? (
+                          <span className="rcp-tick" aria-label="confirmed">
+                            ✓
+                          </span>
+                        ) : null}
+                      </button>
+                    ) : (
+                      <span
+                        key={slot.index}
+                        className={`rcp-empty${slot.paid ? " rcp-empty--paid" : ""}`}
+                        title={slot.paid ? `${slot.name} paid without a receipt` : `Waiting on ${slot.name}`}
+                      >
+                        <span className="rcp-empty__mark" aria-hidden="true">
+                          {slot.paid ? "✓" : "?"}
+                        </span>
+                        <span className="rcp-polaroid__name">{slot.name}</span>
+                      </span>
+                    ),
+                  )}
+                </div>
+              </article>
+            );
+          })}
+          {objects && !shown.length ? (
+            <div className="adm-card adm-empty">{query ? "Nothing matches that." : "No receipts yet."}</div>
+          ) : null}
+        </section>
+      ) : (
+        <section className="rcp-bin">
+          <div className="rcp-bin__head">
+            <div>
+              <h2>Lost &amp; found</h2>
+              <span className="adm-muted adm-small">
+                Files no bill points at any more: replaced screenshots, deleted bills. Nobody will miss them.
+              </span>
+            </div>
+            <button className="adm-btn adm-btn--danger" disabled={!lost.length || sweeping} onClick={sweep}>
+              {sweeping ? "Sweeping…" : lost.length ? `Sweep ${lost.length} · ${size(lostBytes)}` : "All clean"}
+            </button>
+          </div>
+          {lost.length ? (
+            <div className="rcp-pile">
+              {lost.map((o) => (
+                <a
+                  key={o.key}
+                  className="rcp-scrap"
+                  href={fileUrl(o.key)}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{ "--tilt": `${tilt(o.key) * 2}deg` } as React.CSSProperties}
+                  title={`${size(o.size)} · ${when(o.uploaded)}`}
+                >
+                  <Photo file={o} alt="Unused receipt" />
+                </a>
+              ))}
+            </div>
+          ) : (
+            <div className="rcp-clean">Nothing lying around. Tidy.</div>
+          )}
+        </section>
+      )}
+
+      {openSlip && current?.file ? (
+        <div className="rcp-light" role="dialog" aria-modal="true" onClick={() => setOpen(null)}>
+          <figure className="rcp-light__card" onClick={(e) => e.stopPropagation()}>
+            <a className="rcp-light__img" href={fileUrl(current.file.key)} target="_blank" rel="noreferrer">
+              <Photo file={current.file} alt={`Receipt from ${current.name}`} />
+            </a>
+            <figcaption className="rcp-light__cap">
+              <div>
+                <b>{current.name}</b>
+                <span className="adm-muted adm-small">
+                  {openSlip.bill?.title ?? openSlip.id} · {when(current.file.uploaded)} · {size(current.file.size)}
+                </span>
+              </div>
+              {current.paid ? <Chip tone="pos">confirmed</Chip> : <Chip tone="warn">not confirmed yet</Chip>}
+            </figcaption>
+            {reel.length > 1 ? (
+              <div className="rcp-light__nav">
+                <button
+                  className="adm-btn adm-btn--ghost adm-btn--sm"
+                  onClick={() =>
+                    setOpen({
+                      slip: openSlip.id,
+                      key: reel[(at - 1 + reel.length) % reel.length].file!.key,
+                    })
+                  }
+                  aria-label="Previous receipt"
+                >
+                  ‹
+                </button>
+                <span className="adm-muted adm-small">
+                  {at + 1} / {reel.length}
+                </span>
+                <button
+                  className="adm-btn adm-btn--ghost adm-btn--sm"
+                  onClick={() =>
+                    setOpen({
+                      slip: openSlip.id,
+                      key: reel[(at + 1) % reel.length].file!.key,
+                    })
+                  }
+                  aria-label="Next receipt"
+                >
+                  ›
+                </button>
+              </div>
+            ) : null}
+            <button className="rcp-light__close" onClick={() => setOpen(null)} aria-label="Close">
+              ✕
+            </button>
+          </figure>
+        </div>
+      ) : null}
+    </>
+  );
+}
