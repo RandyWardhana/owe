@@ -20,6 +20,7 @@ import {
 import { hasCloudSync } from "@/lib/cloudSync";
 import { useStore } from "@/lib/store";
 import type { SharedBill } from "@/lib/types";
+import { track } from "@/lib/analytics";
 
 /* Settling up, from both sides of the same screen.
 
@@ -174,6 +175,7 @@ export function useSettlement(bill: SharedBill, shareId?: string): Settlement {
 
       // Put it back if the server refuses, rather than showing a change that
       // the next reload will undo.
+      track("mark_paid", { by: "owner_link", paid: next.has(index) });
       savePaid(id, [...next]).then((ok) => {
         if (ok) return;
         apply(before);

@@ -10,6 +10,7 @@ import {
 import { fetchProofs, proofUrl } from "@/lib/proofs";
 import { useStore } from "@/lib/store";
 import type { Person } from "@/lib/types";
+import { track } from "@/lib/analytics";
 
 /**
  * The creator's side of settling up, on their own breakdown screen.
@@ -102,6 +103,7 @@ export function useOwnerSettlement(
         : [...paidIdx, i];
       setPaidIdx(next);
 
+      track("mark_paid", { by: "owner_app", paid: next.includes(i) });
       savePaid(shareId, next).then((ok) => {
         if (ok) return;
         setPaidIdx(before);

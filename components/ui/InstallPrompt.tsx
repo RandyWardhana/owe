@@ -7,6 +7,7 @@ import { useStore } from "@/lib/store";
 import { useT } from "@/lib/i18n";
 
 import { X } from "@/components/icons";
+import { track } from "@/lib/analytics";
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -119,7 +120,8 @@ export default function InstallPrompt() {
   const install = async () => {
     if (!deferred) return;
     await deferred.prompt();
-    await deferred.userChoice;
+    const choice = await deferred.userChoice;
+    track("pwa_install_prompt", { outcome: choice?.outcome || "unknown" });
     setDeferred(null);
     setReady(false);
   };

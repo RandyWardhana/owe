@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { decryptShare } from "@/lib/share";
 import { loadBill, type BillMissing } from "@/lib/bills";
 import type { SharedBill } from "@/lib/types";
+import { track } from "@/lib/analytics";
 
 type SharedState = SharedBill | null | undefined;
 
@@ -27,6 +28,7 @@ export function useSharedBill() {
 
     const fail = (reason: BillMissing) => {
       if (cancelled) return;
+      track("shared_bill_failed", { reason });
       console.warn(`[owe] shared link could not be opened: ${reason}`);
       setMissing(reason);
       setShared(null);
@@ -35,8 +37,10 @@ export function useSharedBill() {
     const resolve = (token: string) => {
       decryptShare(token).then((payload) => {
         if (cancelled) return;
-        if (payload) setShared(payload);
-        else fail("unreadable");
+        if (payload) {
+          track("shared_bill_opened", { kind: shortMatch ? "short" : "long" });
+          setShared(payload);
+        } else fail("unreadable");
       });
     };
 

@@ -6,6 +6,7 @@ import { useCopyAnim } from "@/lib/hooks";
 import Sheet from "@/components/Sheet";
 import CopyTick from "@/components/ui/CopyTick";
 import { Share, Wallet } from "@/components/icons";
+import { track } from "@/lib/analytics";
 
 interface Props {
   open: boolean;
@@ -21,15 +22,21 @@ export default function ShareSheet({ open, onClose, title, link, label, summary 
   const linkCopy = useCopyAnim();
   const textCopy = useCopyAnim();
 
+  // Short (/s/<id>) or long (?s=<payload>): which one people end up sending
+  // says whether the cloud short-link path is working. Never the link itself.
+  const kind = link.includes("/s/") ? "short" : "long";
+
   const shareOrCopy = async () => {
     if (!link) return;
     if (navigator.share) {
       try {
         await navigator.share({ title: title || "owe", url: link });
+        track("share", { method: "native", kind });
         return;
       } catch {}
     }
     linkCopy.copy(link);
+    track("share", { method: "copy_link", kind });
   };
 
   return (
@@ -45,7 +52,13 @@ export default function ShareSheet({ open, onClose, title, link, label, summary 
       <p className="label" style={{ marginTop: 18 }}>
         {t("breakdown.orCopyText")}
       </p>
-      <button className="btn secondary" onClick={() => textCopy.copy(summary)}>
+      <button
+        className="btn secondary"
+        onClick={() => {
+          textCopy.copy(summary);
+          track("share", { method: "copy_text" });
+        }}
+      >
         <CopyTick phase={textCopy.phase} size={18} /> {t("breakdown.copyText")}
       </button>
       {/* <p className="muted share-foot">

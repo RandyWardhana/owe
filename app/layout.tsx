@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Manrope, Bricolage_Grotesque } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
+import AnalyticsBridge from "@/components/AnalyticsBridge";
 import "./globals.css";
 
 const manrope = Manrope({
@@ -24,7 +25,7 @@ const SITE_URL =
   "http://localhost:3000";
 const TITLE = "owe — scan · split · settle";
 const DESCRIPTION =
-  "Scan a receipt, split it, settle up. Offline-first. Nothing leaves your phone unless you share it.";
+  "Scan a receipt, split it, settle up. Offline-first. Your bills stay on your phone unless you share them.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -97,6 +98,7 @@ export default function RootLayout({
         <script dangerouslySetInnerHTML={{ __html: bootScript }} />
         <div id="root">{children}</div>
         <Analytics />
+        <AnalyticsBridge />
       </body>
     </html>
   );
