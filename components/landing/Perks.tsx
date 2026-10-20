@@ -7,9 +7,6 @@ import { useCopy } from "./copy";
 
 const ICONS = [Sparkle, WifiOff, Lock, Wallet];
 
-/* The reference's "Advantages": the claim and three hard numbers on the left,
-   a 2×2 of short points on the right, each behind a small lime icon. The
-   numbers are counted from the app (lib/currency, lib/i18n), not rounded up. */
 export default function Perks() {
   const PERKS = useCopy().perks;
   return (
@@ -20,10 +17,10 @@ export default function Perks() {
           <h2 className="disp lp-h2">{PERKS.title}</h2>
           <p className="lp-lead">{PERKS.lead}</p>
           <dl className="lp-nums">
-            {PERKS.stats.map((s) => (
-              <div key={s.label} className="lp-num">
-                <dt className="lp-num__value disp">{s.value}</dt>
-                <dd className="lp-num__label">{s.label}</dd>
+            {PERKS.stats.map((stat) => (
+              <div key={stat.label} className="lp-num">
+                <dt className="lp-num__value disp">{stat.value}</dt>
+                <dd className="lp-num__label">{stat.label}</dd>
               </div>
             ))}
           </dl>

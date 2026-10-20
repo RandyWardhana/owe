@@ -11,11 +11,6 @@ import { track } from "@/lib/analytics";
 
 const SHARES = [115575, 99475, 73600];
 
-/* The reference's dark "Keep your finger on the pulse" banner: a black card
-   with a scribble, the line and the button, and a phone that breaks out of its
-   top edge. The phone shows what a friend actually opens -- the shared bill,
-   each share, a Copy for the payment number -- because that page is the
-   argument for "no app needed". */
 export default function Banner() {
   const BANNER = useCopy().banner;
   return (

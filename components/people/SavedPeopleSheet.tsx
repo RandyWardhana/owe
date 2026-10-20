@@ -3,29 +3,16 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { useT } from "@/lib/i18n";
-import { contacts, forget, type Contact } from "@/lib/addressBook";
+import { contacts, forget } from "@/lib/addressBook";
+import type { Contact } from "@/entities/contact";
 import { methodMeta } from "@/lib/payments";
 import { initials, personColor, personInk } from "@/lib/util";
 
 import Sheet from "@/components/Sheet";
 import { Trash, Users } from "@/components/icons";
+import type { SavedPeopleSheetProps } from "@/entities/props/people";
 
-/* Picking someone you have split with before.
-   This replaced a dropdown under the name field. A popup is fine for three
-   contacts and useless for thirty: it cannot be scrolled comfortably, it fights
-   the card stacking around it, and on a phone it covers the thing you are
-   typing into. A sheet is the pattern the rest of this app already uses for
-   choices with an open-ended number of options. */
-
-interface Props {
-  open: boolean;
-  onClose: () => void;
-  onPick: (contact: Contact) => void;
-  /* Names already on this bill — shown, but not pickable twice. */
-  taken: string[];
-}
-
-export default function SavedPeopleSheet({ open, onClose, onPick, taken }: Props) {
+export default function SavedPeopleSheet({ open, onClose, onPick, taken }: SavedPeopleSheetProps) {
   const t = useT();
   const [all, setAll] = useState<Contact[]>([]);
   const [query, setQuery] = useState("");
@@ -38,17 +25,17 @@ export default function SavedPeopleSheet({ open, onClose, onPick, taken }: Props
   }, [open]);
 
   const alreadyOnBill = useMemo(
-    () => new Set(taken.map((n) => n.trim().toLowerCase()).filter(Boolean)),
+    () => new Set(taken.map((takenName) => takenName.trim().toLowerCase()).filter(Boolean)),
     [taken],
   );
 
   const shown = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return all;
+    const needle = query.trim().toLowerCase();
+    if (!needle) return all;
     return all.filter(
-      (c) =>
-        c.name.toLowerCase().includes(q) ||
-        c.accounts.some((a) => a.value.toLowerCase().includes(q)),
+      (contact) =>
+        contact.name.toLowerCase().includes(needle) ||
+        contact.accounts.some((account) => account.value.toLowerCase().includes(needle)),
     );
   }, [all, query]);
 
@@ -103,7 +90,7 @@ export default function SavedPeopleSheet({ open, onClose, onPick, taken }: Props
                       {used
                         ? t("people.savedAlready")
                         : contact.accounts
-                            .map((a) => `${methodMeta(a.key).label} ${a.value}`)
+                            .map((account) => `${methodMeta(account.key).label} ${account.value}`)
                             .join(" · ")}
                     </span>
                   </span>

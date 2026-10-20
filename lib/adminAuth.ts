@@ -1,18 +1,16 @@
 import { createHmac, timingSafeEqual, randomBytes } from "node:crypto";
 import { cookies } from "next/headers";
 
-/* Password gate for /admin.
-   owe has no accounts by design, so this is not a user login — it is a single
-   operator password held in the environment. The cookie is an HMAC over an
-   expiry, signed with that same password, so no session store is needed and
-   changing the password invalidates every outstanding session. */
+// A single operator password from the environment, not a user login. The cookie is an HMAC over
+// an expiry signed with that password, so changing it invalidates every session.
 
 const COOKIE = "owe_admin";
 const MAX_AGE = 60 * 60 * 8;
 
-const secret = () => process.env.ADMIN_PASSWORD ?? "";
+export const ADMIN_COOKIE = COOKIE;
+export const ADMIN_MAX_AGE = MAX_AGE;
 
-export const adminConfigured = (): boolean => secret().length >= 8;
+const secret = () => process.env.ADMIN_PASSWORD ?? "";
 
 const sign = (value: string): string =>
   createHmac("sha256", secret()).update(value).digest("hex");
@@ -24,6 +22,8 @@ const constantEquals = (a: string, b: string): boolean => {
   if (left.length !== right.length) return false;
   return timingSafeEqual(left, right);
 };
+
+export const adminConfigured = (): boolean => secret().length >= 8;
 
 export function checkPassword(given: string): boolean {
   if (!adminConfigured()) return false;
@@ -48,6 +48,3 @@ export async function isAdmin(): Promise<boolean> {
   const jar = await cookies();
   return tokenValid(jar.get(COOKIE)?.value);
 }
-
-export const ADMIN_COOKIE = COOKIE;
-export const ADMIN_MAX_AGE = MAX_AGE;

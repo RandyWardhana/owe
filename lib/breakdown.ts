@@ -1,8 +1,9 @@
 import { lineTotal, settlements } from "./calc";
 import { fmtMoney } from "./currency";
 import { methodMeta } from "./payments";
-import type { TFn } from "./i18n";
-import type { Person, PersonSplit, SharedBill, SplitResult } from "./types";
+import type { TFn } from "../entities/i18n";
+import type { Person, SplitResult } from "../entities/bill";
+import type { SharedBill } from "../entities/share";
 
 export function buildSharedBill(
   title: string,
@@ -37,16 +38,12 @@ export function buildSharedBill(
           name: item.name,
           qty: item.qty,
           share: item.share,
-          // Only carry the split count when shared; keeps exclusive-item
-          // entries compact in the URL.
           ...(item.split ? { split: item.split } : {}),
           ...(item.units ? { units: item.units } : {}),
         })),
       };
     }),
     paidIndices,
-    /* Anything still unassigned travels with the link so whoever ordered it can
-       put their name on it, instead of the maker having to chase the table. */
     claimable: result.unassignedItems.map((item) => ({
       id: item.id,
       name: item.name,
@@ -76,21 +73,21 @@ export function buildSummaryText(
 
   if (payer) {
     lines.push(t("breakdown.settleHeader", { name: payer.name || "—" }));
-    settlements(result.perPerson, payer.id).forEach((s) => {
+    settlements(result.perPerson, payer.id).forEach((settlement) => {
       const line = t("breakdown.owesLine", {
-        from: s.fromName || "—",
+        from: settlement.fromName || "—",
         to: payer.name || "—",
-        amount: fmtMoney(s.amount, currency),
+        amount: fmtMoney(settlement.amount, currency),
       });
-      lines.push(paid.includes(s.from) ? `✓ ${line} (${t("breakdown.paid")})` : line);
+      lines.push(paid.includes(settlement.from) ? `✓ ${line} (${t("breakdown.paid")})` : line);
     });
     if (payer.accounts.length) {
       lines.push("", t("breakdown.payVia", { name: payer.name || "—" }));
-      payer.accounts.forEach((a) => lines.push(`  ${methodMeta(a.key).label}: ${a.value}`));
+      payer.accounts.forEach((account) => lines.push(`  ${methodMeta(account.key).label}: ${account.value}`));
     }
   } else {
-    result.perPerson.forEach((p) =>
-      lines.push(`${p.name || "—"}: ${fmtMoney(p.total, currency)}`),
+    result.perPerson.forEach((person) =>
+      lines.push(`${person.name || "—"}: ${fmtMoney(person.total, currency)}`),
     );
   }
 

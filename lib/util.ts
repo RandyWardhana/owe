@@ -1,16 +1,3 @@
-export const uid = () => Math.random().toString(36).slice(2, 9);
-
-export const buzz = (ms = 8) => {
-  try {
-    navigator.vibrate?.(ms);
-  } catch {}
-};
-
-export function clampNum(raw: string | number): number {
-  const value = parseFloat(String(raw).replace(/[^\d.]/g, ""));
-  return isFinite(value) ? value : 0;
-}
-
 export const PALETTE = [
   "--p1",
   "--p2",
@@ -31,6 +18,20 @@ export const PALETTE_FG = [
   "#2A458C",
   "#5A6A2E",
 ];
+
+export const uid = () => Math.random().toString(36).slice(2, 9);
+
+export const buzz = (ms = 8) => {
+  try {
+    navigator.vibrate?.(ms);
+  } catch {}
+};
+
+export function clampNum(raw: string | number): number {
+  const value = parseFloat(String(raw).replace(/[^\d.]/g, ""));
+  return isFinite(value) ? value : 0;
+}
+
 export const personColor = (i: number) => `var(${PALETTE[i % PALETTE.length]})`;
 export const personInk = (i: number) => PALETTE_FG[i % PALETTE_FG.length];
 

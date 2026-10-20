@@ -1,4 +1,4 @@
-import type { Dict } from "./en";
+import type { Dict } from "../../entities/i18n";
 
 const id: Dict = {
   app: {

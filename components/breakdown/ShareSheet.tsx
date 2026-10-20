@@ -5,19 +5,11 @@ import { useCopyAnim } from "@/lib/hooks";
 
 import Sheet from "@/components/Sheet";
 import CopyTick from "@/components/ui/CopyTick";
-import { Share, Wallet } from "@/components/icons";
+import { Share } from "@/components/icons";
 import { track } from "@/lib/analytics";
+import type { ShareSheetProps } from "@/entities/props/breakdown";
 
-interface Props {
-  open: boolean;
-  onClose: () => void;
-  title: string;
-  link: string;
-  label: string;
-  summary: string;
-}
-
-export default function ShareSheet({ open, onClose, title, link, label, summary }: Props) {
+export default function ShareSheet({ open, onClose, title, link, label, summary }: ShareSheetProps) {
   const t = useT();
   const linkCopy = useCopyAnim();
   const textCopy = useCopyAnim();
@@ -61,9 +53,6 @@ export default function ShareSheet({ open, onClose, title, link, label, summary 
       >
         <CopyTick phase={textCopy.phase} size={18} /> {t("breakdown.copyText")}
       </button>
-      {/* <p className="muted share-foot">
-        <Wallet size={14} /> {t("breakdown.cleanResult")}
-      </p> */}
     </Sheet>
   );
 }

@@ -9,11 +9,7 @@ import { useT } from "@/lib/i18n";
 import { X } from "@/components/icons";
 import AppIcon from "@/components/ui/AppIcon";
 import { track } from "@/lib/analytics";
-
-interface BeforeInstallPromptEvent extends Event {
-  prompt: () => Promise<void>;
-  userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
-}
+import type { BeforeInstallPromptEvent } from "@/entities/props/ui";
 
 const DISMISS_KEY = "owe.install.dismissedAt";
 const DISMISS_MS = 3 * 24 * 60 * 60 * 1000;
@@ -22,9 +18,9 @@ const SHOW_DELAY_MS = 2000;
 function dismissedRecently(): boolean {
   const raw = localStorage.getItem(DISMISS_KEY);
   if (!raw) return false;
-  const ts = Number(raw);
-  if (!Number.isFinite(ts)) return false;
-  if (Date.now() - ts < DISMISS_MS) return true;
+  const dismissedAt = Number(raw);
+  if (!Number.isFinite(dismissedAt)) return false;
+  if (Date.now() - dismissedAt < DISMISS_MS) return true;
   localStorage.removeItem(DISMISS_KEY);
   return false;
 }
@@ -64,9 +60,9 @@ export default function InstallPrompt() {
     window.addEventListener("beforeinstallprompt", onPrompt);
     window.addEventListener("appinstalled", onInstalled);
 
-    const ua = nav.userAgent;
-    const isIOS = /iphone|ipad|ipod/i.test(ua);
-    const isSafari = /safari/i.test(ua) && !/crios|fxios|chrome|android/i.test(ua);
+    const userAgent = nav.userAgent;
+    const isIOS = /iphone|ipad|ipod/i.test(userAgent);
+    const isSafari = /safari/i.test(userAgent) && !/crios|fxios|chrome|android/i.test(userAgent);
     if (isIOS && isSafari) {
       setIosHint(true);
       showAfterDelay();

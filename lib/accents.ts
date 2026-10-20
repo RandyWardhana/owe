@@ -1,10 +1,5 @@
-/* The accent swatches in Settings, and how one is carried to the server.
-
-   The server can only learn a device's accent from a cookie: the choice
-   itself lives in localStorage. The cookie exists for one reader -- the PWA
-   manifest route, which hands Chrome icons in that colour -- and anything it
-   says that is not one of these six is ignored, so it cannot make the server
-   draw arbitrary images. */
+// The accent cookie feeds the PWA manifest route; any value not in ACCENTS is ignored so the
+// cookie cannot make the server draw arbitrary images.
 
 export const ACCENTS = ["#9be52e", "#ffd23f", "#ff8a3d", "#ff5d8f", "#9b8cff", "#3dd7d0"] as const;
 

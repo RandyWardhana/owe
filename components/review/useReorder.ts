@@ -2,22 +2,18 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { CSSProperties, KeyboardEvent, PointerEvent } from "react";
+import type { ReorderDrag } from "@/entities/props/review";
 
-/* Drag-to-reorder for a vertical list, by a handle. Pointer events rather than
-   HTML5 drag and drop, because the latter does nothing on touch screens -- and
-   this list is almost always edited on a phone at the table.
-
-   Rows are measured once when the drag starts; while it runs only transforms
-   change, so nothing reflows until the drop commits the new order. */
+/* Pointer events rather than HTML5 drag and drop, which does nothing on touch
+   screens. Rows are measured once at drag start; only transforms change until
+   the drop commits, so nothing reflows. */
 
 const EDGE = 72; // px from the scroller's edge where auto-scroll kicks in
 const SPEED = 12; // px per frame at the very edge
 
-type Drag = { from: number; to: number; dy: number };
-
 export function useReorder(count: number, onMove: (from: number, to: number) => void) {
   const rows = useRef<(HTMLElement | null)[]>([]);
-  const [drag, setDrag] = useState<Drag | null>(null);
+  const [drag, setDrag] = useState<ReorderDrag | null>(null);
   const live = useRef<{
     from: number;
     to: number;
@@ -109,7 +105,6 @@ export function useReorder(count: number, onMove: (from: number, to: number) => 
     },
     onPointerUp: () => end(true),
     onPointerCancel: () => end(false),
-    /* The same move from the keyboard: arrows shift the row by one. */
     onKeyDown: (e: KeyboardEvent<HTMLElement>) => {
       const to = e.key === "ArrowUp" ? index - 1 : e.key === "ArrowDown" ? index + 1 : -1;
       if (to < 0 || to >= count) return;
@@ -118,8 +113,6 @@ export function useReorder(count: number, onMove: (from: number, to: number) => 
     },
   });
 
-  /* Where each row sits while a drag runs: the dragged one follows the
-     finger, the ones it has passed slide over to make room. */
   const rowStyle = (index: number): CSSProperties | undefined => {
     if (!drag) return undefined;
     const { from, to, dy } = drag;

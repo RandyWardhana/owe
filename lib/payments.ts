@@ -1,10 +1,4 @@
-import type { PayMethodKey } from "./types";
-
-export interface PayMethodDef {
-  key: PayMethodKey;
-  label: string;
-  color: string;
-}
+import type { PayMethodDef, PayMethodKey } from "../entities/payment";
 
 export const PAY_METHODS: PayMethodDef[] = [
   { key: "bank", label: "Bank transfer", color: "#0ea5e9" },
@@ -18,4 +12,4 @@ export const PAY_METHODS: PayMethodDef[] = [
 ];
 
 export const methodMeta = (key: PayMethodKey): PayMethodDef =>
-  PAY_METHODS.find((m) => m.key === key) || PAY_METHODS[PAY_METHODS.length - 1];
+  PAY_METHODS.find((method) => method.key === key) || PAY_METHODS[PAY_METHODS.length - 1];

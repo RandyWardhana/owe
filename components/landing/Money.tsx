@@ -3,21 +3,15 @@
 import { useEffect, useRef, useState } from "react";
 
 import { usePlayful } from "./motion";
+import type { MoneyProps } from "@/entities/props/landing";
 
-const rupiah = (n: number) => "Rp " + Math.round(n).toLocaleString("id-ID");
+const rupiah = (amount: number) => "Rp " + Math.round(amount).toLocaleString("id-ID");
 
-/* A number that rolls to its new value instead of snapping.
-   Every amount on this page changes as you play with it, and a figure that
-   jumps gives no sense that your tap caused it. */
 export default function Money({
   value,
   className = "",
   duration = 480,
-}: {
-  value: number;
-  className?: string;
-  duration?: number;
-}) {
+}: MoneyProps) {
   const play = usePlayful();
   const [shown, setShown] = useState(value);
   const from = useRef(value);
@@ -35,10 +29,10 @@ export default function Money({
     if (delta === 0) return;
 
     const tick = (now: number) => {
-      const t = Math.min(1, (now - start) / duration);
-      const eased = 1 - Math.pow(1 - t, 3);
+      const progress = Math.min(1, (now - start) / duration);
+      const eased = 1 - Math.pow(1 - progress, 3);
       setShown(origin + delta * eased);
-      if (t < 1) frame.current = requestAnimationFrame(tick);
+      if (progress < 1) frame.current = requestAnimationFrame(tick);
       else from.current = value;
     };
 

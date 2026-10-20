@@ -8,8 +8,8 @@ export const dynamic = "force-dynamic";
 export async function GET(req: Request) {
   const id = new URL(req.url).searchParams.get("id");
   if (!id) return NextResponse.json({ data: null, paid: [] });
-  /* Say why there is no bill. Answering every failure with `data: null` made a
-     server missing OWE_DB_URL look exactly like a link to a deleted bill. */
+  /* Distinct errors, so a server without OWE_DB_URL does not look like a link to a
+     deleted bill. */
   if (!serverHasDb) {
     return NextResponse.json({ error: "no-db", data: null, paid: [] }, { status: 503 });
   }

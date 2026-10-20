@@ -1,24 +1,14 @@
-/* The tab icon in the accent the user picked.
-
-   public/icon.svg is the lime square with the black "owe" mark. Rather than
-   copy that path into code, the file is fetched once and only its square's
-   fill is swapped, so redrawing the mark in the SVG keeps working here too.
-
-   Every icon <link> is repointed at the recoloured version -- the SVG link
-   gets an SVG, the PNG ones a PNG drawn from it. Adding one more link instead
-   does not work: Chrome prefers an SVG favicon over any PNG, so the original
-   lime icon.svg kept winning. And it has to cover links that arrive LATER as
-   well: Next adds another /icon.svg link after hydration, after this has
-   already run once, and that late one was what the tab showed. So <head> is
-   watched, and any icon link that turns up is recoloured as it lands.
-
-   Only the browser tab changes. The home-screen icon comes from the manifest
-   and is fixed when the app is installed. */
+// Existing icon links are repointed rather than a new one added, because Chrome prefers an SVG
+// favicon over any PNG. <head> is watched because Next adds another /icon.svg link after hydration.
 
 const DEFAULT_FILL = /fill="#9BE52E"/i;
 const PNG_SIZE = 64;
 
 let source: Promise<string | null> | null = null;
+// Calls overlap while someone taps through swatches; only the latest may write.
+let latest = 0;
+let current: { svg: string; png: string | null } | null = null;
+let watcher: MutationObserver | null = null;
 
 function loadSource(): Promise<string | null> {
   if (!source) {
@@ -46,12 +36,6 @@ async function toPng(svgUrl: string): Promise<string | null> {
   return canvas.toDataURL("image/png");
 }
 
-// Several calls can overlap while someone taps through the swatches; only the
-// last one may write, or a slow earlier render would land after it.
-let latest = 0;
-let current: { svg: string; png: string | null } | null = null;
-let watcher: MutationObserver | null = null;
-
 function recolour(link: HTMLLinkElement): void {
   if (!current) return;
   const isSvg = link.type === "image/svg+xml" || /\.svg(\?|$)/.test(link.getAttribute("href") || "");
@@ -60,15 +44,14 @@ function recolour(link: HTMLLinkElement): void {
 }
 
 function recolourAll(): void {
-  // Apple's touch icon is left alone: it is what gets saved to a home screen,
-  // and a data: URL there would be the wrong thing to keep.
+  // Apple's touch icon is left alone: a data: URL there would be saved to the home screen.
   document.querySelectorAll<HTMLLinkElement>('link[rel~="icon"]').forEach(recolour);
 }
 
 function watchHead(): void {
   if (watcher) return;
   watcher = new MutationObserver(recolourAll);
-  // Attributes too: a re-render that resets an existing link's href.
+  // Attributes too: a re-render can reset an existing link's href.
   watcher.observe(document.head, { childList: true, subtree: true, attributes: true, attributeFilter: ["href"] });
 }
 

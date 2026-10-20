@@ -1,26 +1,21 @@
 "use client";
 
 import { useT } from "@/lib/i18n";
-import type { Person, PersonSplit } from "@/lib/types";
 
 import PersonCard from "./PersonCard";
+import type { PerPersonListProps } from "@/entities/props/breakdown";
 
 export default function PerPersonList({
   perPerson,
   people,
   payer,
   currency,
-}: {
-  perPerson: PersonSplit[];
-  people: Person[];
-  payer: Person | null;
-  currency: string;
-}) {
+}: PerPersonListProps) {
   const t = useT();
-  const colorOf = (id: string) => people.findIndex((p) => p.id === id);
+  const colorOf = (id: string) => people.findIndex((person) => person.id === id);
 
-  const payerSplit = payer ? perPerson.find((p) => p.id === payer.id) : null;
-  const others = payer ? perPerson.filter((p) => p.id !== payer.id) : perPerson;
+  const payerSplit = payer ? perPerson.find((split) => split.id === payer.id) : null;
+  const others = payer ? perPerson.filter((split) => split.id !== payer.id) : perPerson;
 
   return (
     <>
@@ -45,11 +40,11 @@ export default function PerPersonList({
         {t("breakdown.perPerson")}
       </p>
       <div className="col-gap stagger">
-        {others.map((p, i) => (
+        {others.map((split, i) => (
           <PersonCard
-            key={p.id}
-            person={p}
-            colorIndex={colorOf(p.id)}
+            key={split.id}
+            person={split}
+            colorIndex={colorOf(split.id)}
             animIndex={i}
             currency={currency}
             isPayer={false}

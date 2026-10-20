@@ -2,18 +2,9 @@
 
 import { useEffect } from "react";
 
-/* The two scroll-linked moves from the motion reference, driven from the
-   landing's own scroll container (the app body is fixed, so the window never
-   scrolls here):
-
-   - [data-parallax="0.08"]: drifts against the scroll by that fraction of its
-     distance from the viewport's middle, so the lime blobs and the banner's
-     phone sit on a slightly different plane from the text.
-   - svg[data-draw]: its paths (pathLength=1) draw in as the svg crosses the
-     viewport, the way the reference's doodle line follows you down the page.
-
-   One rAF per scroll frame for both. With motion off (OS setting or owe's own
-   switch) nothing moves: parallax stays at rest and every line is drawn. */
+/* Driven from the landing's own scroll container: the app body is fixed, so the
+   window never scrolls. [data-parallax="0.08"] drifts by that fraction of its
+   distance from mid-viewport; svg[data-draw] paths (pathLength=1) draw in. */
 export function useScrollFx(scroller: React.RefObject<HTMLElement | null>, play: boolean): void {
   useEffect(() => {
     const root = scroller.current;

@@ -29,19 +29,18 @@ export default function Breakdown() {
   const saveCurrent = useStore((s) => s.saveCurrent);
   const finish = useStore((s) => s.finish);
   const editStep = useStore((s) => s.editStep);
-  const isSaved = useStore((s) => s.history.some((h) => h.id === draft.id));
+  const isSaved = useStore((s) => s.history.some((entry) => entry.id === draft.id));
 
   const [shareOpen, setShareOpen] = useState(false);
 
   const result = useMemo(() => computeSplit(draft, { rounding }), [draft, rounding]);
   const payerId = draft.payerId;
-  const payer = draft.people.find((p) => p.id === payerId) || null;
+  const payer = draft.people.find((person) => person.id === payerId) || null;
   const settle = settlements(result.perPerson, payerId);
   const paid = useMemo(() => draft.paid || [], [draft.paid]);
 
-  // Once a bill is shared, the server holds the truth about who has settled --
-  // that is what the people holding the link are writing to. Before that it is
-  // just this device's own list.
+  // Once shared, the server holds who has settled, since people holding the link
+  // write to it. Before that it is this device's own list.
   const shared = isSaved && Boolean(draft.shareId);
   const owner = useOwnerSettlement(draft.people, draft.shareId ?? null, shared);
   const [viewingProof, setViewingProof] = useState<string | null>(null);
@@ -53,21 +52,19 @@ export default function Breakdown() {
 
   const togglePaid = (id: string) => {
     buzz(10);
-    updateDraft((d) => {
-      const cur = d.paid || [];
+    updateDraft((draft) => {
+      const alreadyPaid = draft.paid || [];
       return {
-        ...d,
-        paid: cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id],
+        ...draft,
+        paid: alreadyPaid.includes(id) ? alreadyPaid.filter((paidId) => paidId !== id) : [...alreadyPaid, id],
       };
     });
   };
 
   const paidList = shared ? owner.paidIds : paid;
 
-  // Once a bill is shared the server owns the answer, so mirror it back into
-  // the draft. Without this, `paid` kept whatever was ticked before sharing --
-  // and the share payload, the summary text and the history entry all went on
-  // reporting someone as settled after the confirmation had been undone.
+  // Mirror the server's answer into the draft, or `paid`, the share payload, the
+  // summary and history keep a settlement that has since been undone.
   useEffect(() => {
     if (!shared) return;
     const same =
@@ -76,14 +73,11 @@ export default function Breakdown() {
     if (!same) patchDraft({ paid: owner.paidIds });
   }, [shared, owner.paidIds, paid, patchDraft]);
 
-  /* A claim from the shared link becomes a real assignment here. Keeping it as
-     a separate ledger would mean every total, the summary text and the next
-     share payload each had to remember to add it on; folding it into the draft
-     means the item is simply that person's, the way it would have been had the
-     maker known at the table. */
+  /* A claim from the shared link is folded into the draft as a real assignment,
+     so totals, the summary and the next share payload need no separate ledger. */
   useEffect(() => {
     if (!shared) return;
-    const known = new Set(draft.people.map((p) => p.id));
+    const known = new Set(draft.people.map((person) => person.id));
     const pending = Object.entries(owner.claimedBy)
       .map(([itemId, ids]) => [itemId, ids.filter((id) => known.has(id))] as const)
       .filter(([itemId, ids]) => {
@@ -93,9 +87,9 @@ export default function Breakdown() {
       });
     if (!pending.length) return;
 
-    updateDraft((d) => ({
-      ...d,
-      items: d.items.map((item) => {
+    updateDraft((draft) => ({
+      ...draft,
+      items: draft.items.map((item) => {
         const claim = pending.find(([itemId]) => itemId === item.id);
         return claim ? { ...item, assignedTo: [...claim[1]] } : item;
       }),

@@ -1,29 +1,10 @@
-/* Firebase Analytics for owe, and the error reporting that stands in for
-   Crashlytics (which has no web SDK).
+import type { AnalyticsParams, AnalyticsValue } from "../entities/analytics";
 
-   What is sent is USAGE, never a bill: screen names, which button, how a bill
-   was started, rough sizes ("4-6 items"). Never item names, people's names,
-   amounts, payment numbers, share links or receipt text. Params go through
-   `clean` below, which only lets short, known-shape values through, so a
-   careless call site cannot leak more than that.
+// Sends usage only, never bill content (names, amounts, payment numbers, links, receipt text);
+// every param goes through `clean`. Dev builds never send unless NEXT_PUBLIC_ANALYTICS_DEBUG=1.
 
-   Built so it can never cost the app anything:
-   - Firebase loads lazily (dynamic import) once the page is idle, so it is
-     not in the first-paint bundle and an offline launch is not held up.
-   - Calls before it is ready are queued (capped) and flushed once it is.
-   - Every failure -- blocked by an ad blocker, unsupported browser, no
-     network -- ends in a no-op sender, never a thrown error.
-   - Development builds never send, so local testing does not pollute the
-     numbers; set NEXT_PUBLIC_ANALYTICS_DEBUG=1 to send from dev anyway.
-
-   The Firebase web config comes from NEXT_PUBLIC_FIREBASE_* (see
-   .env.local.example). Those values are inlined at build time, which is why
-   each is read by its full name below -- `process.env[name]` would be empty
-   in the browser. If any is missing, analytics simply stays off. */
-
-type Value = string | number | boolean;
-export type Params = Record<string, Value | undefined>;
-
+// NEXT_PUBLIC_* values are inlined at build time, so each must be read by its full name;
+// `process.env[name]` would be empty in the browser.
 const FIREBASE_CONFIG = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
   authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
@@ -38,15 +19,16 @@ const configured = Object.values(FIREBASE_CONFIG).every(Boolean);
 
 const QUEUE_LIMIT = 60;
 
-let send: ((name: string, params: Record<string, Value>) => void) | null = null;
-let queue: [string, Record<string, Value>][] = [];
-let started = false;
+const noop = () => {};
 
-/* Only short strings, finite numbers and booleans; long strings are cut and
-   any run of 4+ digits is masked, so an amount or a phone number that slips
-   into a message cannot leave as data. */
-function clean(params?: Params): Record<string, Value> {
-  const out: Record<string, Value> = {};
+let send: ((name: string, params: Record<string, AnalyticsValue>) => void) | null = null;
+let queue: [string, Record<string, AnalyticsValue>][] = [];
+let started = false;
+let reportingInstalled = false;
+
+// Runs of 4+ digits are masked so an amount or phone number in a message cannot leave as data.
+function clean(params?: AnalyticsParams): Record<string, AnalyticsValue> {
+  const out: Record<string, AnalyticsValue> = {};
   if (!params) return out;
   for (const [key, value] of Object.entries(params)) {
     if (value === undefined) continue;
@@ -61,17 +43,24 @@ function clean(params?: Params): Record<string, Value> {
   return out;
 }
 
+function drain(sender: (name: string, params: Record<string, AnalyticsValue>) => void): void {
+  send = sender;
+  const pending = queue;
+  queue = [];
+  pending.forEach(([name, params]) => sender(name, params));
+}
+
 /** "3" -> "1-3", for sizes that are useful as a shape but not as an exact count. */
-export function bucket(n: number): string {
-  if (n <= 0) return "0";
-  if (n <= 3) return "1-3";
-  if (n <= 6) return "4-6";
-  if (n <= 10) return "7-10";
-  if (n <= 20) return "11-20";
+export function bucket(count: number): string {
+  if (count <= 0) return "0";
+  if (count <= 3) return "1-3";
+  if (count <= 6) return "4-6";
+  if (count <= 10) return "7-10";
+  if (count <= 20) return "11-20";
   return "21+";
 }
 
-export function track(name: string, params?: Params): void {
+export function track(name: string, params?: AnalyticsParams): void {
   if (typeof window === "undefined") return;
   const payload = clean(params);
   if (send) {
@@ -80,15 +69,6 @@ export function track(name: string, params?: Params): void {
     queue.push([name, payload]);
   }
 }
-
-function drain(sender: (name: string, params: Record<string, Value>) => void): void {
-  send = sender;
-  const pending = queue;
-  queue = [];
-  pending.forEach(([name, params]) => sender(name, params));
-}
-
-const noop = () => {};
 
 export async function startAnalytics(): Promise<void> {
   if (started || typeof window === "undefined") return;
@@ -110,8 +90,7 @@ export async function startAnalytics(): Promise<void> {
       return;
     }
     const app = getApps()[0] ?? initializeApp(FIREBASE_CONFIG);
-    // No Google signals and no ad personalisation: owe uses analytics to see
-    // how the app is used, not to profile anyone.
+    // Usage insight only, never profiling.
     const instance = analytics.initializeAnalytics(app, {
       config: {
         allow_google_signals: false,
@@ -122,21 +101,15 @@ export async function startAnalytics(): Promise<void> {
       try {
         analytics.logEvent(instance, name, params);
       } catch {
-        // Never let a reporting call surface as an app error.
       }
     });
   } catch {
-    // Blocked, offline, or failed to load: analytics is off for this visit.
     drain(noop);
   }
 }
 
-/* Crashlytics' job on the web: uncaught errors and rejected promises are sent
-   as GA4 `exception` events (they show up under Events, and can be turned
-   into a report). One of each message per visit, at most ten in all, so a
-   loop that throws on every frame cannot flood anything. */
-let reportingInstalled = false;
-
+// Stands in for Crashlytics (no web SDK) via GA4 `exception` events. One of each message per
+// visit, ten at most, so a loop that throws every frame cannot flood anything.
 export function installErrorReporting(): void {
   if (reportingInstalled || typeof window === "undefined") return;
   reportingInstalled = true;

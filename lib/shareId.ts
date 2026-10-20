@@ -1,5 +1,5 @@
 import { isOwner } from "./billOwner";
-import type { SharedBill } from "./types";
+import type { SharedBill } from "../entities/share";
 
 const PREFIX = "owe-";
 const ALPHABET = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";

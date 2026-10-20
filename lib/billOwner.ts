@@ -1,31 +1,27 @@
-/* Proof that this device created a bill.
-   A share link carries no identity, so "only the person who made the bill can
-   mark someone paid" needs something the creator holds and nobody else does.
-   The device keeps a random token per bill; the server only ever sees its
-   sha256. Losing the device loses the ability to mark — there is no account to
-   recover it from, which is the price of having no accounts. */
+import type { OwnerTokens } from "../entities/sync";
+
+// A share link carries no identity, so the creating device keeps a random token per bill and
+// the server only ever sees its sha256. There are no accounts: losing the device loses ownership.
 
 const KEY = "owe.owner.v1";
 
-type Tokens = Record<string, string>;
-
-function read(): Tokens {
+function read(): OwnerTokens {
   if (typeof localStorage === "undefined") return {};
   try {
     const raw = localStorage.getItem(KEY);
     const parsed = raw ? JSON.parse(raw) : {};
-    return parsed && typeof parsed === "object" ? (parsed as Tokens) : {};
+    return parsed && typeof parsed === "object" ? (parsed as OwnerTokens) : {};
   } catch {
     return {};
   }
 }
 
-function write(tokens: Tokens): void {
+function write(tokens: OwnerTokens): void {
   if (typeof localStorage === "undefined") return;
   try {
     localStorage.setItem(KEY, JSON.stringify(tokens));
   } catch {
-    /* storage blocked; the bill still shares, it just cannot be marked later */
+    // storage blocked; the bill still shares, it just cannot be marked later
   }
 }
 
@@ -37,7 +33,6 @@ export function isOwner(billId: string): boolean {
   return Boolean(ownerToken(billId));
 }
 
-/** Mints and stores a token the first time this device shares a bill. */
 export function claimBill(billId: string): string {
   const tokens = read();
   if (!tokens[billId]) {
@@ -50,18 +45,11 @@ export function claimBill(billId: string): string {
   return tokens[billId];
 }
 
-/** Every token this device holds, for the sync payload. */
 export function allTokens(): Record<string, string> {
   return read();
 }
 
-/**
- * Adopt tokens from another of your devices.
- *
- * Never overwrites one already held: whoever claimed a bill first owns it, and
- * the server enforces that anyway, so replacing a good token with a stale one
- * would only lock this device out of its own bill.
- */
+/** Never overwrites a held token: the first claim owns the bill, so a stale one would lock this device out. */
 export function adoptTokens(tokens: Record<string, string>): void {
   const held = read();
   let changed = false;
@@ -74,7 +62,6 @@ export function adoptTokens(tokens: Record<string, string>): void {
   if (changed) write(held);
 }
 
-/** Drop a bill's token once the bill itself is gone. */
 export function forgetBill(billId: string): void {
   const tokens = read();
   if (!(billId in tokens)) return;
@@ -86,6 +73,6 @@ export async function ownerHash(token: string): Promise<string> {
   const bytes = new TextEncoder().encode(token);
   const digest = await crypto.subtle.digest("SHA-256", bytes);
   return Array.from(new Uint8Array(digest))
-    .map((b) => b.toString(16).padStart(2, "0"))
+    .map((byte) => byte.toString(16).padStart(2, "0"))
     .join("");
 }

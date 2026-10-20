@@ -2,7 +2,7 @@
 
 import { Fragment, useCallback, useEffect, useState } from "react";
 
-import type { BillDetail } from "@/lib/adminTypes";
+import type { BillDetail } from "@/entities/admin";
 
 import {
   Accounts,
@@ -21,15 +21,14 @@ import {
   size,
   when,
 } from "./ui";
+import type { AdminBillProps, BillDevice } from "@/entities/props/admin";
 
-type Device = { key: string; name: string | null; updatedAt: string; bills: { id: string; title: string }[] };
-
-export default function AdminBill({ id }: { id: string }) {
+export default function AdminBill({ id }: AdminBillProps) {
   const [state, setState] = useState<"loading" | "signed-out" | "missing" | "ready" | "error">("loading");
   const [bill, setBill] = useState<BillDetail | null>(null);
   const [open, setOpen] = useState<number[]>([]);
   const [giving, setGiving] = useState<{ id: string; title: string }[] | null>(null);
-  const [devices, setDevices] = useState<Device[]>([]);
+  const [devices, setDevices] = useState<BillDevice[]>([]);
   const [indexed, setIndexed] = useState(true);
   const [origin, setOrigin] = useState("");
   const [codes, setCodes] = useState<Record<string, string>>({});
@@ -42,7 +41,7 @@ export default function AdminBill({ id }: { id: string }) {
       const res = await fetch(`/api/admin/bills/${encodeURIComponent(id)}`);
       if (res.status === 401) return setState("signed-out");
       if (res.status === 404) return setState("missing");
-      const body = (await res.json()) as { bill: BillDetail; devices?: Device[]; indexed?: boolean };
+      const body = (await res.json()) as { bill: BillDetail; devices?: BillDevice[]; indexed?: boolean };
       setBill(body.bill);
       setDevices(body.devices ?? []);
       setIndexed(Boolean(body.indexed));
@@ -76,9 +75,9 @@ export default function AdminBill({ id }: { id: string }) {
   }
 
   const link = `${origin}/s/${bill.id}`;
-  const owing = bill.people.filter((p) => !p.isPayer);
-  const settled = owing.filter((p) => p.paid).length;
-  const proofCount = bill.people.filter((p) => p.proof).length;
+  const owing = bill.people.filter((person) => !person.isPayer);
+  const settled = owing.filter((person) => person.paid).length;
+  const proofCount = bill.people.filter((person) => person.proof).length;
   const remove = async () => {
     const receipts = proofCount ? ` and its ${proofCount} receipt${proofCount === 1 ? "" : "s"}` : "";
     if (!window.confirm(`Delete “${bill.title}”${receipts}? The share link stops working for everyone. This can't be undone.`)) return;
@@ -98,7 +97,7 @@ export default function AdminBill({ id }: { id: string }) {
       setDeleting(false);
     }
   };
-  const toggle = (i: number) => setOpen((cur) => (cur.includes(i) ? cur.filter((x) => x !== i) : [...cur, i]));
+  const toggle = (i: number) => setOpen((cur) => (cur.includes(i) ? cur.filter((index) => index !== i) : [...cur, i]));
 
   return (
     <div className="adm">
@@ -194,32 +193,32 @@ export default function AdminBill({ id }: { id: string }) {
             <span className="adm-muted adm-small">Other bills backed up under the same sync code.</span>
           </div>
           {devices.length ? (
-            devices.map((d) => (
-              <div key={d.key} className="adm-phone">
+            devices.map((device) => (
+              <div key={device.key} className="adm-phone">
                 <div className="adm-row adm-row--wrap">
                   <span className="adm-device" aria-hidden="true">
                     <PhoneIcon />
                   </span>
-                  <a className="adm-strong" href={`/admin?device=${encodeURIComponent(d.key)}`}>
-                    {d.name ?? <SyncId id={d.key} code={codes[d.key]} />}
+                  <a className="adm-strong" href={`/admin?device=${encodeURIComponent(device.key)}`}>
+                    {device.name ?? <SyncId id={device.key} code={codes[device.key]} />}
                   </a>
-                  {d.name ? <SyncId id={d.key} code={codes[d.key]} className="adm-muted adm-small" /> : null}
-                  <span className="adm-muted adm-small">synced {ago(d.updatedAt)}</span>
+                  {device.name ? <SyncId id={device.key} code={codes[device.key]} className="adm-muted adm-small" /> : null}
+                  <span className="adm-muted adm-small">synced {ago(device.updatedAt)}</span>
                   <button
                     className="adm-btn adm-btn--primary adm-btn--sm adm-phone__give"
-                    onClick={() => setGiving(d.bills)}
+                    onClick={() => setGiving(device.bills)}
                   >
-                    Give all {d.bills.length} to someone
+                    Give all {device.bills.length} to someone
                   </button>
                 </div>
                 <div className="adm-chips">
-                  {d.bills.map((b) => (
+                  {device.bills.map((deviceBill) => (
                     <a
-                      key={b.id}
-                      className={`adm-chip ${b.id === bill.id ? "adm-chip--accent" : ""}`}
-                      href={`/admin/bills/${encodeURIComponent(b.id)}`}
+                      key={deviceBill.id}
+                      className={`adm-chip ${deviceBill.id === bill.id ? "adm-chip--accent" : ""}`}
+                      href={`/admin/bills/${encodeURIComponent(deviceBill.id)}`}
                     >
-                      {b.title}
+                      {deviceBill.title}
                     </a>
                   ))}
                 </div>
@@ -251,47 +250,47 @@ export default function AdminBill({ id }: { id: string }) {
                 </tr>
               </thead>
               <tbody>
-                {bill.people.map((p) => (
-                  <Fragment key={p.index}>
-                    <tr className="adm-table__link" onClick={() => toggle(p.index)}>
+                {bill.people.map((person) => (
+                  <Fragment key={person.index}>
+                    <tr className="adm-table__link" onClick={() => toggle(person.index)}>
                       <td>
                         <span className="adm-row">
-                          <span className={`adm-caret${open.includes(p.index) ? " on" : ""}`} aria-hidden="true">
+                          <span className={`adm-caret${open.includes(person.index) ? " on" : ""}`} aria-hidden="true">
                             ›
                           </span>
-                          <Avatar name={p.name} />
+                          <Avatar name={person.name} />
                           <span>
-                            <span className="adm-strong">{p.name}</span>
+                            <span className="adm-strong">{person.name}</span>
                             <span className="adm-muted adm-small adm-block">
-                              {p.items.length} item{p.items.length === 1 ? "" : "s"}
-                              {p.claimed.length ? ` · ${p.claimed.length} claimed` : ""}
+                              {person.items.length} item{person.items.length === 1 ? "" : "s"}
+                              {person.claimed.length ? ` · ${person.claimed.length} claimed` : ""}
                             </span>
                           </span>
                         </span>
                       </td>
-                      <td className="adm-num adm-mono">{money(p.total, bill.currency)}</td>
+                      <td className="adm-num adm-mono">{money(person.total, bill.currency)}</td>
                       <td>
-                        {p.isPayer ? (
+                        {person.isPayer ? (
                           <Chip tone="accent">paid the bill</Chip>
-                        ) : p.paid ? (
+                        ) : person.paid ? (
                           <Chip tone="pos">paid back</Chip>
-                        ) : p.proof ? (
+                        ) : person.proof ? (
                           <Chip tone="warn">receipt sent, not confirmed</Chip>
                         ) : (
                           <Chip>not paid yet</Chip>
                         )}
                       </td>
                       <td>
-                        <Accounts accounts={p.accounts} empty="—" />
+                        <Accounts accounts={person.accounts} empty="—" />
                       </td>
                       <td onClick={(e) => e.stopPropagation()}>
-                        {p.proof ? (
-                          <a className="adm-thumb" href={proofFileUrl(bill.id, p.index)} target="_blank" rel="noreferrer">
-                            {p.proof.contentType.includes("pdf") ? (
+                        {person.proof ? (
+                          <a className="adm-thumb" href={proofFileUrl(bill.id, person.index)} target="_blank" rel="noreferrer">
+                            {person.proof.contentType.includes("pdf") ? (
                               <span className="adm-shot__pdf">PDF</span>
                             ) : (
                               // eslint-disable-next-line @next/next/no-img-element
-                              <img src={proofFileUrl(bill.id, p.index)} alt={`Receipt from ${p.name}`} loading="lazy" />
+                              <img src={proofFileUrl(bill.id, person.index)} alt={`Receipt from ${person.name}`} loading="lazy" />
                             )}
                           </a>
                         ) : (
@@ -299,11 +298,11 @@ export default function AdminBill({ id }: { id: string }) {
                         )}
                       </td>
                     </tr>
-                    {open.includes(p.index) ? (
+                    {open.includes(person.index) ? (
                       <tr className="adm-table__sub">
                         <td colSpan={5}>
                           <div className="adm-items">
-                            {p.items.map((item, i) => (
+                            {person.items.map((item, i) => (
                               <div key={i} className="adm-items__row">
                                 <span>
                                   {item.qty > 1 ? `${item.qty}× ` : ""}
@@ -316,7 +315,7 @@ export default function AdminBill({ id }: { id: string }) {
                                 <span className="adm-mono">{money(item.share, bill.currency)}</span>
                               </div>
                             ))}
-                            {p.claimed.map((item, i) => (
+                            {person.claimed.map((item, i) => (
                               <div key={`c${i}`} className="adm-items__row">
                                 <span>
                                   {item.name} <Chip tone="accent">claimed</Chip>
@@ -324,13 +323,13 @@ export default function AdminBill({ id }: { id: string }) {
                                 <span className="adm-mono">{money(item.amount, bill.currency)}</span>
                               </div>
                             ))}
-                            {!p.items.length && !p.claimed.length ? (
+                            {!person.items.length && !person.claimed.length ? (
                               <div className="adm-muted">No items assigned.</div>
                             ) : null}
-                            {p.proof ? (
+                            {person.proof ? (
                               <div className="adm-muted adm-small">
-                                Receipt uploaded {when(p.proof.uploadedAt)}
-                                {p.proof.size ? ` · ${size(p.proof.size)}` : ""}
+                                Receipt uploaded {when(person.proof.uploadedAt)}
+                                {person.proof.size ? ` · ${size(person.proof.size)}` : ""}
                               </div>
                             ) : null}
                           </div>

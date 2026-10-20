@@ -2,20 +2,11 @@ import { ImageResponse } from "next/og";
 
 import { knownAccent } from "@/lib/accents";
 import { OWE_MARK_PATH } from "@/lib/brandMark";
+import type { PwaIconParams } from "@/entities/props/app";
 
-/* The app icon in one of the six accents, for the per-device manifest.
-
-   `any` is the rounded square of public/icon.svg; `maskable` is full-bleed,
-   because Android crops maskable icons to its own shape and rounded corners
-   would show as notches. The mark already sits inside the maskable safe zone
-   (the centre 80% circle) at its original scale, so it is not resized.
-
-   Built never to hand Chrome a broken icon -- a failed icon download fails the
-   whole app update, or the install:
-   - unknown accent or size: redirect to the static PNG of that size;
-   - the image is rendered to bytes BEFORE responding, so a rendering error is
-     caught here and also falls back to the static PNG, instead of surfacing
-     halfway through a streamed response. */
+/* `maskable` is full-bleed because Android crops it to its own shape. A failed icon
+   download fails the whole app update or install, so every failure redirects to the
+   static PNG, and the bytes are rendered before responding so render errors land here. */
 
 const SIZES: Record<string, { px: number; maskable: boolean; fallback: string }> = {
   "192": { px: 192, maskable: false, fallback: "/icon-192x192.png" },
@@ -25,7 +16,7 @@ const SIZES: Record<string, { px: number; maskable: boolean; fallback: string }>
 
 export async function GET(
   request: Request,
-  { params }: { params: Promise<{ accent: string; size: string }> },
+  { params }: PwaIconParams,
 ): Promise<Response> {
   const { accent, size } = await params;
   const spec = SIZES[size];

@@ -7,10 +7,6 @@ import Reveal from "./Reveal";
 import { useCopy } from "./copy";
 import { track } from "@/lib/analytics";
 
-/* The reference ends on one long hand-drawn line that winds down the page and
-   lands on "Get the App for Free". Here the line drops in from the FAQ above
-   and draws itself as it scrolls into view (data-draw, see useScrollFx), so
-   the last thing that moves on the page points at the one button left. */
 export default function FinalCta() {
   const FINAL = useCopy().final;
   return (

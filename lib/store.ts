@@ -3,16 +3,15 @@ import { createJSONStorage, persist } from "zustand/middleware";
 
 import { remember } from "./addressBook";
 import { HISTORY_LIMIT, mergeHistories } from "./historyMerge";
-import type {
-  Draft,
-  Lang,
-  Rounding,
-  ScanResult,
-  SplitResult,
-  Step,
-  Theme,
-} from "./types";
+import type { Draft, Step } from "../entities/bill";
+import type { AppState } from "../entities/settings";
 import { uid, buzz } from "./util";
+
+// Keeps a locked-in bill's history entry in step with live edits so "Done" never drops changes.
+const syncSaved = (history: Draft[], draft: Draft): Draft[] =>
+  history.some((entry) => entry.id === draft.id)
+    ? history.map((entry) => (entry.id === draft.id ? draft : entry))
+    : history;
 
 export const emptyDraft = (): Draft => ({
   id: uid(),
@@ -27,71 +26,7 @@ export const emptyDraft = (): Draft => ({
   paid: [],
 });
 
-// Once a bill is locked in, keep its history entry in sync with live edits
-// (payer / paid) so "Done" never drops changes.
-const syncSaved = (history: Draft[], draft: Draft): Draft[] =>
-  history.some((h) => h.id === draft.id)
-    ? history.map((h) => (h.id === draft.id ? draft : h))
-    : history;
-
-export interface Toast {
-  id: string;
-  msg: string;
-}
-
-interface State {
-  theme: Theme;
-  lang: Lang;
-  accent: string;
-  currency: string;
-  rounding: Rounding;
-  anim: boolean;
-  /* The currency a shared bill is shown in, or null for the bill's own. Kept
-     apart from `currency`, which is what new bills are entered in: converting
-     what you type would be wrong, converting what you read is the point. */
-  viewCurrency: string | null;
-
-  history: Draft[];
-  /* Bills deleted here, so a sync cannot resurrect them. id -> when. */
-  tombstones: Record<string, number>;
-  draft: Draft;
-
-  view: Step;
-  stack: Step[];
-  dir: "fwd" | "back";
-
-  toast: Toast | null;
-
-  setTheme: (t: Theme) => void;
-  toggleTheme: () => void;
-  setLang: (l: Lang) => void;
-  setAccent: (a: string) => void;
-  setCurrency: (c: string) => void;
-  setRounding: (r: Rounding) => void;
-  setAnim: (v: boolean) => void;
-  setViewCurrency: (c: string | null) => void;
-
-  patchDraft: (patch: Partial<Draft>) => void;
-  updateDraft: (fn: (d: Draft) => Draft) => void;
-
-  go: (step: Step) => void;
-  editStep: (step: Step) => void;
-  back: () => void;
-  startNew: (step: Step) => void;
-  resume: () => void;
-  applyScan: (res: ScanResult) => void;
-  openHistory: (h: Draft) => void;
-  mergeHistory: (incoming: Draft[], incomingTombstones?: Record<string, number>) => void;
-  deleteBillLocally: (id: string) => void;
-  discardDraft: () => void;
-  saveCurrent: (result: SplitResult, payerId: string | null) => void;
-  finish: () => void;
-
-  showToast: (msg: string) => void;
-  clearToast: () => void;
-}
-
-export const useStore = create<State>()(
+export const useStore = create<AppState>()(
   persist(
     (set, get) => ({
       theme: "light",
@@ -184,17 +119,17 @@ export const useStore = create<State>()(
           };
         }),
 
-      applyScan: (res) => {
-        const items = (res.items || []).map((i) => ({
+      applyScan: (scan) => {
+        const items = (scan.items || []).map((item) => ({
           id: uid(),
-          name: i.name || "",
-          qty: i.qty || 1,
-          price: i.price || 0,
+          name: item.name || "",
+          qty: item.qty || 1,
+          price: item.price || 0,
           assignedTo: [],
         }));
         const lang = get().lang;
         const fallbackTitle =
-          res.source === "manual"
+          scan.source === "manual"
             ? lang === "id"
               ? "Patungan baru"
               : "New split"
@@ -206,12 +141,12 @@ export const useStore = create<State>()(
             ...s.draft,
             items,
             charges: {
-              taxPct: res.charges?.taxPct || 0,
-              servicePct: res.charges?.servicePct || 0,
-              discount: res.charges?.discount || 0,
+              taxPct: scan.charges?.taxPct || 0,
+              servicePct: scan.charges?.servicePct || 0,
+              discount: scan.charges?.discount || 0,
             },
-            title: res.merchant || fallbackTitle,
-            source: res.source,
+            title: scan.merchant || fallbackTitle,
+            source: scan.source,
             step: "review",
           },
           dir: "fwd",
@@ -220,14 +155,11 @@ export const useStore = create<State>()(
         }));
       },
 
-      openHistory: (h) =>
+      openHistory: (entry) =>
         set({
-          draft: { ...h, step: "breakdown" },
+          draft: { ...entry, step: "breakdown" },
           dir: "fwd",
-          // Seed the whole trail, not just home. Opening a bill from history
-          // used to be a dead end: Back went straight out, so a saved split
-          // could never be corrected. Locking a bill fixes its total, not the
-          // ability to fix a typo in it -- edits flow back through syncSaved.
+          // Seed the whole trail so Back can reach earlier steps; edits flow back via syncSaved.
           stack: ["home", "review", "people", "assign"],
           view: "breakdown",
         }),
@@ -245,7 +177,7 @@ export const useStore = create<State>()(
           summary: { grandTotal: result.grandTotal },
         };
         set((s) => {
-          const without = s.history.filter((x) => x.id !== entry.id);
+          const without = s.history.filter((saved) => saved.id !== entry.id);
           return {
             history: [entry, ...without].slice(0, HISTORY_LIMIT),
             draft: entry,
@@ -256,10 +188,9 @@ export const useStore = create<State>()(
 
       deleteBillLocally: (id) =>
         set((s) => ({
-          history: s.history.filter((h) => h.id !== id),
+          history: s.history.filter((entry) => entry.id !== id),
           tombstones: { ...s.tombstones, [id]: Date.now() },
-          // If the bill being deleted is the one open, clear it too -- leaving
-          // it as the live draft would re-add it on the next edit via syncSaved.
+          // Leaving it as the live draft would re-add it on the next edit via syncSaved.
           ...(s.draft.id === id
             ? { draft: emptyDraft(), view: "home" as const, stack: [], dir: "back" as const }
             : {}),

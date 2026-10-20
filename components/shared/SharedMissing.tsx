@@ -1,10 +1,11 @@
 "use client";
 
 import { useT } from "@/lib/i18n";
-import type { BillMissing } from "@/lib/bills";
+import type { BillMissing } from "@/entities/share";
 
 import Screen from "@/components/Screen";
 import { Receipt, WifiOff } from "@/components/icons";
+import type { SharedMissingProps } from "@/entities/props/shared";
 
 /* What to tell someone whose shared link did not open. The person holding the
    link cannot fix a server, so they get the plain version; whoever is running
@@ -21,10 +22,7 @@ const DEV_HINT: Partial<Record<BillMissing, string>> = {
 export default function SharedMissing({
   reason,
   onMakeOwn,
-}: {
-  reason: BillMissing;
-  onMakeOwn: () => void;
-}) {
+}: SharedMissingProps) {
   const t = useT();
   const kind =
     reason === "offline"

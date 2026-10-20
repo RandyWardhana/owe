@@ -1,15 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 
-import { encryptShare } from "@/lib/share";
-import { saveBill } from "@/lib/bills";
-import { hasCloudSync } from "@/lib/cloudSync";
-import type { SharedBill } from "@/lib/types";
+import { encryptShare } from "../share";
+import { saveBill } from "../bills";
+import { hasCloudSync } from "../cloudSync";
+import type { SharedBill } from "../../entities/share";
 
 const online = () => typeof navigator === "undefined" || navigator.onLine;
 
-/* Builds the share link. When online + cloud sync is configured, the encrypted
-   bill is stored under its id and a short `/s/owe-…` link is returned. Otherwise
-   it falls back to the self-contained long `/s?s=…` link. */
+// Short `/s/owe-…` link when the bill can be stored in the cloud, else the self-contained `/s?s=…`.
 export function useShareLink(bill: SharedBill, shareId: string) {
   const [link, setLink] = useState("");
 
@@ -17,13 +15,13 @@ export function useShareLink(bill: SharedBill, shareId: string) {
     let cancelled = false;
 
     (async () => {
-      const enc = await encryptShare(bill);
+      const encoded = await encryptShare(bill);
       if (cancelled) return;
       const origin = window.location.origin;
-      const longLink = `${origin}/s?s=${enc}`;
+      const longLink = `${origin}/s?s=${encoded}`;
 
       if (hasCloudSync && online()) {
-        const ok = await saveBill(shareId, enc);
+        const ok = await saveBill(shareId, encoded);
         if (cancelled) return;
         if (ok) {
           setLink(`${origin}/s/${shareId}`);
@@ -41,7 +39,6 @@ export function useShareLink(bill: SharedBill, shareId: string) {
   const label = useMemo(() => {
     try {
       const url = new URL(link);
-      // short link → show it in full; long link → elide the payload
       return url.search ? `${url.host}${url.pathname}?s=…` : `${url.host}${url.pathname}`;
     } catch {
       return "";

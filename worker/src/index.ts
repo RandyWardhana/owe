@@ -15,27 +15,6 @@ const PROOF_EXT: Record<string, string> = {
   "application/pdf": "pdf",
 };
 
-/**
- * The name segment of a proof's key.
- *
- * Cosmetic only: what identifies a proof is the (bill_id, person_index) row in
- * D1, which holds the real key. That is what makes it safe to put a name here
- * at all — someone renaming themselves on a later share does not orphan an
- * existing object, because nothing looks proofs up by this path.
- *
- * Everything outside a-z0-9 collapses to a dash, so a name cannot introduce a
- * slash, walk up a directory, or smuggle whitespace into the key.
- */
-function nameSegment(raw: string, index: number): string {
-  const slug = raw
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 40);
-
-  return slug ? `${index}-${slug}` : String(index);
-}
-
 const json = (body: unknown, status = 200): Response =>
   new Response(JSON.stringify(body), {
     status,
@@ -58,35 +37,37 @@ async function sha256Hex(value: string): Promise<string> {
   const bytes = new TextEncoder().encode(value);
   const digest = await crypto.subtle.digest("SHA-256", bytes);
   return Array.from(new Uint8Array(digest))
-    .map((b) => b.toString(16).padStart(2, "0"))
+    .map((byte) => byte.toString(16).padStart(2, "0"))
     .join("");
+}
+
+function isSyncKey(value: unknown): value is string {
+  return typeof value === "string" && /^[0-9a-f]{64}$/.test(value);
 }
 
 function parsePaid(raw: unknown): number[] {
   if (typeof raw !== "string") return [];
   try {
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed.filter((n) => typeof n === "number") : [];
+    return Array.isArray(parsed) ? parsed.filter((value) => typeof value === "number") : [];
   } catch {
     return [];
   }
 }
 
-/* itemId -> the people who had it. Stored as an array because the items a
-   maker cannot attribute are usually the shared ones -- the extra round, the
-   plate in the middle -- so a single holder was the wrong shape. Older rows
-   hold a bare number; they are read as a one-person set. */
+/* Stored as itemId -> person indexes. Older rows hold a bare number, read as a
+   one-person set. */
 function parseClaims(raw: string | null): Record<string, number[]> {
   try {
     const parsed = JSON.parse(raw || "{}");
     if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
 
-    const ok = (v: unknown): v is number =>
-      typeof v === "number" && Number.isInteger(v) && v >= 0;
+    const isPersonIndex = (value: unknown): value is number =>
+      typeof value === "number" && Number.isInteger(value) && value >= 0;
 
     const out: Record<string, number[]> = {};
     for (const [item, who] of Object.entries(parsed)) {
-      const list = Array.isArray(who) ? who.filter(ok) : ok(who) ? [who] : [];
+      const list = Array.isArray(who) ? who.filter(isPersonIndex) : isPersonIndex(who) ? [who] : [];
       const unique = [...new Set(list)].sort((a, b) => a - b);
       if (unique.length) out[item] = unique;
     }
@@ -109,18 +90,9 @@ async function getBill(env: Env, id: string): Promise<Response> {
   });
 }
 
-/**
- * Add or remove one person from an unassigned item.
- *
- * Deliberately NOT owner-gated. The whole point is that the people who ordered
- * the thing say so from the shared link, and they are not the device that made
- * the bill. Claiming only ever adds to your own share, so the worst a stranger
- * can do is take on someone else's debt -- and the maker can undo it.
- *
- * One person at a time rather than a whole set, so two phones claiming the same
- * plate at the same moment cannot overwrite each other: each request is a read
- * and a toggle, not a replace.
- */
+/* Not owner-gated: people claim items from the shared link, and claiming only adds
+   to your own share, which the maker can undo. One person per request, a toggle
+   rather than a replace, so concurrent claims cannot overwrite each other. */
 async function putClaim(env: Env, body: Record<string, unknown>): Promise<Response> {
   const id = typeof body.id === "string" ? body.id : "";
   const item = typeof body.item === "string" ? body.item.slice(0, 64) : "";
@@ -130,8 +102,7 @@ async function putClaim(env: Env, body: Record<string, unknown>): Promise<Respon
     typeof body.person === "number" && Number.isInteger(body.person) && body.person >= 0
       ? body.person
       : null;
-  // `on` absent means "put this person on it"; false takes them off, and a
-  // null person with no `on` clears the item entirely.
+  // `on` absent adds the person, false removes them; a null person clears the item.
   const on = body.on === undefined ? true : Boolean(body.on);
 
   const row = await env.DB.prepare("SELECT paid, claims FROM bills WHERE id = ?")
@@ -143,8 +114,7 @@ async function putClaim(env: Env, body: Record<string, unknown>): Promise<Respon
   const settled = parsePaid(row.paid);
   const holders = claims[item] ?? [];
 
-  // Anyone on this item who has already been confirmed as paid freezes it:
-  // changing the split now would rewrite an amount they have handed over.
+  // A confirmed payer freezes the item: re-splitting would change an amount already paid.
   if (holders.some((who) => settled.includes(who))) {
     return json({ ok: false, error: "already settled", claims }, 409);
   }
@@ -179,9 +149,9 @@ async function putBill(
     .first<{ owner_hash: string | null }>();
   const ownerHash = current?.owner_hash ?? null;
 
-  // Only the creating device may change who has paid. A bill with no owner is
-  // one created before ownership existed; it stays open so old links keep
-  // working. Ownership is claimed once, on the write that creates the row.
+  // Only the creating device may change `paid`. Bills without an owner predate
+  // ownership and stay open so old links keep working. Ownership is claimed once,
+  // by the write that creates the row.
   const presented = ownerToken ? await sha256Hex(ownerToken) : "";
   if (Array.isArray(body.paid) && ownerHash && presented !== ownerHash) {
     return json({ ok: false, error: "not the owner" }, 403);
@@ -201,9 +171,7 @@ async function putBill(
   const data = hasData ? (body.data as string) : null;
   const paid = hasPaid ? JSON.stringify(body.paid) : null;
 
-  // COALESCE so a paid-only write keeps the bill, and a data-only write keeps
-  // whoever has already settled. The old upsert sent whole rows and could blank
-  // a column that simply was not in this request.
+  // COALESCE so a paid-only write keeps the bill and a data-only write keeps `paid`.
   try {
     await env.DB.prepare(
       `INSERT INTO bills (id, data, paid, updated_at, owner_hash, sync_key)
@@ -234,16 +202,55 @@ async function putBill(
   return json({ ok: true });
 }
 
+/* Owner only: the share link is public, so anyone could otherwise erase a split
+   they merely received. */
+async function deleteBill(env: Env, url: URL, ownerToken: string): Promise<Response> {
+  const id = url.searchParams.get("id") ?? "";
+  if (!id) return json({ ok: false }, 400);
+
+  const bill = await env.DB.prepare("SELECT owner_hash FROM bills WHERE id = ?")
+    .bind(id)
+    .first<{ owner_hash: string | null }>();
+  if (!bill) return json({ ok: true, alreadyGone: true });
+
+  const presented = ownerToken ? await sha256Hex(ownerToken) : "";
+  if (!bill.owner_hash || presented !== bill.owner_hash) {
+    return json({ ok: false, error: "not the owner" }, 403);
+  }
+
+  return json({ ok: true, ...(await eraseBill(env, id)) });
+}
+
+/* R2 objects go before the rows: an orphaned object is invisible, while an
+   orphaned row can still be cleaned up by the next delete. */
+async function eraseBill(env: Env, id: string): Promise<{ proofs: number; files: number }> {
+  const { results } = await env.DB.prepare("SELECT r2_key FROM proofs WHERE bill_id = ?")
+    .bind(id)
+    .all<{ r2_key: string }>();
+
+  const keys = new Set((results ?? []).map((row) => row.r2_key));
+  let cursor: string | undefined;
+  do {
+    const page = await env.PROOFS.list({ prefix: `${id}/`, cursor });
+    page.objects.forEach((object) => keys.add(object.key));
+    cursor = page.truncated ? page.cursor : undefined;
+  } while (cursor);
+  if (keys.size) await env.PROOFS.delete([...keys]);
+
+  await env.DB.batch([
+    env.DB.prepare("DELETE FROM proofs WHERE bill_id = ?").bind(id),
+    env.DB.prepare("DELETE FROM bills WHERE id = ?").bind(id),
+  ]);
+
+  return { proofs: (results ?? []).length, files: keys.size };
+}
+
 async function getUserBills(env: Env, key: string): Promise<Response> {
   const row = await env.DB.prepare("SELECT data FROM user_bills WHERE key = ?")
     .bind(key)
     .first<{ data: string | null }>();
 
   return json({ data: row?.data ?? null });
-}
-
-function isSyncKey(value: unknown): value is string {
-  return typeof value === "string" && /^[0-9a-f]{64}$/.test(value);
 }
 
 async function linkOwnedBills(env: Env, key: string, value: unknown): Promise<void> {
@@ -321,6 +328,19 @@ async function putUserBills(env: Env, body: Record<string, unknown>): Promise<Re
   return json({ ok: true });
 }
 
+/* Cosmetic: proofs are found by their (bill_id, person_index) row, never by this
+   path, so a rename cannot orphan an object. Anything outside a-z0-9 becomes a
+   dash, so a name cannot add a slash, `..` or whitespace to the key. */
+function nameSegment(raw: string, index: number): string {
+  const slug = raw
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 40);
+
+  return slug ? `${index}-${slug}` : String(index);
+}
+
 async function putProof(env: Env, req: Request, url: URL): Promise<Response> {
   const billId = url.searchParams.get("id") ?? "";
   const index = Number(url.searchParams.get("i"));
@@ -333,11 +353,8 @@ async function putProof(env: Env, req: Request, url: URL): Promise<Response> {
   if (!body.byteLength) return json({ ok: false, error: "empty" }, 400);
   if (body.byteLength > MAX_PROOF_BYTES) return json({ ok: false, error: "too large" }, 413);
 
-  // billId / person / file. The person segment makes the bucket browsable --
-  // with opaque folders, nobody can tell whose receipt is whose. The filename
-  // stays a uuid: a proof is a screenshot of someone's banking app, and the
-  // bill id is derived from the bill and therefore predictable, so a guessable
-  // path would be the one weak link in front of the object.
+  // Key is billId/person/uuid. The person segment keeps the bucket browsable; the
+  // uuid must stay, because bill ids are predictable and a proof is a banking screenshot.
   const person = nameSegment(url.searchParams.get("name") ?? "", index);
   const key = `${billId}/${person}/${crypto.randomUUID()}.${PROOF_EXT[type] ?? "bin"}`;
   await env.PROOFS.put(key, body, { httpMetadata: { contentType: type } });
@@ -358,7 +375,6 @@ async function putProof(env: Env, req: Request, url: URL): Promise<Response> {
     .bind(billId, index, key, type, body.byteLength, new Date().toISOString())
     .run();
 
-  // Replacing a proof drops the old object rather than orphaning it in R2.
   if (previous?.r2_key) await env.PROOFS.delete(previous.r2_key);
 
   return json({ ok: true });
@@ -372,9 +388,9 @@ async function listProofs(env: Env, billId: string): Promise<Response> {
     .all<{ person_index: number; uploaded_at: string }>();
 
   return json({
-    proofs: (results ?? []).map((r) => ({
-      index: r.person_index,
-      uploadedAt: r.uploaded_at,
+    proofs: (results ?? []).map((row) => ({
+      index: row.person_index,
+      uploadedAt: row.uploaded_at,
     })),
   });
 }
@@ -384,13 +400,9 @@ async function getProof(env: Env, url: URL): Promise<Response> {
   const index = Number(url.searchParams.get("i"));
   if (!billId || !Number.isInteger(index)) return json({ error: "bad request" }, 400);
 
-  // Readable by anyone holding the share link, deliberately: settling up is a
-  // group conversation, and a receipt only one person can see does not settle
-  // an argument about whether it was sent. The link is already the boundary for
-  // the bill itself, so proofs now match it. What still guards the file is the
-  // uuid in its key -- bill ids are derived from the bill and guessable, object
-  // keys are not.
-
+  // Readable by any share-link holder on purpose: settling up is a group matter and
+  // the link already guards the bill. The uuid in the object key guards the file,
+  // since bill ids are guessable.
   const row = await env.DB.prepare(
     "SELECT r2_key, content_type FROM proofs WHERE bill_id = ? AND person_index = ?",
   )
@@ -406,14 +418,8 @@ async function getProof(env: Env, url: URL): Promise<Response> {
   });
 }
 
-/**
- * Remove a proof.
- *
- * Before the payer accepts it, whoever holds the link may take it down — the
- * same trust as uploading, and someone who attached the wrong screenshot should
- * not have to ask permission to fix it. Once the line is marked paid the proof
- * is the receipt for a settled debt, so only the bill's owner can remove it.
- */
+/* Until the line is marked paid, any link holder may remove a proof (the same trust
+   as uploading). After that it is the receipt for a settled debt, so only the owner can. */
 async function deleteProof(env: Env, url: URL, ownerToken: string): Promise<Response> {
   const billId = url.searchParams.get("id") ?? "";
   const index = Number(url.searchParams.get("i"));
@@ -446,75 +452,9 @@ async function deleteProof(env: Env, url: URL, ownerToken: string): Promise<Resp
   return json({ ok: true });
 }
 
-/**
- * Delete a bill and everything hanging off it.
- *
- * Owner only: the share link is public, so anyone could otherwise erase a split
- * they merely received. Removes the R2 objects before the rows, because an
- * orphaned object is invisible -- nothing references it and no listing in the
- * app will ever show it again -- whereas an orphaned row is at worst a broken
- * thumbnail that the next delete can still clean up.
- */
-async function deleteBill(env: Env, url: URL, ownerToken: string): Promise<Response> {
-  const id = url.searchParams.get("id") ?? "";
-  if (!id) return json({ ok: false }, 400);
-
-  const bill = await env.DB.prepare("SELECT owner_hash FROM bills WHERE id = ?")
-    .bind(id)
-    .first<{ owner_hash: string | null }>();
-  if (!bill) return json({ ok: true, alreadyGone: true });
-
-  const presented = ownerToken ? await sha256Hex(ownerToken) : "";
-  if (!bill.owner_hash || presented !== bill.owner_hash) {
-    return json({ ok: false, error: "not the owner" }, 403);
-  }
-
-  return json({ ok: true, ...(await eraseBill(env, id)) });
-}
-
-async function eraseBill(env: Env, id: string): Promise<{ proofs: number; files: number }> {
-  const { results } = await env.DB.prepare("SELECT r2_key FROM proofs WHERE bill_id = ?")
-    .bind(id)
-    .all<{ r2_key: string }>();
-
-  const keys = new Set((results ?? []).map((row) => row.r2_key));
-  let cursor: string | undefined;
-  do {
-    const page = await env.PROOFS.list({ prefix: `${id}/`, cursor });
-    page.objects.forEach((object) => keys.add(object.key));
-    cursor = page.truncated ? page.cursor : undefined;
-  } while (cursor);
-  if (keys.size) await env.PROOFS.delete([...keys]);
-
-  await env.DB.batch([
-    env.DB.prepare("DELETE FROM proofs WHERE bill_id = ?").bind(id),
-    env.DB.prepare("DELETE FROM bills WHERE id = ?").bind(id),
-  ]);
-
-  return { proofs: (results ?? []).length, files: keys.size };
-}
-
-async function adminDeleteBackup(env: Env, key: string): Promise<Response> {
-  if (!key) return json({ ok: false }, 400);
-  const { meta } = await env.DB.prepare("DELETE FROM user_bills WHERE key = ?").bind(key).run();
-  return json({ ok: true, changed: meta?.changes ?? 0 });
-}
-
-async function adminDeleteBill(env: Env, id: string): Promise<Response> {
-  if (!id) return json({ ok: false }, 400);
-  const bill = await env.DB.prepare("SELECT id FROM bills WHERE id = ?").bind(id).first();
-  if (!bill) return json({ ok: true, alreadyGone: true, proofs: 0, files: 0 });
-  return json({ ok: true, ...(await eraseBill(env, id)) });
-}
-
-/* ---- Admin ------------------------------------------------------------- *
- * Read-mostly views for recovering a bill someone has lost. Gated by the same
- * shared secret as everything else, and reachable only through owe's /admin
- * routes, which sit behind their own password. Nothing here can read a device
- * backup: those are encrypted with the sync code itself, which the server never
- * sees. Listing them is all that is possible.
- * ------------------------------------------------------------------------ */
-
+/* Admin routes use the same shared secret and are reachable only through owe's
+   password-gated /admin. Device backups are encrypted with the sync code, which the
+   server never sees, so they can be listed but not read. */
 async function adminBills(env: Env): Promise<Response> {
   const query = (syncKey: string) =>
     env.DB.prepare(
@@ -556,34 +496,19 @@ async function adminBackup(env: Env, key: string): Promise<Response> {
   return json({ backup: row ?? null });
 }
 
-async function adminObjects(env: Env, prefix: string): Promise<Response> {
-  const objects: { key: string; size: number; uploaded: string }[] = [];
-  let cursor: string | undefined;
-  do {
-    const page = await env.PROOFS.list({ prefix: prefix || undefined, cursor, limit: 1000 });
-    page.objects.forEach((o) =>
-      objects.push({ key: o.key, size: o.size, uploaded: o.uploaded.toISOString() }),
-    );
-    cursor = page.truncated ? page.cursor : undefined;
-  } while (cursor);
+async function adminIndexBackup(env: Env, key: string, body: Record<string, unknown>): Promise<Response> {
+  const billIds = billIdsOf(body.bills);
+  if (!key || !billIds) return json({ ok: false }, 400);
+  const { meta } = await env.DB.prepare("UPDATE user_bills SET bill_ids = ? WHERE key = ?")
+    .bind(JSON.stringify(billIds), key)
+    .run();
+  return json({ ok: true, changed: meta?.changes ?? 0 });
+}
 
-  const { results } = await env.DB.prepare(
-    "SELECT r2_key, bill_id, person_index, content_type FROM proofs",
-  ).all<{ r2_key: string; bill_id: string; person_index: number; content_type: string }>();
-  const referenced = new Map((results ?? []).map((r) => [r.r2_key, r]));
-
-  return json({
-    objects: objects.map((o) => {
-      const row = referenced.get(o.key);
-      return {
-        ...o,
-        orphan: !row,
-        bill_id: row?.bill_id ?? null,
-        person_index: row?.person_index ?? null,
-        content_type: row?.content_type ?? null,
-      };
-    }),
-  });
+async function adminDeleteBackup(env: Env, key: string): Promise<Response> {
+  if (!key) return json({ ok: false }, 400);
+  const { meta } = await env.DB.prepare("DELETE FROM user_bills WHERE key = ?").bind(key).run();
+  return json({ ok: true, changed: meta?.changes ?? 0 });
 }
 
 async function adminBill(env: Env, id: string): Promise<Response> {
@@ -625,13 +550,41 @@ async function adminSetOwner(env: Env, id: string, body: Record<string, unknown>
   return json({ ok: true, changed: meta?.changes ?? 0 });
 }
 
-async function adminIndexBackup(env: Env, key: string, body: Record<string, unknown>): Promise<Response> {
-  const billIds = billIdsOf(body.bills);
-  if (!key || !billIds) return json({ ok: false }, 400);
-  const { meta } = await env.DB.prepare("UPDATE user_bills SET bill_ids = ? WHERE key = ?")
-    .bind(JSON.stringify(billIds), key)
-    .run();
-  return json({ ok: true, changed: meta?.changes ?? 0 });
+async function adminDeleteBill(env: Env, id: string): Promise<Response> {
+  if (!id) return json({ ok: false }, 400);
+  const bill = await env.DB.prepare("SELECT id FROM bills WHERE id = ?").bind(id).first();
+  if (!bill) return json({ ok: true, alreadyGone: true, proofs: 0, files: 0 });
+  return json({ ok: true, ...(await eraseBill(env, id)) });
+}
+
+async function adminObjects(env: Env, prefix: string): Promise<Response> {
+  const objects: { key: string; size: number; uploaded: string }[] = [];
+  let cursor: string | undefined;
+  do {
+    const page = await env.PROOFS.list({ prefix: prefix || undefined, cursor, limit: 1000 });
+    page.objects.forEach((object) =>
+      objects.push({ key: object.key, size: object.size, uploaded: object.uploaded.toISOString() }),
+    );
+    cursor = page.truncated ? page.cursor : undefined;
+  } while (cursor);
+
+  const { results } = await env.DB.prepare(
+    "SELECT r2_key, bill_id, person_index, content_type FROM proofs",
+  ).all<{ r2_key: string; bill_id: string; person_index: number; content_type: string }>();
+  const referenced = new Map((results ?? []).map((proof) => [proof.r2_key, proof]));
+
+  return json({
+    objects: objects.map((object) => {
+      const row = referenced.get(object.key);
+      return {
+        ...object,
+        orphan: !row,
+        bill_id: row?.bill_id ?? null,
+        person_index: row?.person_index ?? null,
+        content_type: row?.content_type ?? null,
+      };
+    }),
+  });
 }
 
 async function adminGetObject(env: Env, key: string): Promise<Response> {

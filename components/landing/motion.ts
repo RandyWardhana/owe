@@ -2,10 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-/* One source of truth for "should this page animate at all".
-   owe already has a global animation switch in Settings (data-anim="off"), and
-   the OS has its own. A landing page that ignores either is the kind that makes
-   people close the tab. */
+/* Honours both owe's own animation switch (data-anim="off") and the OS setting. */
 export function usePlayful(): boolean {
   const [play, setPlay] = useState(false);
 
@@ -29,8 +26,6 @@ export function usePlayful(): boolean {
   return play;
 }
 
-/* Fires once when the element first comes into view. Used for anything that
-   should not start counting or cycling while it is still off-screen. */
 export function useInView<T extends HTMLElement>(
   ref: React.RefObject<T | null>,
   rootMargin = "0px 0px -10% 0px",

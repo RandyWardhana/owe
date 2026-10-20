@@ -4,11 +4,9 @@ import { CURRENCIES } from "@/lib/currency";
 
 export const runtime = "nodejs";
 
-/* Daily rates from fawazahmed0/exchange-api: free, keyless, and covers every
-   currency we offer -- TWD included, which the ECB-based feeds lack. It is
-   published on npm and served by jsDelivr, with a Cloudflare Pages mirror for
-   when the CDN misbehaves. Proxied here so the source can change without a
-   client release, and so one fetch serves everyone for a few hours. */
+/* fawazahmed0/exchange-api: free, keyless, and has TWD, which ECB-based feeds lack.
+   Proxied so the source can change without a client release, and one fetch serves
+   everyone for a few hours. */
 const SOURCES = [
   (base: string) =>
     `https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/${base}.json`,
@@ -38,9 +36,7 @@ export async function GET(req: Request) {
         { base, date: body.date ?? null, rates },
         { headers: { "Cache-Control": `public, s-maxage=${HOURS * 3600}, stale-while-revalidate=86400` } },
       );
-    } catch {
-      // try the next source
-    }
+    } catch {}
   }
   return NextResponse.json({ error: "unavailable" }, { status: 502 });
 }

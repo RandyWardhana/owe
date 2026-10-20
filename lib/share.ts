@@ -1,9 +1,8 @@
-import type { SharedBill, SharePayload } from "./types";
+import type { SharePayload, SharedBill } from "../entities/share";
 
-/* ---- Wire mapping ----------------------------------------------------------
-   SharedBill (readable) <-> SharePayload (compact, URL-friendly). Keeping the
-   short keys only on the wire means existing share links stay valid and new
-   ones stay small, while all app code works with full, maintainable names. */
+const KEY_PHRASE = "owe.share.v1::9be52e-ink-cream";
+
+let keyPromise: Promise<CryptoKey> | null = null;
 
 function toWire(bill: SharedBill): SharePayload {
   return {
@@ -20,7 +19,6 @@ function toWire(bill: SharedBill): SharePayload {
         n: item.name,
         q: item.qty,
         s: item.share,
-        // Carry the split count only when shared — keeps the URL compact.
         ...(item.split ? { sp: item.split } : {}),
         ...(item.units ? { u: item.units } : {}),
       })),
@@ -40,65 +38,6 @@ function toWire(bill: SharedBill): SharePayload {
   };
 }
 
-function fromWire(payload: SharePayload): SharedBill {
-  return {
-    version: payload.v,
-    title: payload.t,
-    currency: payload.c,
-    grandTotal: payload.g,
-    payerIndex: payload.py,
-    people: (payload.pp || []).map((person) => ({
-      name: person.n,
-      total: person.t,
-      accounts: (person.ac || []).map((account) => ({
-        key: account.k,
-        value: account.v,
-      })),
-      items: (person.it || []).map((item) => ({
-        name: item.n,
-        qty: item.q,
-        share: item.s,
-        split: item.sp,
-        units: item.u,
-      })),
-    })),
-    paidIndices: payload.pd || [],
-    claimable: (payload.ui || []).map((item) => ({
-      id: item.i,
-      name: item.n,
-      qty: item.q,
-      amount: item.a,
-    })),
-    feeRate: payload.fr || 0,
-  };
-}
-
-/* ---- Plain (unencrypted) base64url encoding — fallback for the long link --- */
-
-export function encodeShare(bill: SharedBill): string {
-  try {
-    return btoa(unescape(encodeURIComponent(JSON.stringify(toWire(bill)))))
-      .replace(/\+/g, "-")
-      .replace(/\//g, "_")
-      .replace(/=+$/, "");
-  } catch {
-    return "";
-  }
-}
-
-export function decodeShare(str: string): SharedBill | null {
-  try {
-    const normalized = str.replace(/-/g, "+").replace(/_/g, "/");
-    const wire = JSON.parse(decodeURIComponent(escape(atob(normalized)))) as SharePayload;
-    return fromWire(wire);
-  } catch {
-    return null;
-  }
-}
-
-const KEY_PHRASE = "owe.share.v1::9be52e-ink-cream";
-
-let keyPromise: Promise<CryptoKey> | null = null;
 function shareKey(): Promise<CryptoKey> {
   if (!keyPromise) {
     keyPromise = (async () => {
@@ -144,6 +83,60 @@ async function unsqueeze(
   writer.write(bytes);
   writer.close();
   return new Uint8Array(await new Response(stream.readable).arrayBuffer());
+}
+
+export function fromWire(payload: SharePayload): SharedBill {
+  return {
+    version: payload.v,
+    title: payload.t,
+    currency: payload.c,
+    grandTotal: payload.g,
+    payerIndex: payload.py,
+    people: (payload.pp || []).map((person) => ({
+      name: person.n,
+      total: person.t,
+      accounts: (person.ac || []).map((account) => ({
+        key: account.k,
+        value: account.v,
+      })),
+      items: (person.it || []).map((item) => ({
+        name: item.n,
+        qty: item.q,
+        share: item.s,
+        split: item.sp,
+        units: item.u,
+      })),
+    })),
+    paidIndices: payload.pd || [],
+    claimable: (payload.ui || []).map((item) => ({
+      id: item.i,
+      name: item.n,
+      qty: item.q,
+      amount: item.a,
+    })),
+    feeRate: payload.fr || 0,
+  };
+}
+
+export function encodeShare(bill: SharedBill): string {
+  try {
+    return btoa(unescape(encodeURIComponent(JSON.stringify(toWire(bill)))))
+      .replace(/\+/g, "-")
+      .replace(/\//g, "_")
+      .replace(/=+$/, "");
+  } catch {
+    return "";
+  }
+}
+
+export function decodeShare(str: string): SharedBill | null {
+  try {
+    const normalized = str.replace(/-/g, "+").replace(/_/g, "/");
+    const wire = JSON.parse(decodeURIComponent(escape(atob(normalized)))) as SharePayload;
+    return fromWire(wire);
+  } catch {
+    return null;
+  }
 }
 
 export async function encryptShare(bill: SharedBill): Promise<string> {

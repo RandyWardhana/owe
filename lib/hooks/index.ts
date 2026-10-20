@@ -6,5 +6,4 @@ export { useEscapeKey } from "./useEscapeKey";
 export { useAutoDismiss } from "./useAutoDismiss";
 export { useClipboard } from "./useClipboard";
 export { useCopyAnim } from "./useCopyAnim";
-export type { CopyPhase } from "./useCopyAnim";
 export { useCountUp } from "./useCountUp";

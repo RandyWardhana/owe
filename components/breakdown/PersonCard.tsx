@@ -5,12 +5,12 @@ import { useState } from "react";
 import { useT } from "@/lib/i18n";
 import { fmtMoney, fmtAmountPlain } from "@/lib/currency";
 import { initials, personColor, personInk } from "@/lib/util";
-import type { PersonSplit } from "@/lib/types";
 
 import { Chevron } from "@/components/icons";
 import AnimatedMoney from "@/components/ui/AnimatedMoney";
 import CopyButton from "@/components/ui/CopyButton";
 import PersonItems from "@/components/ui/PersonItems";
+import type { PersonCardProps } from "@/entities/props/breakdown";
 
 export default function PersonCard({
   person,
@@ -18,13 +18,7 @@ export default function PersonCard({
   animIndex,
   currency,
   isPayer,
-}: {
-  person: PersonSplit;
-  colorIndex: number;
-  animIndex: number;
-  currency: string;
-  isPayer: boolean;
-}) {
+}: PersonCardProps) {
   const t = useT();
   const [open, setOpen] = useState(false);
 
@@ -42,7 +36,7 @@ export default function PersonCard({
       <div className="pp--row">
         <button
           className="pp__tap"
-          onClick={() => hasItems && setOpen((o) => !o)}
+          onClick={() => hasItems && setOpen((wasOpen) => !wasOpen)}
           aria-expanded={hasItems ? open : undefined}
           aria-label={hasItems ? t("breakdown.viewItems", { name: person.name || "—" }) : undefined}
           disabled={!hasItems}

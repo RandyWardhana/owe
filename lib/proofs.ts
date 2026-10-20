@@ -1,24 +1,14 @@
+import type { ProofMeta, RemoveResult, UploadResult } from "../entities/proof";
 import { hasCloudSync } from "./cloudSync";
 
-/* Payment proof: the screenshot someone sends to show they transferred.
-   Uploading is open to anyone holding the share link — they are proving their
-   own payment. Viewing the image is not: only the bill's creator can, so the
-   rest of the table cannot read a stranger's banking app. */
+// Anyone with the share link may upload a proof of their own payment, and anyone with the link
+// may view it: settling up is a group matter. The random object key keeps the file unguessable.
 
 export const MAX_PROOF_BYTES = 5 * 1024 * 1024;
 
 export const PROOF_TYPES = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
 
 const isOnline = () => typeof navigator === "undefined" || navigator.onLine;
-
-export interface ProofMeta {
-  index: number;
-  uploadedAt: string;
-}
-
-export type UploadResult =
-  | { ok: true }
-  | { ok: false; reason: "offline" | "type" | "size" | "failed" };
 
 export async function uploadProof(
   billId: string,
@@ -44,12 +34,8 @@ export async function uploadProof(
 }
 
 /**
- * Who has uploaded, and when. Open to everyone — the image itself is not.
- *
- * Returns null when the question could not be asked: offline, a dead server, a
- * non-OK reply. That is NOT the same answer as an empty list, and conflating
- * the two is what made a receipt vanish on refresh whenever the server was
- * down — the caller would happily overwrite a known-good set with nothing.
+ * Returns null when the server could not be asked, which is not the same as an empty list:
+ * callers must keep their known set rather than overwrite it with nothing.
  */
 export async function fetchProofs(billId: string): Promise<ProofMeta[] | null> {
   if (!hasCloudSync || !isOnline()) return null;
@@ -63,10 +49,7 @@ export async function fetchProofs(billId: string): Promise<ProofMeta[] | null> {
   }
 }
 
-export type RemoveResult = { ok: true } | { ok: false; reason: "confirmed" | "failed" };
-
-/** Takes a proof down. The server refuses once the line is marked paid, unless
-    the owner token comes with it. */
+/** The server refuses once the line is marked paid, unless the owner token comes with it. */
 export async function removeProof(
   billId: string,
   index: number,
@@ -85,6 +68,5 @@ export async function removeProof(
   }
 }
 
-/** Where a receipt can be viewed. Open to anyone holding the share link. */
 export const proofUrl = (billId: string, index: number): string =>
   `/api/proof?id=${encodeURIComponent(billId)}&i=${index}`;

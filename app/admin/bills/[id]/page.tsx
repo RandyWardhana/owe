@@ -2,12 +2,13 @@ import { adminConfigured } from "@/lib/adminAuth";
 import { adminReady } from "@/lib/adminDb";
 
 import AdminBill from "@/components/admin/AdminBill";
+import type { AdminBillPageProps } from "@/entities/props/app";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const metadata = { title: "owe · admin · bill", robots: { index: false, follow: false } };
 
-export default async function AdminBillPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function AdminBillPage({ params }: AdminBillPageProps) {
   const { id } = await params;
   if (!adminConfigured() || !adminReady()) {
     return (

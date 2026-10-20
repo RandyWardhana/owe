@@ -5,14 +5,12 @@ import { useEffect } from "react";
 import { useT } from "@/lib/i18n";
 import StatusScreen, { StatusLink } from "@/components/StatusScreen";
 import { Warning } from "@/components/icons";
+import type { AppErrorProps } from "@/entities/props/app";
 
 export default function AppError({
   error,
   reset,
-}: {
-  error: Error & { digest?: string };
-  reset: () => void;
-}) {
+}: AppErrorProps) {
   const t = useT();
 
   useEffect(() => {

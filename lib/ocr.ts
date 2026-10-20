@@ -1,10 +1,13 @@
 import { CURRENCIES } from "./currency";
-import type { ScanResult } from "./types";
+import type { ScanResult } from "../entities/bill";
 
 const NOISE =
   /(sub\s*total|total|tax|gst|vat|ppn|pb\s?1|service|charge|biaya|cash|change|kembali|balance|visa|master|debit|credit|kredit|qris|gopay|ovo|dana|card|tip|round|amount|due|bayar|tunai|nontunai|qty|item|thank|terima|www|http|tel|telp|receipt|invoice|struk|table|meja|server|kasir|cashier|date|tgl|time|order|pajak|jumlah|diskon|discount|potongan|npwp|dine\s*in|take\s*away|queue|collected|bill\s*name|sales\s*type|tender|other)/i;
 
-function parsePrice(raw: string, dec: number): number | null {
+const TOTALS =
+  /^(sub\s*t|total|tax|ppn|gst|vat|tender|change|kembali|tunai|nontunai|grand|bayar|jumlah|amount|balance|service|biaya|diskon|discount|potongan|round)\b/i;
+
+function parsePrice(raw: string, decimals: number): number | null {
   let digits = raw.replace(/[^\d.,]/g, "");
   if (!digits) return null;
   const hasDot = digits.includes(".");
@@ -18,7 +21,7 @@ function parsePrice(raw: string, dec: number): number | null {
     const sep = hasDot ? "." : ",";
     const groups = digits.split(sep);
     const last = groups[groups.length - 1];
-    if (dec > 0 && groups.length === 2 && last.length <= 2) {
+    if (decimals > 0 && groups.length === 2 && last.length <= 2) {
       digits = digits.replace(sep, ".");
     } else {
       digits = groups.join("");
@@ -36,17 +39,47 @@ function titleCase(text: string): string {
     .slice(0, 40);
 }
 
-const TOTALS =
-  /^(sub\s*t|total|tax|ppn|gst|vat|tender|change|kembali|tunai|nontunai|grand|bayar|jumlah|amount|balance|service|biaya|diskon|discount|potongan|round)\b/i;
-
 function isSeparator(line: string): boolean {
   const compact = line.replace(/\s/g, "");
   return compact.length >= 5 && /^[-=_.~—–•*]+$/.test(compact);
 }
 
+function loadImage(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = reject;
+    img.src = src;
+  });
+}
+
+async function toCloudImage(file: File): Promise<string | null> {
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await loadImage(url);
+    const long = Math.max(img.width, img.height) || 1;
+    const scale = Math.min(1, 1600 / long);
+    const width = Math.round(img.width * scale);
+    const height = Math.round(img.height * scale);
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return null;
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
+    ctx.drawImage(img, 0, 0, width, height);
+    return canvas.toDataURL("image/jpeg", 0.7);
+  } catch {
+    return null;
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
 export function parseReceiptText(text: string, currency = "USD") {
-  const dec = (CURRENCIES[currency] || CURRENCIES.USD).dec;
-  const maxPrice = dec === 0 ? 100_000_000 : 100_000;
+  const decimals = (CURRENCIES[currency] || CURRENCIES.USD).dec;
+  const maxPrice = decimals === 0 ? 100_000_000 : 100_000;
   const lines = text
     .split("\n")
     .map((line) => line.replace(/(\d)[.,]\s+(\d)/g, "$1.$2").trim())
@@ -54,7 +87,7 @@ export function parseReceiptText(text: string, currency = "USD") {
 
   const META =
     /date|tgl|order|customer|sales\s*type|user|cashier|kasir|collected|receipt|bill\s*name|queue|invoice/i;
-  let totalsIdx = lines.findIndex((l) => TOTALS.test(l));
+  let totalsIdx = lines.findIndex((line) => TOTALS.test(line));
   if (totalsIdx < 0) totalsIdx = lines.length;
   const sepIdx = lines.findIndex(isSeparator);
   let headerEnd = -1;
@@ -111,7 +144,7 @@ export function parseReceiptText(text: string, currency = "USD") {
       continue;
     }
 
-    const price = parsePrice(priceMatch[2], dec);
+    const price = parsePrice(priceMatch[2], decimals);
     if (price == null || price <= 0 || price > maxPrice) continue;
 
     let qty = pendingQty || 1;
@@ -142,7 +175,7 @@ export function parseReceiptText(text: string, currency = "USD") {
     items.push({
       name: titleCase(name),
       qty,
-      price: qty > 1 ? +(price / qty).toFixed(dec) : price,
+      price: qty > 1 ? +(price / qty).toFixed(decimals) : price,
     });
   }
   return items;
@@ -166,39 +199,6 @@ export function parseReceiptCharges(text: string): {
       taxPct = pct;
   }
   return { taxPct, servicePct, discount: 0 };
-}
-
-function loadImage(src: string): Promise<HTMLImageElement> {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => resolve(img);
-    img.onerror = reject;
-    img.src = src;
-  });
-}
-
-async function toCloudImage(file: File): Promise<string | null> {
-  const url = URL.createObjectURL(file);
-  try {
-    const img = await loadImage(url);
-    const long = Math.max(img.width, img.height) || 1;
-    const scale = Math.min(1, 1600 / long);
-    const width = Math.round(img.width * scale);
-    const height = Math.round(img.height * scale);
-    const canvas = document.createElement("canvas");
-    canvas.width = width;
-    canvas.height = height;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return null;
-    ctx.imageSmoothingEnabled = true;
-    ctx.imageSmoothingQuality = "high";
-    ctx.drawImage(img, 0, 0, width, height);
-    return canvas.toDataURL("image/jpeg", 0.7);
-  } catch {
-    return null;
-  } finally {
-    URL.revokeObjectURL(url);
-  }
 }
 
 export async function scanReceipt(

@@ -3,24 +3,12 @@
 import { useT } from "@/lib/i18n";
 import { fmtMoney } from "@/lib/currency";
 import { initials, personColor, personInk } from "@/lib/util";
-import type { ClaimableItem, SharedBillPerson } from "@/lib/types";
 
 import { Check } from "@/components/icons";
+import type { ClaimListProps } from "@/entities/props/shared";
 
-interface Props {
-  items: ClaimableItem[];
-  people: SharedBillPerson[];
-  claims: Record<string, number[]>;
-  currency: string;
-  feeRate: number;
-  paid: Set<number>;
-  onClaim: (itemId: string, person: number, on: boolean) => void;
-}
-
-/* Items the maker could not attribute at the table -- which are usually the
-   shared ones, the extra round and the plate in the middle. So this is a row of
-   faces to toggle rather than a single "that's mine": as many people as had it
-   go on, and the cost divides between them. */
+/* Unattributed items are usually shared ones, so several people can toggle on
+   and the cost divides between them, rather than a single "that's mine". */
 export default function ClaimList({
   items,
   people,
@@ -29,7 +17,7 @@ export default function ClaimList({
   feeRate,
   paid,
   onClaim,
-}: Props) {
+}: ClaimListProps) {
   const t = useT();
   if (!items.length) return null;
 

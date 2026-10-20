@@ -3,19 +3,13 @@
 import { useEffect, useRef } from "react";
 
 import { useStore } from "@/lib/store";
-
-interface Spark {
-  x: number;
-  y: number;
-  angle: number;
-  startTime: number;
-}
+import type { SparkParticle } from "@/entities/props/ui";
 
 const SPARK_COUNT = 8;
 const SPARK_RADIUS = 18;
 const SPARK_LENGTH = 10;
 const DURATION = 420;
-const easeOut = (t: number) => t * (2 - t);
+const easeOut = (progress: number) => progress * (2 - progress);
 
 export default function ClickSpark() {
   const anim = useStore((s) => s.anim);
@@ -42,7 +36,7 @@ export default function ClickSpark() {
     resize();
     window.addEventListener("resize", resize);
 
-    const sparks: Spark[] = [];
+    const sparks: SparkParticle[] = [];
     let color = "#9be52e";
     let raf: number | null = null;
 
@@ -82,9 +76,8 @@ export default function ClickSpark() {
 
     const onClick = (e: MouseEvent) => {
       if (!animRef.current || reduce) return;
-      // Anything you press, not only <button>: the landing's actions are
-      // links, and a spark on "Scan a receipt" but not on "Open the app"
-      // reads as a bug. Disabled controls stay quiet.
+      // Anything you press, not only <button>: the landing's actions are links.
+      // Disabled controls stay quiet.
       const target = e.target as HTMLElement | null;
       const control = target?.closest<HTMLElement>("button, a[href], [role='button'], summary, label[for]");
       if (!control || control.matches(":disabled, [aria-disabled='true']")) return;

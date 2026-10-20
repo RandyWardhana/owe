@@ -9,15 +9,9 @@ import { PAY_BRANDS } from "./payBrands";
 import { useCopy } from "./copy";
 import { track } from "@/lib/analytics";
 
-function scrollTo(id: string) {
-  document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
-}
-
-/* Bubbles on the rings. `r` is the ring (0 = inner), `a` the angle in degrees
-   measured clockwise from 3 o'clock. The angles are chosen against the copy
-   block, not for symmetry: each one sits just outside the headline and the
-   lead, and clear of the chips and the stat card below. The outer ring is
-   drawn but carries no bubbles -- at its radius they fall off the frame. */
+/* `r` is the ring (0 = inner), `a` the angle in degrees clockwise from 3 o'clock,
+   chosen to clear the copy block. The outer ring has no bubbles: at its radius
+   they fall off the frame. */
 const ORBIT: {
   r: 0 | 1 | 2;
   a: number;
@@ -37,14 +31,10 @@ const ORBIT: {
 const ICONS = { receipt: Receipt, wallet: Wallet, camera: Camera, users: Users };
 const BADGE_ICONS = [Sparkle, Lock, WifiOff];
 
-/* The hero, after two references: the centred layout with icons on
-   concentric rings and a glowing stack of live cards (Deflexai), and the
-   frosted floating chips with one big number (Grow+). Unlike Deflexai it is
-   not boxed in a card: it sits on the page itself, so the rings run the full
-   width and fade out rather than being cut off by a frame. The rings carry the
-   people and the bill rather than partner logos -- that is what owe splits --
-   and the payment logos sit in the strip at the bottom, as the "trusted by"
-   row. */
+function scrollTo(id: string) {
+  document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
 export default function Hero() {
   const HERO = useCopy().hero;
   let word = 0;
@@ -52,21 +42,19 @@ export default function Hero() {
   return (
     <header className="lp-hero">
       <div className="lp-hero__frame">
-        {/* Full-bleed and faded out at the bottom, so the rings dissolve into
-            the page instead of stopping at an edge. */}
         <div className="lp-orbit" aria-hidden="true">
           <div className="lp-orbit__center">
           <span className="lp-orbit__ring lp-orbit__ring--0" />
           <span className="lp-orbit__ring lp-orbit__ring--1" />
           <span className="lp-orbit__ring lp-orbit__ring--2" />
-          {ORBIT.map((b, i) => {
-            const Icon = b.icon ? ICONS[b.icon] : null;
-            const person = b.p !== undefined ? PEOPLE[b.p] : null;
+          {ORBIT.map((bubble, i) => {
+            const Icon = bubble.icon ? ICONS[bubble.icon] : null;
+            const person = bubble.p !== undefined ? PEOPLE[bubble.p] : null;
             return (
               <span
                 key={i}
-                className={`lp-orbit__bubble lp-orbit__bubble--r${b.r}`}
-                style={{ ["--a" as string]: `${b.a}deg`, ["--d" as string]: `${(i % 5) * -0.9}s` }}
+                className={`lp-orbit__bubble lp-orbit__bubble--r${bubble.r}`}
+                style={{ ["--a" as string]: `${bubble.a}deg`, ["--d" as string]: `${(i % 5) * -0.9}s` }}
               >
                 {person ? (
                   <span
@@ -86,11 +74,11 @@ export default function Hero() {
 
         <div className="lp-hero__copy">
           <ul className="lp-badges lp-hero__badges">
-            {HERO.badges.map((b, i) => {
+            {HERO.badges.map((badge, i) => {
               const Icon = BADGE_ICONS[i] ?? Check;
               return (
-                <li key={b}>
-                  <Icon size={14} /> {b}
+                <li key={badge}>
+                  <Icon size={14} /> {badge}
                 </li>
               );
             })}
@@ -124,9 +112,6 @@ export default function Hero() {
             >
               {HERO.secondary}
             </button>
-            {/* The hand-drawn arrow from the third reference, looping in at the
-                main button. Drawn in on load; only shown where it has room
-                beside the buttons. */}
             <svg className="lp-scribble lp-hero__arrow" viewBox="0 0 160 110" aria-hidden="true">
               <path pathLength={1} d="M10 12 C 22 58, 66 24, 60 54 C 55 80, 28 64, 48 54 C 76 40, 104 96, 148 90" />
               <path pathLength={1} d="M134 79 L 150 90 L 136 102" />
@@ -138,21 +123,21 @@ export default function Hero() {
           <span className="lp-stack__glow" />
 
           <div className="lp-chips">
-            {HERO.chips.map((c, i) => (
-              <span key={c} className="lp-chip lp-glass" style={{ ["--i" as string]: i }}>
+            {HERO.chips.map((chip, i) => (
+              <span key={chip} className="lp-chip lp-glass" style={{ ["--i" as string]: i }}>
                 <span className={`lp-chip__box lp-chip__box--${i}`}>
                   <Check size={13} />
                 </span>
-                {c}
+                {chip}
               </span>
             ))}
           </div>
 
           <div className="lp-stack__cards">
-            {HERO.activity.map((a, i) => {
+            {HERO.activity.map((activity, i) => {
               const person = i < 2 ? PEOPLE[i] : null;
               return (
-                <div key={a.title} className={`lp-act lp-act--${i}`} style={{ ["--i" as string]: i }}>
+                <div key={activity.title} className={`lp-act lp-act--${i}`} style={{ ["--i" as string]: i }}>
                   <span
                     className="lp-act__av"
                     style={person ? { background: personColor(person.swatch), color: personInk(person.swatch) } : undefined}
@@ -165,8 +150,8 @@ export default function Hero() {
                     ) : null}
                   </span>
                   <span className="lp-act__text">
-                    <span className="lp-act__title">{a.title}</span>
-                    <span className="lp-act__meta">{a.meta}</span>
+                    <span className="lp-act__title">{activity.title}</span>
+                    <span className="lp-act__meta">{activity.meta}</span>
                   </span>
                 </div>
               );
@@ -182,9 +167,8 @@ export default function Hero() {
 
         <div className="lp-trust">
           <span className="lp-trust__label">{HERO.rail}</span>
-          {/* Every bank and wallet, running past rather than wrapped into
-              rows: two copies end to end, the second hidden from screen
-              readers, so the loop is seamless and each name is read once. */}
+          {/* Two copies end to end for a seamless loop; the second is hidden from
+              screen readers so each name is read once. */}
           <div className="lp-trust__window">
             <div className="lp-trust__track">
               {[0, 1].map((copy) => (

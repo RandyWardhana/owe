@@ -17,7 +17,7 @@ export async function GET(req: Request) {
     if (!data) return NextResponse.json({ exists: false });
     const payload = readUserPayload(data, code);
     const summary = payload ? summarizeUserPayload(payload) : null;
-    const billIds = [...new Set((summary?.bills ?? []).map((b) => b.shareId).filter((id): id is string => Boolean(id)))];
+    const billIds = [...new Set((summary?.bills ?? []).map((bill) => bill.shareId).filter((id): id is string => Boolean(id)))];
     const linked = summary ? Boolean((await indexBackup(backupKey(code), billIds))?.ok) : false;
     return NextResponse.json({
       exists: true,

@@ -1,37 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { fetchBill, saveClaim, savePaid, type Claims } from "@/lib/bills";
-import { pollWhileVisible } from "@/lib/poll";
-import { fetchProofs, proofUrl } from "@/lib/proofs";
-import { useStore } from "@/lib/store";
-import type { Person } from "@/lib/types";
-import { track } from "@/lib/analytics";
+import { fetchBill, saveClaim, savePaid } from "../bills";
+import { pollWhileVisible } from "../poll";
+import { fetchProofs, proofUrl } from "../proofs";
+import { useStore } from "../store";
+import { track } from "../analytics";
+import type { Person } from "../../entities/bill";
+import type { Claims, OwnerSettlement } from "../../entities/share";
 
-/**
- * The creator's side of settling up, on their own breakdown screen.
- *
- * The app and the share link had two unrelated ideas of "paid": the breakdown
- * kept a local list of person IDs on the draft, while the link kept a list of
- * INDEXES on the server. Ticking someone off in the app reached nobody, and a
- * receipt uploaded through the link never appeared in the app. On a phone —
- * where owe is installed as a PWA and the breakdown is the screen you actually
- * open — that meant the bill you created was the one place you could not see
- * what was happening.
- *
- * This bridges the two. Index is position in `people`, which is exactly how
- * buildSharedBill lays them out, so the mapping is not a guess.
- */
-export interface OwnerSettlement {
-  paidIds: string[];
-  togglePaid: (personId: string) => void;
-  proofFor: (personId: string) => string | null;
-  hasProofFor: (personId: string) => boolean;
-  /** itemId -> ids of the people who claimed it, from the shared link. */
-  claimedBy: Record<string, string[]>;
-  /** Take someone's name back off an item they claimed by mistake. */
-  releaseClaim: (itemId: string) => void;
-}
-
+// The server keys paid/proofs/claims by person index; index is position in `people`,
+// which is exactly how buildSharedBill lays them out.
 export function useOwnerSettlement(
   people: Person[],
   shareId: string | null,
@@ -43,7 +21,7 @@ export function useOwnerSettlement(
   const showToast = useStore((state) => state.showToast);
 
   const indexOf = useCallback(
-    (personId: string) => people.findIndex((p) => p.id === personId),
+    (personId: string) => people.findIndex((person) => person.id === personId),
     [people],
   );
 
@@ -51,11 +29,9 @@ export function useOwnerSettlement(
     if (!live || !shareId) return;
     let stopped = false;
 
-    /* Claims land from other people's phones while the maker is looking at
-       this screen -- the one place they actually watch the bill from. */
     const stop = pollWhileVisible(() => {
       fetchProofs(shareId).then((list) => {
-        if (!stopped && list) setProofIdx(list.map((p) => p.index));
+        if (!stopped && list) setProofIdx(list.map((proof) => proof.index));
       });
       fetchBill(shareId).then((row) => {
         if (stopped || !row) return;
@@ -78,16 +54,16 @@ export function useOwnerSettlement(
   const togglePaid = useCallback(
     (personId: string) => {
       if (!shareId) return;
-      const i = indexOf(personId);
-      if (i < 0) return;
+      const personIndex = indexOf(personId);
+      if (personIndex < 0) return;
 
       const before = paidIdx;
-      const next = paidIdx.includes(i)
-        ? paidIdx.filter((x) => x !== i)
-        : [...paidIdx, i];
+      const next = paidIdx.includes(personIndex)
+        ? paidIdx.filter((index) => index !== personIndex)
+        : [...paidIdx, personIndex];
       setPaidIdx(next);
 
-      track("mark_paid", { by: "owner_app", paid: next.includes(i) });
+      track("mark_paid", { by: "owner_app", paid: next.includes(personIndex) });
       savePaid(shareId, next).then((ok) => {
         if (ok) return;
         setPaidIdx(before);
@@ -130,9 +106,9 @@ export function useOwnerSettlement(
 
   const proofFor = useCallback(
     (personId: string) => {
-      const i = indexOf(personId);
-      if (i < 0 || !shareId || !proofIdx.includes(i)) return null;
-      return proofUrl(shareId, i);
+      const personIndex = indexOf(personId);
+      if (personIndex < 0 || !shareId || !proofIdx.includes(personIndex)) return null;
+      return proofUrl(shareId, personIndex);
     },
     [indexOf, proofIdx, shareId],
   );

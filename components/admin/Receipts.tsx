@@ -2,42 +2,17 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-import type { AdminObject, BillSummary } from "@/lib/adminTypes";
+import type { AdminObject } from "@/entities/admin";
 import { Chip, ago, fileUrl, money, size, when } from "./ui";
-
-type View = "board" | "lost";
-
-interface Slot {
-  index: number;
-  name: string;
-  file: AdminObject | null;
-  paid: boolean;
-}
-
-interface Slip {
-  id: string;
-  bill: BillSummary | undefined;
-  files: AdminObject[];
-  slots: Slot[];
-  latest: string;
-}
+import type { ReceiptPhotoProps, ReceiptSlip, ReceiptSlot, ReceiptsProps, ReceiptsView } from "@/entities/props/admin";
 
 const tilt = (seed: string) => {
-  let h = 0;
-  for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) % 997;
-  return ((h % 9) - 4) * 0.75;
+  let hash = 0;
+  for (let i = 0; i < seed.length; i++) hash = (hash * 31 + seed.charCodeAt(i)) % 997;
+  return ((hash % 9) - 4) * 0.75;
 };
 
-const isPdf = (o: AdminObject) => (o.contentType ?? o.key).includes("pdf");
-
-function Photo({ file, alt }: { file: AdminObject; alt: string }) {
-  return isPdf(file) ? (
-    <span className="rcp-pdf">PDF</span>
-  ) : (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img src={fileUrl(file.key)} alt={alt} loading="lazy" />
-  );
-}
+const isPdf = (file: AdminObject) => (file.contentType ?? file.key).includes("pdf");
 
 export function Receipts({
   objects,
@@ -46,34 +21,27 @@ export function Receipts({
   onRefresh,
   onDelete,
   onDeleteBill,
-}: {
-  objects: AdminObject[] | null;
-  billById: Map<string, BillSummary>;
-  billHref: (id: string) => string;
-  onRefresh: () => void;
-  onDelete: (keys: string[]) => Promise<void>;
-  onDeleteBill: (id: string) => Promise<boolean>;
-}) {
-  const [view, setView] = useState<View>("board");
+}: ReceiptsProps) {
+  const [view, setView] = useState<ReceiptsView>("board");
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState<{ slip: string; key: string } | null>(null);
   const [sweeping, setSweeping] = useState(false);
   const [binning, setBinning] = useState<string | null>(null);
 
-  const used = useMemo(() => (objects ?? []).filter((o) => !o.orphan), [objects]);
-  const lost = useMemo(() => (objects ?? []).filter((o) => o.orphan), [objects]);
+  const used = useMemo(() => (objects ?? []).filter((file) => !file.orphan), [objects]);
+  const lost = useMemo(() => (objects ?? []).filter((file) => file.orphan), [objects]);
 
-  const slips = useMemo<Slip[]>(() => {
+  const slips = useMemo<ReceiptSlip[]>(() => {
     const byBill = new Map<string, AdminObject[]>();
-    used.forEach((o) => {
-      const id = o.billId ?? "?";
-      byBill.set(id, [...(byBill.get(id) ?? []), o]);
+    used.forEach((file) => {
+      const id = file.billId ?? "?";
+      byBill.set(id, [...(byBill.get(id) ?? []), file]);
     });
     return [...byBill.entries()]
       .map(([id, files]) => {
         const bill = billById.get(id);
-        const byPerson = new Map(files.map((f) => [f.personIndex, f]));
-        const named: Slot[] = (bill?.readable ? bill.names : [])
+        const byPerson = new Map(files.map((file) => [file.personIndex, file]));
+        const named: ReceiptSlot[] = (bill?.readable ? bill.names : [])
           .map((name, index) => ({
             index,
             name,
@@ -82,34 +50,34 @@ export function Receipts({
           }))
           .filter((slot) => slot.index !== bill?.payer);
         const covered = new Set(named.filter((slot) => slot.file).map((slot) => slot.file!.key));
-        const loose: Slot[] = files
-          .filter((f) => !covered.has(f.key))
-          .map((f, i) => ({
-            index: f.personIndex ?? -1 - i,
-            name: f.personIndex !== null ? `Person ${f.personIndex + 1}` : "Someone",
-            file: f,
-            paid: f.personIndex !== null && Boolean(bill?.paid.includes(f.personIndex)),
+        const loose: ReceiptSlot[] = files
+          .filter((file) => !covered.has(file.key))
+          .map((file, i) => ({
+            index: file.personIndex ?? -1 - i,
+            name: file.personIndex !== null ? `Person ${file.personIndex + 1}` : "Someone",
+            file,
+            paid: file.personIndex !== null && Boolean(bill?.paid.includes(file.personIndex)),
           }));
         const slots = [...named, ...loose];
-        const latest = files.reduce((m, f) => (f.uploaded > m ? f.uploaded : m), "");
+        const latest = files.reduce((newest, file) => (file.uploaded > newest ? file.uploaded : newest), "");
         return { id, bill, files, slots, latest };
       })
       .sort((a, b) => (a.latest < b.latest ? 1 : -1));
   }, [used, billById]);
 
   const shown = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return slips;
+    const term = query.trim().toLowerCase();
+    if (!term) return slips;
     return slips.filter(
-      (s) =>
-        (s.bill?.title ?? s.id).toLowerCase().includes(q) ||
-        s.slots.some((slot) => slot.file && slot.name.toLowerCase().includes(q)),
+      (slip) =>
+        (slip.bill?.title ?? slip.id).toLowerCase().includes(term) ||
+        slip.slots.some((slot) => slot.file && slot.name.toLowerCase().includes(term)),
     );
   }, [slips, query]);
 
-  const openSlip = open ? (slips.find((s) => s.id === open.slip) ?? null) : null;
-  const reel = openSlip ? openSlip.slots.filter((s) => s.file) : [];
-  const at = reel.findIndex((s) => s.file?.key === open?.key);
+  const openSlip = open ? (slips.find((slip) => slip.id === open.slip) ?? null) : null;
+  const reel = openSlip ? openSlip.slots.filter((slot) => slot.file) : [];
+  const at = reel.findIndex((slot) => slot.file?.key === open?.key);
   const current = at >= 0 ? reel[at] : null;
 
   useEffect(() => {
@@ -127,15 +95,15 @@ export function Receipts({
     return () => window.removeEventListener("keydown", onKey);
   }, [open, reel, at]);
 
-  const lostBytes = lost.reduce((n, o) => n + o.size, 0);
-  const totalBytes = (objects ?? []).reduce((n, o) => n + o.size, 0);
+  const lostBytes = lost.reduce((total, file) => total + file.size, 0);
+  const totalBytes = (objects ?? []).reduce((total, file) => total + file.size, 0);
 
-  const binBill = async (slip: Slip) => {
+  const binBill = async (slip: ReceiptSlip) => {
     const title = slip.bill?.title ?? slip.id;
-    const n = slip.files.length;
+    const fileCount = slip.files.length;
     if (
       !window.confirm(
-        `Delete “${title}” and its ${n} receipt${n === 1 ? "" : "s"}? The share link stops working for everyone. This can't be undone.`,
+        `Delete “${title}” and its ${fileCount} receipt${fileCount === 1 ? "" : "s"}? The share link stops working for everyone. This can't be undone.`,
       )
     )
       return;
@@ -153,7 +121,7 @@ export function Receipts({
       return;
     setSweeping(true);
     try {
-      await onDelete(lost.map((o) => o.key));
+      await onDelete(lost.map((file) => file.key));
     } finally {
       setSweeping(false);
     }
@@ -208,8 +176,8 @@ export function Receipts({
       {view === "board" ? (
         <section className="rcp-board">
           {shown.map((slip) => {
-            const sent = slip.slots.filter((s) => s.file).length;
-            const settled = slip.slots.filter((s) => s.paid).length;
+            const sent = slip.slots.filter((slot) => slot.file).length;
+            const settled = slip.slots.filter((slot) => slot.paid).length;
             const readable = Boolean(slip.bill?.readable);
             const done = readable && slip.slots.length > 0 && settled === slip.slots.length;
             return (
@@ -329,17 +297,17 @@ export function Receipts({
           </div>
           {lost.length ? (
             <div className="rcp-pile">
-              {lost.map((o) => (
+              {lost.map((file) => (
                 <a
-                  key={o.key}
+                  key={file.key}
                   className="rcp-scrap"
-                  href={fileUrl(o.key)}
+                  href={fileUrl(file.key)}
                   target="_blank"
                   rel="noreferrer"
-                  style={{ "--tilt": `${tilt(o.key) * 2}deg` } as React.CSSProperties}
-                  title={`${size(o.size)} · ${when(o.uploaded)}`}
+                  style={{ "--tilt": `${tilt(file.key) * 2}deg` } as React.CSSProperties}
+                  title={`${size(file.size)} · ${when(file.uploaded)}`}
                 >
-                  <Photo file={o} alt="Unused receipt" />
+                  <Photo file={file} alt="Unused receipt" />
                 </a>
               ))}
             </div>
@@ -402,5 +370,14 @@ export function Receipts({
         </div>
       ) : null}
     </>
+  );
+}
+
+function Photo({ file, alt }: ReceiptPhotoProps) {
+  return isPdf(file) ? (
+    <span className="rcp-pdf">PDF</span>
+  ) : (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img src={fileUrl(file.key)} alt={alt} loading="lazy" />
   );
 }

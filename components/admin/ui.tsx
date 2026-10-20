@@ -1,13 +1,26 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useState } from "react";
 
-import type { AdminAccount } from "@/lib/adminTypes";
+import type {
+  AccountsProps,
+  AdminCopyButtonProps,
+  AvatarProps,
+  ChipProps,
+  GateProps,
+  GiveDialogProps,
+  GiveResult,
+  NoticeProps,
+  PhoneIconProps,
+  SyncIdProps,
+} from "@/entities/props/admin";
 
-export const money = (n: number, currency: string) =>
+const CODES_KEY = "owe.admin.codes";
+
+export const money = (amount: number, currency: string) =>
   `${currency ? currency + " " : ""}${new Intl.NumberFormat("en-US", {
     maximumFractionDigits: 2,
-  }).format(n)}`;
+  }).format(amount)}`;
 
 export const when = (value: string | number | null | undefined) => {
   if (!value) return "—";
@@ -36,15 +49,13 @@ export const ago = (value: string | number | null | undefined) => {
   return when(value);
 };
 
-export const size = (n: number) =>
-  n < 1024 ? `${n} B` : n < 1024 * 1024 ? `${(n / 1024).toFixed(1)} KB` : `${(n / 1048576).toFixed(1)} MB`;
+export const size = (bytes: number) =>
+  bytes < 1024 ? `${bytes} B` : bytes < 1024 * 1024 ? `${(bytes / 1024).toFixed(1)} KB` : `${(bytes / 1048576).toFixed(1)} MB`;
 
 export const fileUrl = (key: string) => `/api/admin/objects/file?key=${encodeURIComponent(key)}`;
 
 export const proofFileUrl = (billId: string, index: number) =>
   `/api/admin/objects/file?id=${encodeURIComponent(billId)}&i=${index}`;
-
-const CODES_KEY = "owe.admin.codes";
 
 export function knownCodes(): Record<string, string> {
   try {
@@ -65,7 +76,7 @@ export function rememberCode(key: string, code: string): Record<string, string> 
   return next;
 }
 
-export function SyncId({ id, code, className = "" }: { id: string; code?: string; className?: string }) {
+export function SyncId({ id, code, className = "" }: SyncIdProps) {
   return (
     <span className={`adm-mono adm-key${className ? ` ${className}` : ""}`} title={code ? "Sync code" : "Fingerprint"}>
       {code ?? id}
@@ -76,20 +87,17 @@ export function SyncId({ id, code, className = "" }: { id: string; code?: string
 export function Chip({
   tone = "neutral",
   children,
-}: {
-  tone?: "neutral" | "pos" | "warn" | "bad" | "accent";
-  children: ReactNode;
-}) {
+}: ChipProps) {
   return <span className={`adm-chip adm-chip--${tone}`}>{children}</span>;
 }
 
-export function Avatar({ name, large = false }: { name: string; large?: boolean }) {
+export function Avatar({ name, large = false }: AvatarProps) {
   const initials =
     name
       .split(/\s+/)
       .filter(Boolean)
       .slice(0, 2)
-      .map((w) => w[0]?.toUpperCase())
+      .map((word) => word[0]?.toUpperCase())
       .join("") || "?";
   let hue = 0;
   for (let i = 0; i < name.length; i++) hue = (hue * 31 + name.charCodeAt(i)) % 360;
@@ -104,7 +112,7 @@ export function Avatar({ name, large = false }: { name: string; large?: boolean 
   );
 }
 
-export function PhoneIcon({ size: px = 20 }: { size?: number }) {
+export function PhoneIcon({ size: px = 20 }: PhoneIconProps) {
   return (
     <svg width={px} height={px} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <rect x="6" y="2" width="12" height="20" rx="3" />
@@ -113,21 +121,21 @@ export function PhoneIcon({ size: px = 20 }: { size?: number }) {
   );
 }
 
-export function Accounts({ accounts, empty = "No payment details" }: { accounts: AdminAccount[]; empty?: string }) {
+export function Accounts({ accounts, empty = "No payment details" }: AccountsProps) {
   if (!accounts.length) return <span className="adm-muted">{empty}</span>;
   return (
     <span className="adm-accounts">
-      {accounts.map((a, i) => (
+      {accounts.map((account, i) => (
         <span key={i} className="adm-account">
-          <b>{a.label}</b>
-          <span className="adm-mono">{a.value}</span>
+          <b>{account.label}</b>
+          <span className="adm-mono">{account.value}</span>
         </span>
       ))}
     </span>
   );
 }
 
-export function CopyButton({ value, label = "Copy" }: { value: string; label?: string }) {
+export function CopyButton({ value, label = "Copy" }: AdminCopyButtonProps) {
   const [done, setDone] = useState(false);
   return (
     <button
@@ -148,11 +156,11 @@ export function CopyButton({ value, label = "Copy" }: { value: string; label?: s
   );
 }
 
-export function Notice({ tone = "info", children }: { tone?: "info" | "bad" | "pos"; children: ReactNode }) {
+export function Notice({ tone = "info", children }: NoticeProps) {
   return <div className={`adm-notice adm-notice--${tone}`}>{children}</div>;
 }
 
-export function Gate({ onSignedIn }: { onSignedIn: () => void }) {
+export function Gate({ onSignedIn }: GateProps) {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -200,26 +208,11 @@ export function Gate({ onSignedIn }: { onSignedIn: () => void }) {
   );
 }
 
-type GiveResult = {
-  ok?: boolean;
-  code?: string;
-  created?: boolean;
-  titles?: string[];
-  kept?: number;
-  owned?: number;
-  ownerFailed?: boolean;
-  error?: string;
-};
-
 export function GiveDialog({
   bills,
   onClose,
   onDone,
-}: {
-  bills: { id: string; title: string }[];
-  onClose: () => void;
-  onDone?: () => void;
-}) {
+}: GiveDialogProps) {
   const [code, setCode] = useState("");
   const [makeOwner, setMakeOwner] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -232,7 +225,7 @@ export function GiveDialog({
       const res = await fetch("/api/admin/give", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ ids: bills.map((b) => b.id), code: code.trim() || undefined, makeOwner }),
+        body: JSON.stringify({ ids: bills.map((bill) => bill.id), code: code.trim() || undefined, makeOwner }),
       });
       const body = (await res.json()) as GiveResult;
       setResult(body);
@@ -289,8 +282,8 @@ export function GiveDialog({
               someone lost their phone or cleared the app.
             </p>
             <ul className="adm-picklist">
-              {bills.map((b) => (
-                <li key={b.id}>{b.title}</li>
+              {bills.map((bill) => (
+                <li key={bill.id}>{bill.title}</li>
               ))}
             </ul>
             <label className="adm-field">

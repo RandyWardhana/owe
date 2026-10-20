@@ -1,8 +1,7 @@
 "use client";
 
-import type { ReactNode } from "react";
-
 import { buzz } from "@/lib/util";
+import type { StatusLinkProps, StatusScreenProps } from "@/entities/props/ui";
 
 export default function StatusScreen({
   icon,
@@ -11,14 +10,7 @@ export default function StatusScreen({
   body,
   actions,
   children,
-}: {
-  icon: ReactNode;
-  tone?: "neutral" | "warn";
-  title: string;
-  body: string;
-  actions?: ReactNode;
-  children?: ReactNode;
-}) {
+}: StatusScreenProps) {
   return (
     <div className="status">
       <div className="status__card">
@@ -38,11 +30,7 @@ export function StatusLink({
   href,
   children,
   variant = "primary",
-}: {
-  href: string;
-  children: ReactNode;
-  variant?: "primary" | "secondary";
-}) {
+}: StatusLinkProps) {
   return (
     <a
       className={`btn${variant === "secondary" ? " secondary" : ""}`}

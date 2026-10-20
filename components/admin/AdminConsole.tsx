@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { NO_HOLDER, type AdminDevice, type AdminObject, type BackupSummary, type BillSummary } from "@/lib/adminTypes";
+import { NO_HOLDER } from "@/lib/adminConstants";
+import type { AdminDevice, AdminObject, BillSummary } from "@/entities/admin";
 
 import {
   Accounts,
@@ -21,38 +22,11 @@ import {
   when,
 } from "./ui";
 import { Receipts } from "./Receipts";
+import type { AdminGroup, AdminPlace, AdminTab, CodeLookup, DeviceGroup, HolderGroup } from "@/entities/props/admin";
 
-type Tab = "bills" | "codes" | "receipts";
-type Group = "code" | "holder";
-type Place = { holder: string | null; device: string | null; group: Group };
 const UNLINKED = "unlinked";
-type Lookup = {
-  exists: boolean;
-  readable?: boolean;
-  size?: number;
-  updatedAt?: string | null;
-  summary?: BackupSummary | null;
-  linked?: boolean;
-};
 
-interface HolderGroup {
-  key: string;
-  name: string;
-  accounts: BillSummary["holder"]["accounts"];
-  bills: BillSummary[];
-  totals: Record<string, number>;
-  last: string;
-}
-
-interface DeviceGroup {
-  key: string;
-  updatedAt: string;
-  size: number;
-  bills: BillSummary[];
-  name: string | null;
-}
-
-function readUrl(): { tab: Tab } & Place {
+function readUrl(): { tab: AdminTab } & AdminPlace {
   if (typeof window === "undefined") return { tab: "bills", holder: null, device: null, group: "code" };
   const params = new URLSearchParams(window.location.search);
   const tab = params.get("tab");
@@ -64,7 +38,7 @@ function readUrl(): { tab: Tab } & Place {
   };
 }
 
-function writeUrl(tab: Tab, place: Partial<Place> = {}) {
+function writeUrl(tab: AdminTab, place: Partial<AdminPlace> = {}) {
   const params = new URLSearchParams();
   if (tab !== "bills") params.set("tab", tab);
   if (place.group === "holder") params.set("group", "holder");
@@ -77,21 +51,21 @@ function writeUrl(tab: Tab, place: Partial<Place> = {}) {
 async function fingerprint(code: string): Promise<string> {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(code));
   return Array.from(new Uint8Array(digest))
-    .map((b) => b.toString(16).padStart(2, "0"))
+    .map((byte) => byte.toString(16).padStart(2, "0"))
     .join("");
 }
 
-const owing = (b: BillSummary) =>
-  b.holder.key === NO_HOLDER ? b.names.length : Math.max(b.names.length - 1, 0);
+const owing = (bill: BillSummary) =>
+  bill.holder.key === NO_HOLDER ? bill.names.length : Math.max(bill.names.length - 1, 0);
 
 const billHref = (id: string) => `/admin/bills/${encodeURIComponent(id)}`;
 
 export default function AdminConsole() {
   const [authed, setAuthed] = useState<boolean | null>(null);
-  const [tab, setTabState] = useState<Tab>("bills");
+  const [tab, setTabState] = useState<AdminTab>("bills");
   const [holderKey, setHolderKey] = useState<string | null>(null);
   const [deviceKey, setDeviceKey] = useState<string | null>(null);
-  const [group, setGroup] = useState<Group>("code");
+  const [group, setGroup] = useState<AdminGroup>("code");
   const [indexed, setIndexed] = useState(true);
   const [findCode, setFindCode] = useState("");
   const [findError, setFindError] = useState("");
@@ -107,7 +81,7 @@ export default function AdminConsole() {
   const [giving, setGiving] = useState<{ id: string; title: string }[] | null>(null);
 
   const [code, setCode] = useState("");
-  const [lookup, setLookup] = useState<Lookup | null>(null);
+  const [lookup, setLookup] = useState<CodeLookup | null>(null);
   const [looking, setLooking] = useState(false);
   const [reclaim, setReclaim] = useState<{ busy: boolean; message: string; tone: "pos" | "bad" } | null>(null);
 
@@ -162,7 +136,7 @@ export default function AdminConsole() {
     if (objects === null) loadObjects().catch(() => setObjects([]));
   }, [authed, backups, objects, loadBackups, loadObjects]);
 
-  const setTab = (next: Tab) => {
+  const setTab = (next: AdminTab) => {
     setTabState(next);
     setHolderKey(null);
     setDeviceKey(null);
@@ -184,7 +158,7 @@ export default function AdminConsole() {
     writeUrl("bills", { group: "code", device: key });
   };
 
-  const switchGroup = (next: Group) => {
+  const switchGroup = (next: AdminGroup) => {
     setGroup(next);
     setHolderKey(null);
     setDeviceKey(null);
@@ -198,7 +172,7 @@ export default function AdminConsole() {
     const value = findCode.trim();
     if (!value) return;
     const key = await fingerprint(value);
-    if ((backups ?? []).some((d) => d.key === key)) {
+    if ((backups ?? []).some((backup) => backup.key === key)) {
       setCodes(rememberCode(key, value));
       setFindCode("");
       openDevice(key);
@@ -217,39 +191,40 @@ export default function AdminConsole() {
 
   const holders = useMemo<HolderGroup[]>(() => {
     const map = new Map<string, HolderGroup>();
-    bills.forEach((b) => {
+    bills.forEach((bill) => {
       const group =
-        map.get(b.holder.key) ??
-        ({ key: b.holder.key, name: b.holder.name, accounts: b.holder.accounts, bills: [], totals: {}, last: "" } as HolderGroup);
-      group.bills.push(b);
-      if (b.readable) group.totals[b.currency] = (group.totals[b.currency] ?? 0) + b.grandTotal;
-      if (b.updatedAt > group.last) group.last = b.updatedAt;
-      map.set(b.holder.key, group);
+        map.get(bill.holder.key) ??
+        ({ key: bill.holder.key, name: bill.holder.name, accounts: bill.holder.accounts, bills: [], totals: {}, last: "" } as HolderGroup);
+      group.bills.push(bill);
+      if (bill.readable) group.totals[bill.currency] = (group.totals[bill.currency] ?? 0) + bill.grandTotal;
+      if (bill.updatedAt > group.last) group.last = bill.updatedAt;
+      map.set(bill.holder.key, group);
     });
     return [...map.values()].sort((a, b) => (a.last < b.last ? 1 : -1));
   }, [bills]);
 
-  const billById = useMemo(() => new Map(bills.map((b) => [b.id, b])), [bills]);
+  const billById = useMemo(() => new Map(bills.map((bill) => [bill.id, bill])), [bills]);
 
   const devices = useMemo<DeviceGroup[]>(() => {
-    const backupByKey = new Map((backups ?? []).map((d) => [d.key, d]));
+    const backupByKey = new Map((backups ?? []).map((backup) => [backup.key, backup]));
     const groups = new Map<string, BillSummary[]>();
-    const add = (key: string, b: BillSummary) => {
+    const add = (key: string, bill: BillSummary) => {
       const own = groups.get(key) ?? [];
-      if (!own.includes(b)) own.push(b);
+      if (!own.includes(bill)) own.push(bill);
       groups.set(key, own);
     };
-    bills.forEach((b) => {
-      if (b.syncKey) add(b.syncKey, b);
+    bills.forEach((bill) => {
+      if (bill.syncKey) add(bill.syncKey, bill);
     });
-    (backups ?? []).forEach((d) =>
-      d.billIds.forEach((id) => {
-        const b = billById.get(id);
-        if (b && !b.syncKey) add(d.key, b);
+    (backups ?? []).forEach((backup) =>
+      backup.billIds.forEach((id) => {
+        const bill = billById.get(id);
+        if (bill && !bill.syncKey) add(backup.key, bill);
       }),
     );
-    const linked = new Set([...groups.values()].flat().map((b) => b.id));
-    const latest = (own: BillSummary[]) => own.reduce((m, b) => (b.updatedAt > m ? b.updatedAt : m), "");
+    const linked = new Set([...groups.values()].flat().map((bill) => bill.id));
+    const latest = (own: BillSummary[]) =>
+      own.reduce((newest, bill) => (bill.updatedAt > newest ? bill.updatedAt : newest), "");
     const list: DeviceGroup[] = [...groups.entries()]
       .map(([key, own]) => {
         const backup = backupByKey.get(key);
@@ -262,7 +237,7 @@ export default function AdminConsole() {
         };
       })
       .sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1));
-    const rest = bills.filter((b) => !linked.has(b.id));
+    const rest = bills.filter((bill) => !linked.has(bill.id));
     if (rest.length) {
       list.push({ key: UNLINKED, updatedAt: latest(rest), size: 0, bills: rest, name: null });
     }
@@ -270,26 +245,26 @@ export default function AdminConsole() {
   }, [backups, bills, billById]);
 
   const searchHits = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return null;
+    const term = query.trim().toLowerCase();
+    if (!term) return null;
     return bills.filter(
-      (b) =>
-        b.id.toLowerCase().includes(q) ||
-        b.title.toLowerCase().includes(q) ||
-        b.holder.name.toLowerCase().includes(q) ||
-        b.holder.accounts.some((a) => a.value.toLowerCase().includes(q)) ||
-        b.names.some((n) => n.toLowerCase().includes(q)),
+      (bill) =>
+        bill.id.toLowerCase().includes(term) ||
+        bill.title.toLowerCase().includes(term) ||
+        bill.holder.name.toLowerCase().includes(term) ||
+        bill.holder.accounts.some((account) => account.value.toLowerCase().includes(term)) ||
+        bill.names.some((name) => name.toLowerCase().includes(term)),
     );
   }, [bills, query]);
 
-  const holder = holderKey ? holders.find((h) => h.key === holderKey) ?? null : null;
-  const device = deviceKey ? devices.find((d) => d.key === deviceKey) ?? null : null;
+  const holder = holderKey ? holders.find((holderGroup) => holderGroup.key === holderKey) ?? null : null;
+  const device = deviceKey ? devices.find((deviceGroup) => deviceGroup.key === deviceKey) ?? null : null;
   const listing = !holder && !device;
 
   const dropBackups = async (keys: string[]) => {
     if (!keys.length) return;
     const one = keys.length === 1;
-    const label = one ? (backups?.find((b) => b.key === keys[0])?.name ?? codes[keys[0]] ?? "this backup") : `${keys.length} backups`;
+    const label = one ? (backups?.find((backup) => backup.key === keys[0])?.name ?? codes[keys[0]] ?? "this backup") : `${keys.length} backups`;
     if (
       !window.confirm(
         `Delete ${one ? `the backup for ${label}` : label} from the server? Bills stay as they are, and a phone still using ${one ? "that code" : "those codes"} uploads a fresh backup on its next sync.`,
@@ -309,10 +284,10 @@ export default function AdminConsole() {
       }),
     );
     setDroppingBackups(false);
-    const failed = results.filter((r) => "error" in r);
+    const failed = results.filter((result) => "error" in result);
     if (failed.length) setError((failed[0] as { error: string }).error);
-    const gone = new Set(results.filter((r) => !("error" in r)).map((r) => r.key));
-    setBackups((cur) => (cur ?? []).filter((b) => !gone.has(b.key)));
+    const gone = new Set(results.filter((result) => !("error" in result)).map((result) => result.key));
+    setBackups((cur) => (cur ?? []).filter((backup) => !gone.has(backup.key)));
   };
 
   const clearLookup = () => {
@@ -329,7 +304,7 @@ export default function AdminConsole() {
     setReclaim(null);
     try {
       const res = await fetch(`/api/admin/backups?code=${encodeURIComponent(code.trim())}`);
-      const found = (await res.json()) as Lookup;
+      const found = (await res.json()) as CodeLookup;
       setLookup(found);
       if (found.readable) setCodes(rememberCode(await fingerprint(code.trim()), code.trim()));
       if (found.linked) loadBackups().catch(() => undefined);
@@ -352,9 +327,9 @@ export default function AdminConsole() {
       setError("Couldn't delete that bill.");
       return false;
     }
-    setBills((cur) => cur.filter((b) => b.id !== id));
-    setObjects((cur) => (cur ?? []).filter((o) => o.billId !== id));
-    setPicked((cur) => cur.filter((x) => x !== id));
+    setBills((cur) => cur.filter((bill) => bill.id !== id));
+    setObjects((cur) => (cur ?? []).filter((file) => file.billId !== id));
+    setPicked((cur) => cur.filter((pickedId) => pickedId !== id));
     return true;
   };
 
@@ -367,7 +342,7 @@ export default function AdminConsole() {
     );
     const gone = new Set(results.filter((key): key is string => Boolean(key)));
     if (gone.size < keys.length) setError(`Couldn't delete ${keys.length - gone.size} file(s).`);
-    setObjects((cur) => (cur ?? []).filter((o) => !gone.has(o.key)));
+    setObjects((cur) => (cur ?? []).filter((file) => !gone.has(file.key)));
   };
 
   if (authed === null) {
@@ -381,15 +356,15 @@ export default function AdminConsole() {
   if (!authed) return <Gate onSignedIn={loadBills} />;
 
   const togglePick = (id: string) =>
-    setPicked((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]));
+    setPicked((cur) => (cur.includes(id) ? cur.filter((pickedId) => pickedId !== id) : [...cur, id]));
 
   const deletePicked = async (list: BillSummary[]) => {
-    const targets = list.filter((b) => picked.includes(b.id));
+    const targets = list.filter((bill) => picked.includes(bill.id));
     if (!targets.length) return;
-    const receipts = targets.reduce((n, b) => n + b.proofs, 0);
+    const receipts = targets.reduce((total, bill) => total + bill.proofs, 0);
     const names = targets
       .slice(0, 3)
-      .map((b) => `“${b.title}”`)
+      .map((bill) => `“${bill.title}”`)
       .join(", ");
     const more = targets.length > 3 ? ` and ${targets.length - 3} more` : "";
     const files = receipts ? `, with ${receipts} receipt${receipts === 1 ? "" : "s"}` : "";
@@ -400,14 +375,14 @@ export default function AdminConsole() {
     )
       return;
     setBulkDeleting(true);
-    const done = await Promise.all(targets.map((b) => deleteBill(b.id)));
+    const done = await Promise.all(targets.map((bill) => deleteBill(bill.id)));
     setBulkDeleting(false);
     const failed = done.filter((ok) => !ok).length;
     if (failed) setError(`Couldn't delete ${failed} of ${targets.length} bills.`);
   };
 
   const pickActions = (list: BillSummary[]) => {
-    const count = list.filter((b) => picked.includes(b.id)).length;
+    const count = list.filter((bill) => picked.includes(bill.id)).length;
     return (
       <div className="adm-row">
         <button
@@ -422,7 +397,7 @@ export default function AdminConsole() {
           disabled={!count || bulkDeleting}
           onClick={() =>
             setGiving(
-              list.filter((b) => picked.includes(b.id)).map((b) => ({ id: b.id, title: b.title })),
+              list.filter((bill) => picked.includes(bill.id)).map((bill) => ({ id: bill.id, title: bill.title })),
             )
           }
         >
@@ -442,8 +417,8 @@ export default function AdminConsole() {
                 <input
                   type="checkbox"
                   aria-label="Select all"
-                  checked={list.length > 0 && list.every((b) => picked.includes(b.id))}
-                  onChange={(e) => setPicked(e.target.checked ? list.map((b) => b.id) : [])}
+                  checked={list.length > 0 && list.every((bill) => picked.includes(bill.id))}
+                  onChange={(e) => setPicked(e.target.checked ? list.map((bill) => bill.id) : [])}
                 />
               </th>
             ) : null}
@@ -456,44 +431,44 @@ export default function AdminConsole() {
           </tr>
         </thead>
         <tbody>
-          {list.map((b) => (
-            <tr key={b.id} className="adm-table__link" onClick={() => (window.location.href = billHref(b.id))}>
+          {list.map((bill) => (
+            <tr key={bill.id} className="adm-table__link" onClick={() => (window.location.href = billHref(bill.id))}>
               {selectable ? (
                 <td className="adm-table__check" onClick={(e) => e.stopPropagation()}>
                   <input
                     type="checkbox"
-                    checked={picked.includes(b.id)}
-                    onChange={() => togglePick(b.id)}
-                    aria-label={`Select ${b.title}`}
+                    checked={picked.includes(bill.id)}
+                    onChange={() => togglePick(bill.id)}
+                    aria-label={`Select ${bill.title}`}
                   />
                 </td>
               ) : null}
               <td>
-                <a className="adm-strong" href={billHref(b.id)} onClick={(e) => e.stopPropagation()}>
-                  {b.title}
+                <a className="adm-strong" href={billHref(bill.id)} onClick={(e) => e.stopPropagation()}>
+                  {bill.title}
                 </a>
-                <div className="adm-muted adm-mono adm-small">{b.id}</div>
+                <div className="adm-muted adm-mono adm-small">{bill.id}</div>
               </td>
-              {selectable ? null : <td>{b.holder.name}</td>}
+              {selectable ? null : <td>{bill.holder.name}</td>}
               <td>
-                <span className="adm-clamp">{b.names.join(", ") || "—"}</span>
+                <span className="adm-clamp">{bill.names.join(", ") || "—"}</span>
               </td>
-              <td className="adm-num adm-mono">{b.readable ? money(b.grandTotal, b.currency) : "—"}</td>
+              <td className="adm-num adm-mono">{bill.readable ? money(bill.grandTotal, bill.currency) : "—"}</td>
               <td>
                 <span className="adm-chips">
-                  {!b.readable ? <Chip tone="bad">unreadable</Chip> : null}
-                  {b.readable ? (
-                    <Chip tone={b.paidCount >= owing(b) && owing(b) > 0 ? "pos" : "neutral"}>
-                      {b.paidCount}/{owing(b)} paid
+                  {!bill.readable ? <Chip tone="bad">unreadable</Chip> : null}
+                  {bill.readable ? (
+                    <Chip tone={bill.paidCount >= owing(bill) && owing(bill) > 0 ? "pos" : "neutral"}>
+                      {bill.paidCount}/{owing(bill)} paid
                     </Chip>
                   ) : null}
-                  {b.proofs ? <Chip tone="accent">{b.proofs} receipt{b.proofs > 1 ? "s" : ""}</Chip> : null}
-                  {b.unclaimed ? <Chip tone="warn">{b.unclaimed} unclaimed</Chip> : null}
-                  {b.owned ? null : <Chip tone="warn">no owner</Chip>}
+                  {bill.proofs ? <Chip tone="accent">{bill.proofs} receipt{bill.proofs > 1 ? "s" : ""}</Chip> : null}
+                  {bill.unclaimed ? <Chip tone="warn">{bill.unclaimed} unclaimed</Chip> : null}
+                  {bill.owned ? null : <Chip tone="warn">no owner</Chip>}
                 </span>
               </td>
-              <td className="adm-muted adm-small" title={when(b.updatedAt)}>
-                {ago(b.updatedAt)}
+              <td className="adm-muted adm-small" title={when(bill.updatedAt)}>
+                {ago(bill.updatedAt)}
               </td>
             </tr>
           ))}
@@ -523,7 +498,7 @@ export default function AdminConsole() {
                 ["bills", "Bills", bills.length],
                 ["codes", "Sync codes", backups?.length ?? null],
                 ["receipts", "Receipts", objects?.length ?? null],
-              ] as [Tab, string, number | null][]
+              ] as [AdminTab, string, number | null][]
             ).map(([key, label, count]) => (
               <button
                 key={key}
@@ -570,7 +545,7 @@ export default function AdminConsole() {
                   <span>shared bills</span>
                 </div>
                 <div className="adm-stat">
-                  <b>{devices.filter((d) => d.key !== UNLINKED).length}</b>
+                  <b>{devices.filter((deviceGroup) => deviceGroup.key !== UNLINKED).length}</b>
                   <span>sync codes</span>
                 </div>
                 <div className="adm-stat">
@@ -578,7 +553,7 @@ export default function AdminConsole() {
                   <span>holders</span>
                 </div>
                 <div className="adm-stat">
-                  <b>{bills.reduce((n, b) => n + b.proofs, 0)}</b>
+                  <b>{bills.reduce((total, bill) => total + bill.proofs, 0)}</b>
                   <span>receipts</span>
                 </div>
               </div>
@@ -643,45 +618,45 @@ export default function AdminConsole() {
               </section>
             ) : group === "code" ? (
               <section className="adm-holders">
-                {devices.map((d) => (
-                  <button key={d.key} className="adm-holder" onClick={() => openDevice(d.key)}>
-                    <span className={`adm-device${d.key === UNLINKED ? " adm-device--none" : ""}`} aria-hidden="true">
-                      {d.key === UNLINKED ? "?" : <PhoneIcon />}
+                {devices.map((deviceGroup) => (
+                  <button key={deviceGroup.key} className="adm-holder" onClick={() => openDevice(deviceGroup.key)}>
+                    <span className={`adm-device${deviceGroup.key === UNLINKED ? " adm-device--none" : ""}`} aria-hidden="true">
+                      {deviceGroup.key === UNLINKED ? "?" : <PhoneIcon />}
                     </span>
                     <span className="adm-holder__main">
                       <span className="adm-holder__name">
-                        {d.key === UNLINKED ? (
+                        {deviceGroup.key === UNLINKED ? (
                           "Not linked to a sync code yet"
-                        ) : d.name ? (
-                          d.name
+                        ) : deviceGroup.name ? (
+                          deviceGroup.name
                         ) : (
-                          <SyncId id={d.key} code={codes[d.key]} />
+                          <SyncId id={deviceGroup.key} code={codes[deviceGroup.key]} />
                         )}
                       </span>
                       <span className="adm-muted adm-small">
-                        {d.key === UNLINKED ? (
+                        {deviceGroup.key === UNLINKED ? (
                           "Shared before bills carried a sync code. They link when the owner's phone next syncs, re-shares or ticks a payment."
                         ) : (
                           <>
-                            {d.name ? <SyncId id={d.key} code={codes[d.key]} /> : "No name set in Settings"}
-                            {codes[d.key] ? "" : " · open its code under Sync codes to show it here"}
+                            {deviceGroup.name ? <SyncId id={deviceGroup.key} code={codes[deviceGroup.key]} /> : "No name set in Settings"}
+                            {codes[deviceGroup.key] ? "" : " · open its code under Sync codes to show it here"}
                           </>
                         )}
                       </span>
                       <span className="adm-clamp adm-small">
-                        {d.bills
+                        {deviceGroup.bills
                           .slice(0, 4)
-                          .map((b) => b.title)
+                          .map((bill) => bill.title)
                           .join(" · ")}
-                        {d.bills.length > 4 ? ` · +${d.bills.length - 4}` : ""}
+                        {deviceGroup.bills.length > 4 ? ` · +${deviceGroup.bills.length - 4}` : ""}
                       </span>
                     </span>
                     <span className="adm-holder__meta">
                       <b>
-                        {d.bills.length} bill{d.bills.length === 1 ? "" : "s"}
+                        {deviceGroup.bills.length} bill{deviceGroup.bills.length === 1 ? "" : "s"}
                       </b>
                       <span className="adm-muted adm-small">
-                        {d.key === UNLINKED ? "" : `synced ${ago(d.updatedAt)}`}
+                        {deviceGroup.key === UNLINKED ? "" : `synced ${ago(deviceGroup.updatedAt)}`}
                       </span>
                     </span>
                     <span className="adm-holder__chev" aria-hidden="true">
@@ -693,23 +668,23 @@ export default function AdminConsole() {
               </section>
             ) : (
               <section className="adm-holders">
-                {holders.map((h) => (
-                  <button key={h.key} className="adm-holder" onClick={() => openHolder(h.key)}>
-                    <Avatar name={h.name} />
+                {holders.map((holderGroup) => (
+                  <button key={holderGroup.key} className="adm-holder" onClick={() => openHolder(holderGroup.key)}>
+                    <Avatar name={holderGroup.name} />
                     <span className="adm-holder__main">
-                      <span className="adm-holder__name">{h.name}</span>
-                      <Accounts accounts={h.accounts} />
+                      <span className="adm-holder__name">{holderGroup.name}</span>
+                      <Accounts accounts={holderGroup.accounts} />
                     </span>
                     <span className="adm-holder__meta">
                       <b>
-                        {h.bills.length} bill{h.bills.length === 1 ? "" : "s"}
+                        {holderGroup.bills.length} bill{holderGroup.bills.length === 1 ? "" : "s"}
                       </b>
                       <span className="adm-muted adm-small">
-                        {Object.entries(h.totals)
-                          .map(([c, t]) => money(t, c))
+                        {Object.entries(holderGroup.totals)
+                          .map(([currency, total]) => money(total, currency))
                           .join(" · ") || "—"}
                       </span>
-                      <span className="adm-muted adm-small">{ago(h.last)}</span>
+                      <span className="adm-muted adm-small">{ago(holderGroup.last)}</span>
                     </span>
                     <span className="adm-holder__chev" aria-hidden="true">
                       ›
@@ -738,9 +713,9 @@ export default function AdminConsole() {
                   <b>{holder.bills.length}</b>
                   <span>bills</span>
                 </div>
-                {Object.entries(holder.totals).map(([c, t]) => (
-                  <div className="adm-stat" key={c}>
-                    <b>{money(t, c)}</b>
+                {Object.entries(holder.totals).map(([currency, total]) => (
+                  <div className="adm-stat" key={currency}>
+                    <b>{money(total, currency)}</b>
                     <span>total</span>
                   </div>
                 ))}
@@ -861,7 +836,7 @@ export default function AdminConsole() {
                 <div className="adm-stack">
                   {(() => {
                     const lost = lookup.summary.bills.filter(
-                      (b) => b.owner && b.shareId && billById.get(b.shareId) && !billById.get(b.shareId)?.owned,
+                      (bill) => bill.owner && bill.shareId && billById.get(bill.shareId) && !billById.get(bill.shareId)?.owned,
                     );
                     if (!lost.length) return null;
                     return (
@@ -870,7 +845,7 @@ export default function AdminConsole() {
                           {lost.length} bill{lost.length === 1 ? "" : "s"} lost {lost.length === 1 ? "its" : "their"} owner
                           on the server
                         </b>{" "}
-                        ({lost.map((b) => b.title).join(", ")}). This phone still holds the owner key, but the server
+                        ({lost.map((bill) => bill.title).join(", ")}). This phone still holds the owner key, but the server
                         forgot it, usually because the bill was released or shared before ownership existed. Until
                         it&apos;s fixed, anyone with the link can tick people off as paid.
                         <div style={{ marginTop: 10 }}>
@@ -955,30 +930,30 @@ export default function AdminConsole() {
                         </tr>
                       </thead>
                       <tbody>
-                        {lookup.summary.bills.map((b) => {
-                          const shared = b.shareId ? billById.get(b.shareId) : undefined;
+                        {lookup.summary.bills.map((bill) => {
+                          const shared = bill.shareId ? billById.get(bill.shareId) : undefined;
                           return (
-                            <tr key={b.id}>
+                            <tr key={bill.id}>
                               <td>
                                 {shared ? (
                                   <a className="adm-strong" href={billHref(shared.id)}>
-                                    {b.title}
+                                    {bill.title}
                                   </a>
                                 ) : (
-                                  <span className="adm-strong">{b.title}</span>
+                                  <span className="adm-strong">{bill.title}</span>
                                 )}
                               </td>
-                              <td>{b.people}</td>
-                              <td className="adm-num adm-mono">{money(b.total, b.currency)}</td>
+                              <td>{bill.people}</td>
+                              <td className="adm-num adm-mono">{money(bill.total, bill.currency)}</td>
                               <td>
                                 <span className="adm-chips">
                                   {shared ? <Chip tone="accent">shared</Chip> : <Chip>only on phone</Chip>}
-                                  {shared && b.owner && shared.owned ? <Chip tone="pos">owner</Chip> : null}
-                                  {shared && b.owner && !shared.owned ? <Chip tone="warn">server lost its owner</Chip> : null}
-                                  {shared && !b.owner ? <Chip>someone else&apos;s bill</Chip> : null}
+                                  {shared && bill.owner && shared.owned ? <Chip tone="pos">owner</Chip> : null}
+                                  {shared && bill.owner && !shared.owned ? <Chip tone="warn">server lost its owner</Chip> : null}
+                                  {shared && !bill.owner ? <Chip>someone else&apos;s bill</Chip> : null}
                                 </span>
                               </td>
-                              <td className="adm-muted adm-small">{ago(b.updatedAt)}</td>
+                              <td className="adm-muted adm-small">{ago(bill.updatedAt)}</td>
                             </tr>
                           );
                         })}
@@ -1003,7 +978,7 @@ export default function AdminConsole() {
                   <button
                     className="adm-btn adm-btn--danger adm-btn--sm"
                     disabled={droppingBackups}
-                    onClick={() => dropBackups((backups ?? []).slice(1).map((b) => b.key))}
+                    onClick={() => dropBackups((backups ?? []).slice(1).map((backup) => backup.key))}
                   >
                     {droppingBackups ? "Deleting…" : `Keep only the newest · delete ${(backups?.length ?? 1) - 1}`}
                   </button>
@@ -1027,23 +1002,23 @@ export default function AdminConsole() {
                     </tr>
                   </thead>
                   <tbody>
-                    {(backups ?? []).map((b) => (
-                      <tr key={b.key} className="adm-table__link" onClick={() => { setTabState("bills"); openDevice(b.key); }}>
-                        <td className={b.name ? "adm-strong" : "adm-muted"}>{b.name ?? "—"}</td>
+                    {(backups ?? []).map((backup) => (
+                      <tr key={backup.key} className="adm-table__link" onClick={() => { setTabState("bills"); openDevice(backup.key); }}>
+                        <td className={backup.name ? "adm-strong" : "adm-muted"}>{backup.name ?? "—"}</td>
                         <td className="adm-small">
-                          <SyncId id={b.key} code={codes[b.key]} className={codes[b.key] ? "adm-strong" : "adm-muted"} />
+                          <SyncId id={backup.key} code={codes[backup.key]} className={codes[backup.key] ? "adm-strong" : "adm-muted"} />
                         </td>
-                        <td className="adm-num">{b.billIds.length || "—"}</td>
-                        <td className="adm-num adm-mono">{size(b.size)}</td>
-                        <td className="adm-muted adm-small" title={when(b.updatedAt)}>
-                          {ago(b.updatedAt)}
+                        <td className="adm-num">{backup.billIds.length || "—"}</td>
+                        <td className="adm-num adm-mono">{size(backup.size)}</td>
+                        <td className="adm-muted adm-small" title={when(backup.updatedAt)}>
+                          {ago(backup.updatedAt)}
                         </td>
                         <td className="adm-num" onClick={(e) => e.stopPropagation()}>
                           <button
                             className="adm-btn adm-btn--ghost adm-btn--sm"
                             disabled={droppingBackups}
-                            onClick={() => dropBackups([b.key])}
-                            aria-label={`Delete the backup for ${b.name ?? codes[b.key] ?? b.key}`}
+                            onClick={() => dropBackups([backup.key])}
+                            aria-label={`Delete the backup for ${backup.name ?? codes[backup.key] ?? backup.key}`}
                           >
                             Delete
                           </button>

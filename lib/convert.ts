@@ -1,8 +1,6 @@
-import type { SharedBill } from "./types";
+import type { SharedBill } from "../entities/share";
 
-/* A shared bill with every amount multiplied into another currency, for
-   reading only. Indices, ids and the fee rate (a ratio) are untouched, so the
-   result lines up with claims and payments made against the original. */
+/** For display only. Indices, ids and fee rate stay untouched so claims and payments still line up. */
 export function convertBill(bill: SharedBill, rate: number, currency: string): SharedBill {
   if (rate === 1 && currency === bill.currency) return bill;
   return {

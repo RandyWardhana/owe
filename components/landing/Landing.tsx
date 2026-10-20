@@ -22,10 +22,6 @@ import { useScrollFx } from "./scrollFx";
 import SettingsMenu from "./SettingsMenu";
 import { track } from "@/lib/analytics";
 
-/* Order after the motion reference (ProFinance): the framed hero, the three
-   steps as cards, the hands-on demo, the advantages with the numbers, a dark
-   banner with a phone, the questions, and a final line that draws itself down
-   to the last button -- then a black footer. */
 export default function Landing() {
   const scroller = useRef<HTMLDivElement>(null);
   const [lifted, setLifted] = useState(false);
@@ -33,9 +29,7 @@ export default function Landing() {
   const play = usePlayful();
 
   // English for the server render and the first client one, then the saved
-  // language (see ./copy for why). Theme, accent and the animation switch are
-  // applied the same way the app applies them, so the gear changes this page
-  // live and the choice is already set when the app opens.
+  // language (see ./copy for why).
   const mounted = useMounted();
   const savedLang = useStore((s) => s.lang);
   const lang = mounted ? savedLang : "en";
@@ -48,12 +42,12 @@ export default function Landing() {
   }, [lang]);
 
   useEffect(() => {
-    const el = scroller.current;
-    if (!el) return;
-    const onScroll = () => setLifted(el.scrollTop > 12);
+    const container = scroller.current;
+    if (!container) return;
+    const onScroll = () => setLifted(container.scrollTop > 12);
     onScroll();
-    el.addEventListener("scroll", onScroll, { passive: true });
-    return () => el.removeEventListener("scroll", onScroll);
+    container.addEventListener("scroll", onScroll, { passive: true });
+    return () => container.removeEventListener("scroll", onScroll);
   }, []);
 
   const links = [
@@ -65,8 +59,6 @@ export default function Landing() {
   return (
     <LandingLangProvider value={lang}>
       <div className="landing" ref={scroller}>
-        {/* A floating pill, as in the hero reference: it sits inside the
-            framed hero at the top and keeps its shape once you scroll. */}
         <nav className={`lp-nav ${lifted ? "is-lifted" : ""}`}>
           <div className="lp-nav__pill">
             <Link href="/" className="lp-brand disp">
@@ -74,9 +66,9 @@ export default function Landing() {
             </Link>
 
             <div className="lp-nav__links">
-              {links.map((l) => (
-                <a key={l.href} href={l.href}>
-                  {l.label}
+              {links.map((link) => (
+                <a key={link.href} href={link.href}>
+                  {link.label}
                 </a>
               ))}
             </div>
@@ -110,9 +102,9 @@ export default function Landing() {
             </div>
 
             <nav className="lp-footer__links" aria-label="Footer">
-              {links.map((l) => (
-                <a key={l.href} href={l.href}>
-                  {l.label}
+              {links.map((link) => (
+                <a key={link.href} href={link.href}>
+                  {link.label}
                 </a>
               ))}
               <Link href="/" className="lp-footer__link" onClick={() => track("landing_cta", { location: "footer" })}>
@@ -126,11 +118,8 @@ export default function Landing() {
 
       </div>
 
-      {/* Outside the scroll container, on a layer fixed to the viewport. The
-          sheet positions itself absolutely against its nearest positioned
-          parent; in the app that is the full-screen shell, but here it was the
-          scrolling page, so the sheet opened at the top of the page and
-          scrolled away with it. */}
+      {/* Outside the scroll container: the sheet positions against its nearest
+          positioned parent, which would otherwise be the scrolling page. */}
       <div className="lp-overlay">
         <Settings open={settingsOpen} onClose={() => setSettingsOpen(false)} appearanceOnly />
       </div>

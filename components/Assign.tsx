@@ -17,21 +17,21 @@ export default function Assign() {
   const go = useStore((s) => s.go);
 
   const { items, people } = draft;
-  const colorOf = (id: string) => people.findIndex((p) => p.id === id);
+  const colorOf = (id: string) => people.findIndex((person) => person.id === id);
 
   const toggle = (itemId: string, personId: string) => {
     buzz(5);
-    updateDraft((d) => ({
-      ...d,
-      items: d.items.map((it) => {
-        if (it.id !== itemId) return it;
-        const has = it.assignedTo.includes(personId);
-        if (!has) return { ...it, assignedTo: [...it.assignedTo, personId] };
+    updateDraft((draft) => ({
+      ...draft,
+      items: draft.items.map((item) => {
+        if (item.id !== itemId) return item;
+        const has = item.assignedTo.includes(personId);
+        if (!has) return { ...item, assignedTo: [...item.assignedTo, personId] };
         // Stepping off forgets their count, so stepping back on starts at 1.
-        const { [personId]: _dropped, ...units } = it.units || {};
+        const { [personId]: _dropped, ...units } = item.units || {};
         return {
-          ...it,
-          assignedTo: it.assignedTo.filter((a) => a !== personId),
+          ...item,
+          assignedTo: item.assignedTo.filter((assigneeId) => assigneeId !== personId),
           units,
         };
       }),
@@ -40,18 +40,18 @@ export default function Assign() {
 
   const step = (itemId: string, personId: string, delta: number) => {
     buzz(5);
-    updateDraft((d) => ({
-      ...d,
-      items: d.items.map((it) => {
-        if (it.id !== itemId) return it;
+    updateDraft((draft) => ({
+      ...draft,
+      items: draft.items.map((item) => {
+        if (item.id !== itemId) return item;
         // Nobody can take one more once the whole line is accounted for.
-        const counted = it.assignedTo.reduce((sum, id) => sum + unitsOf(it, id), 0);
-        if (delta > 0 && counted >= it.qty) return it;
+        const counted = item.assignedTo.reduce((sum, id) => sum + unitsOf(item, id), 0);
+        if (delta > 0 && counted >= item.qty) return item;
         return {
-          ...it,
+          ...item,
           units: {
-            ...it.units,
-            [personId]: Math.min(it.qty, Math.max(1, unitsOf(it, personId) + delta)),
+            ...item.units,
+            [personId]: Math.min(item.qty, Math.max(1, unitsOf(item, personId) + delta)),
           },
         };
       }),
@@ -60,27 +60,27 @@ export default function Assign() {
 
   const setCountEach = (itemId: string, countEach: boolean) => {
     buzz(5);
-    updateDraft((d) => ({
-      ...d,
-      items: d.items.map((it) => (it.id === itemId ? { ...it, countEach } : it)),
+    updateDraft((draft) => ({
+      ...draft,
+      items: draft.items.map((item) => (item.id === itemId ? { ...item, countEach } : item)),
     }));
   };
 
   const setAll = (itemId: string, all: boolean) => {
     buzz(6);
-    updateDraft((d) => ({
-      ...d,
-      items: d.items.map((it) =>
-        it.id === itemId
+    updateDraft((draft) => ({
+      ...draft,
+      items: draft.items.map((item) =>
+        item.id === itemId
           ? all
-            ? { ...it, assignedTo: d.people.map((p) => p.id) }
-            : { ...it, assignedTo: [], units: {} }
-          : it,
+            ? { ...item, assignedTo: draft.people.map((person) => person.id) }
+            : { ...item, assignedTo: [], units: {} }
+          : item,
       ),
     }));
   };
 
-  const assignedCount = items.filter((it) => it.assignedTo.length > 0).length;
+  const assignedCount = items.filter((item) => item.assignedTo.length > 0).length;
   const unassigned = items.length - assignedCount;
 
   return (
@@ -114,27 +114,27 @@ export default function Assign() {
         <p className="muted assign-hint">{t("assign.hint")}</p>
 
         <div className="col-gap stagger">
-          {items.map((it, i) => {
-            const everyone = it.assignedTo.length === people.length && people.length > 0;
-            const assignees = people.filter((p) => it.assignedTo.includes(p.id));
+          {items.map((item, i) => {
+            const everyone = item.assignedTo.length === people.length && people.length > 0;
+            const assignees = people.filter((person) => item.assignedTo.includes(person.id));
             /* Counts only matter when several people are on a line of several:
                "6x Sparkling Lemon" where one of them had two. Even then the line
                is shared until the maker asks to count each person. */
-            const countable = it.qty > 1 && assignees.length > 1;
-            const counting = countable && Boolean(it.countEach);
+            const countable = item.qty > 1 && assignees.length > 1;
+            const counting = countable && Boolean(item.countEach);
             const shared = assignees.length > 1 && !counting;
-            const counted = assignees.reduce((sum, p) => sum + unitsOf(it, p.id), 0);
-            const uneven = counting && assignees.some((p) => unitsOf(it, p.id) !== 1);
+            const counted = assignees.reduce((sum, person) => sum + unitsOf(item, person.id), 0);
+            const uneven = counting && assignees.some((person) => unitsOf(item, person.id) !== 1);
             const each =
-              it.assignedTo.length > 1 && !uneven ? lineTotal(it) / it.assignedTo.length : 0;
+              item.assignedTo.length > 1 && !uneven ? lineTotal(item) / item.assignedTo.length : 0;
             return (
-              <div className="card assign-item" key={it.id} style={{ ["--i" as string]: i }}>
+              <div className="card assign-item" key={item.id} style={{ ["--i" as string]: i }}>
                 <div className="row between assign-item__head">
                   <div className="grow">
                     <div className="assign-item__title">
                       <span className="assign-item__name truncate">
-                        {it.name || t("common.item")}
-                        {it.qty > 1 ? <span className="muted"> ×{it.qty}</span> : null}
+                        {item.name || t("common.item")}
+                        {item.qty > 1 ? <span className="muted"> ×{item.qty}</span> : null}
                       </span>
                       {shared ? <span className="badge-shared">{t("assign.shared")}</span> : null}
                     </div>
@@ -144,43 +144,43 @@ export default function Assign() {
                       </div>
                     ) : uneven ? (
                       <div className="muted assign-item__each">
-                        {t("assign.perUnit", { amount: fmtMoney(lineTotal(it) / counted, currency) })}
+                        {t("assign.perUnit", { amount: fmtMoney(lineTotal(item) / counted, currency) })}
                       </div>
                     ) : null}
                   </div>
                   <div className="assign-item__total disp tnum">
-                    {fmtMoney(lineTotal(it), currency)}
+                    {fmtMoney(lineTotal(item), currency)}
                   </div>
                 </div>
 
                 <div className="who">
                   <button
                     className={`who__chip who__all ${everyone ? "on" : ""}`}
-                    onClick={() => setAll(it.id, !everyone)}
+                    onClick={() => setAll(item.id, !everyone)}
                   >
                     {t("assign.all")}
                   </button>
-                  {people.map((p) => {
-                    const on = it.assignedTo.includes(p.id);
-                    const ci = colorOf(p.id);
+                  {people.map((person) => {
+                    const on = item.assignedTo.includes(person.id);
+                    const colorIndex = colorOf(person.id);
                     return (
                       <button
-                        key={p.id}
+                        key={person.id}
                         className={`who__chip ${on ? "on" : ""}`}
                         style={
                           on
-                            ? { background: personColor(ci), color: personInk(ci), borderColor: "transparent" }
+                            ? { background: personColor(colorIndex), color: personInk(colorIndex), borderColor: "transparent" }
                             : undefined
                         }
-                        onClick={() => toggle(it.id, p.id)}
+                        onClick={() => toggle(item.id, person.id)}
                       >
                         <span
                           className="avatar who__av"
-                          style={{ background: personColor(ci), color: personInk(ci) }}
+                          style={{ background: personColor(colorIndex), color: personInk(colorIndex) }}
                         >
-                          {on ? <Check size={13} /> : initials(p.name)}
+                          {on ? <Check size={13} /> : initials(person.name)}
                         </span>
-                        <span className="truncate">{p.name || "—"}</span>
+                        <span className="truncate">{person.name || "—"}</span>
                       </button>
                     );
                   })}
@@ -192,43 +192,43 @@ export default function Assign() {
                       <button
                         className={`seg__btn ${counting ? "" : "on"}`}
                         aria-pressed={!counting}
-                        onClick={() => setCountEach(it.id, false)}
+                        onClick={() => setCountEach(item.id, false)}
                       >
                         {t("assign.modeShared")}
                       </button>
                       <button
                         className={`seg__btn ${counting ? "on" : ""}`}
                         aria-pressed={counting}
-                        onClick={() => setCountEach(it.id, true)}
+                        onClick={() => setCountEach(item.id, true)}
                       >
                         {t("assign.modeEach")}
                       </button>
                     </div>
                     {counting ? (
                       <div className="muted units__hint">
-                        {t("assign.howMany", { counted, qty: it.qty })}
+                        {t("assign.howMany", { counted, qty: item.qty })}
                       </div>
                     ) : null}
-                    {counting && assignees.map((p) => {
-                      const n = unitsOf(it, p.id);
+                    {counting && assignees.map((person) => {
+                      const unitCount = unitsOf(item, person.id);
                       return (
-                        <div className="row between units__row" key={p.id}>
-                          <span className="truncate units__name">{p.name || "—"}</span>
+                        <div className="row between units__row" key={person.id}>
+                          <span className="truncate units__name">{person.name || "—"}</span>
                           <div className="units__step">
                             <button
                               className="units__btn"
-                              aria-label={t("assign.less", { name: p.name || "—" })}
-                              disabled={n <= 1}
-                              onClick={() => step(it.id, p.id, -1)}
+                              aria-label={t("assign.less", { name: person.name || "—" })}
+                              disabled={unitCount <= 1}
+                              onClick={() => step(item.id, person.id, -1)}
                             >
                               <Minus size={15} />
                             </button>
-                            <span className="units__n tnum">{n}</span>
+                            <span className="units__n tnum">{unitCount}</span>
                             <button
                               className="units__btn"
-                              aria-label={t("assign.more", { name: p.name || "—" })}
-                              disabled={counted >= it.qty}
-                              onClick={() => step(it.id, p.id, 1)}
+                              aria-label={t("assign.more", { name: person.name || "—" })}
+                              disabled={counted >= item.qty}
+                              onClick={() => step(item.id, person.id, 1)}
                             >
                               <Plus size={15} />
                             </button>

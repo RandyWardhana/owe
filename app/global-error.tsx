@@ -3,14 +3,12 @@
 import { useEffect } from "react";
 
 import { Warning } from "@/components/icons";
+import type { GlobalErrorProps } from "@/entities/props/app";
 
 export default function GlobalError({
   error,
   reset,
-}: {
-  error: Error & { digest?: string };
-  reset: () => void;
-}) {
+}: GlobalErrorProps) {
   useEffect(() => {
     console.error(error);
   }, [error]);
