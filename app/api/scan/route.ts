@@ -5,9 +5,8 @@ import { parseReceiptText, parseReceiptCharges } from "@/lib/ocr";
 export const runtime = "nodejs";
 export const maxDuration = 30;
 
-/* Cloud OCR via OCR.space → existing receipt parser. The free "helloworld" demo
-   key works out of the box (rate-limited); set OCRSPACE_API_KEY to your own free
-   key (https://ocr.space/ocrapi, 25k/month) for reliability. */
+/* Without OCRSPACE_API_KEY this falls back to OCR.space's rate-limited "helloworld"
+   demo key. */
 export async function POST(req: Request) {
   const apiKey = process.env.OCRSPACE_API_KEY || "helloworld";
   try {
@@ -20,7 +19,7 @@ export async function POST(req: Request) {
     }
 
     const form = new URLSearchParams();
-    form.set("base64Image", image); // data URL
+    form.set("base64Image", image);
     form.set("OCREngine", "2"); // best for receipts / mixed scripts
     form.set("isTable", "true"); // preserves the name | price column layout
     form.set("scale", "true");

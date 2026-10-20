@@ -4,6 +4,7 @@ import { Analytics } from "@vercel/analytics/next";
 import AnalyticsBridge from "@/components/AnalyticsBridge";
 import ClickSpark from "@/components/ui/ClickSpark";
 import "./globals.css";
+import type { RootLayoutProps } from "@/entities/props/app";
 
 const manrope = Manrope({
   subsets: ["latin"],
@@ -79,9 +80,7 @@ const bootScript =
 
 export default function RootLayout({
   children,
-}: {
-  children: React.ReactNode;
-}) {
+}: RootLayoutProps) {
   return (
     <html
       lang="en"
@@ -89,19 +88,13 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <body suppressHydrationWarning>
-        {/* Rendered here, not through `metadata.manifest`, for one attribute:
-            use-credentials. Without it browsers fetch the manifest without
-            cookies, so the accent cookie never reaches the manifest route and
-            an installed app could never pick up its accent icon. React puts
-            the <link> in <head>. */}
+        {/* Not through `metadata.manifest`: without use-credentials browsers fetch the
+            manifest without cookies, and the manifest route needs the accent cookie. */}
         <link rel="manifest" href="/manifest.webmanifest" crossOrigin="use-credentials" />
         <script dangerouslySetInnerHTML={{ __html: bootScript }} />
         <div id="root">{children}</div>
         {process.env.VERCEL_ENV ? <Analytics /> : null}
         <AnalyticsBridge />
-        {/* One canvas for every route -- the app, shared links, /landing,
-            /admin -- instead of one per screen inside App, which left the
-            pages outside it without the click spark. */}
         <ClickSpark />
       </body>
     </html>

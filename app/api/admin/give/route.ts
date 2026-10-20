@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 
 import { isAdmin } from "@/lib/adminAuth";
-import { getBackup, getBillRow, putBackup, readBillPayload, setOwner, type BillRow } from "@/lib/adminDb";
+import { getBackup, getBillRow, putBackup, readSharedBill, setOwner } from "@/lib/adminDb";
+import type { AdminBillRow } from "@/entities/admin";
 import {
   backupKey,
   buildRestore,
@@ -27,7 +28,7 @@ export async function POST(req: Request) {
   }
 
   const rows = (await Promise.all(ids.map((id) => getBillRow(id)))).filter(
-    (row): row is BillRow => Boolean(row && readBillPayload(row.data)),
+    (row): row is AdminBillRow => Boolean(row && readSharedBill(row.data)),
   );
   if (!rows.length) {
     return NextResponse.json({ ok: false, error: "Those bills are no longer on the server, or can't be read." }, { status: 404 });
@@ -68,7 +69,7 @@ export async function POST(req: Request) {
     const results = await Promise.all(
       Object.entries(tokens).map(([id, token]) => setOwner(id, ownerHashOf(token), built.key)),
     );
-    owned = results.filter((r) => r?.ok && r.changed > 0).length;
+    owned = results.filter((result) => result?.ok && result.changed > 0).length;
   }
 
   return NextResponse.json({

@@ -4,10 +4,9 @@ import { decryptShare } from "@/lib/share";
 import { getBillData } from "@/lib/oweDb";
 import { shareMeta } from "@/lib/shareMeta";
 import App from "@/components/App";
+import type { SharedBillPageProps } from "@/entities/props/app";
 
-type Props = { params: Promise<{ id: string }> };
-
-export async function generateMetadata({ params }: Props): Promise<Metadata> {
+export async function generateMetadata({ params }: SharedBillPageProps): Promise<Metadata> {
   const { id } = await params;
   try {
     const data = await getBillData(id);

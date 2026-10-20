@@ -21,17 +21,17 @@ export async function POST(req: Request) {
   }
 
   const all = await listBills();
-  const unowned = new Set((all?.bills ?? []).filter((b) => Number(b.owned) !== 1).map((b) => b.id));
+  const unowned = new Set((all?.bills ?? []).filter((bill) => Number(bill.owned) !== 1).map((bill) => bill.id));
   const owners = payload.owners ?? {};
   const targets = Object.entries(owners).filter(([id]) => unowned.has(id));
 
   const results = await Promise.all(targets.map(([id, token]) => setOwner(id, ownerHashOf(token), backupKey(syncCode))));
-  const fixed = results.filter((r) => r?.ok && r.changed > 0).length;
+  const fixed = results.filter((result) => result?.ok && result.changed > 0).length;
 
   return NextResponse.json({
     ok: true,
     fixed,
     tried: targets.length,
-    workerOutdated: targets.length > 0 && fixed === 0 && results.every((r) => !r),
+    workerOutdated: targets.length > 0 && fixed === 0 && results.every((result) => !result),
   });
 }

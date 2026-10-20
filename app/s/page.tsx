@@ -3,12 +3,11 @@ import type { Metadata } from "next";
 import { decryptShare } from "@/lib/share";
 import { shareMeta } from "@/lib/shareMeta";
 import App from "@/components/App";
+import type { SharePageProps } from "@/entities/props/app";
 
-type Props = { searchParams: Promise<{ s?: string }> };
-
-export async function generateMetadata({ searchParams }: Props): Promise<Metadata> {
-  const { s } = await searchParams;
-  const bill = s ? await decryptShare(s) : null;
+export async function generateMetadata({ searchParams }: SharePageProps): Promise<Metadata> {
+  const { s: encryptedShare } = await searchParams;
+  const bill = encryptedShare ? await decryptShare(encryptedShare) : null;
   return shareMeta(bill);
 }
 

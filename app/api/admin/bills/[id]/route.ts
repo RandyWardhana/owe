@@ -2,11 +2,12 @@ import { NextResponse } from "next/server";
 
 import { isAdmin } from "@/lib/adminAuth";
 import { backupBillIds, deleteBillAdmin, getBillDetail, listBackups, listBills, toSummary } from "@/lib/adminDb";
+import type { AdminBillRouteParams } from "@/entities/props/app";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(_req: Request, { params }: AdminBillRouteParams) {
   if (!(await isAdmin())) return NextResponse.json({ error: "unauthorised" }, { status: 401 });
   const { id } = await params;
   const [bill, backups] = await Promise.all([getBillDetail(id), listBackups()]);
@@ -21,7 +22,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     }))
     .filter((device) => device.key === bill.syncKey || device.billIds.includes(id));
   const summaries = devices.length ? (await listBills())?.bills.map(toSummary) ?? [] : [];
-  const titles = new Map(summaries.map((s) => [s.id, s.title]));
+  const titles = new Map(summaries.map((summary) => [summary.id, summary.title]));
   return NextResponse.json({
     bill,
     indexed: Boolean(backups?.indexed),
@@ -31,7 +32,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       updatedAt: device.updatedAt,
       bills: [
         ...new Set([
-          ...summaries.filter((s) => s.syncKey === device.key).map((s) => s.id),
+          ...summaries.filter((summary) => summary.syncKey === device.key).map((summary) => summary.id),
           ...device.billIds,
         ]),
       ]
@@ -41,7 +42,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   });
 }
 
-export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function DELETE(_req: Request, { params }: AdminBillRouteParams) {
   if (!(await isAdmin())) return NextResponse.json({ error: "unauthorised" }, { status: 401 });
   const { id } = await params;
   const result = await deleteBillAdmin(id);
