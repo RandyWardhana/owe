@@ -10,6 +10,7 @@ import { useRate } from "@/lib/hooks/useRate";
 import { legacyShareId } from "@/lib/shareId";
 import { proofUrl } from "@/lib/proofs";
 import { convertBill } from "@/lib/convert";
+import { receiptFromShared, settleStatus } from "@/lib/receipt";
 
 import Screen from "@/components/Screen";
 import { Check, Gear } from "@/components/icons";
@@ -17,6 +18,7 @@ import Settings from "@/components/Settings";
 import AnimatedMoney from "@/components/ui/AnimatedMoney";
 import AccountRow from "@/components/ui/AccountRow";
 import ProofLightbox from "@/components/ui/ProofLightbox";
+import ReceiptPaper from "@/components/desk/ReceiptPaper";
 import ClaimList from "./ClaimList";
 import SharedPersonRow from "./SharedPersonRow";
 import type { SharedViewProps } from "@/entities/props/shared";
@@ -79,9 +81,21 @@ export default function SharedView({
   const payer = shown.payerIndex >= 0 ? shown.people[shown.payerIndex] : null;
   const originalOf = (amount: number) =>
     converting ? fmtMoney(amount, billCurrency) : undefined;
-
+  const receipt = useMemo(() => receiptFromShared(shown, [...paid]), [shown, paid]);
 
   return (
+    <>
+    <aside className="ws-receipt ws-receipt--shared">
+      <div className="ws-receipt__inner">
+        <ReceiptPaper
+          receipt={receipt}
+          heading={t("desk.receipt.shared")}
+          status={settleStatus(receipt, t)}
+          showStubs
+        />
+      </div>
+    </aside>
+    <div className="ws-main">
     <Screen
       footer={
         <button className="btn secondary" onClick={onMakeOwn}>
@@ -232,5 +246,7 @@ export default function SharedView({
         billCurrency={billCurrency}
       />
     </Screen>
+    </div>
+    </>
   );
 }

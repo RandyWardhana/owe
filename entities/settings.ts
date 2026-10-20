@@ -52,6 +52,7 @@ export interface AppState {
   mergeHistory: (incoming: Draft[], incomingTombstones?: Record<string, number>) => void;
   deleteBillLocally: (id: string) => void;
   discardDraft: () => void;
+  goHome: () => void;
   saveCurrent: (result: SplitResult, payerId: string | null) => void;
   finish: () => void;
 

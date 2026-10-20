@@ -7,6 +7,7 @@ import { Back } from "./icons";
 import type { ScreenProps } from "@/entities/props/ui";
 
 export default function Screen({
+  className,
   title,
   sub,
   onBack,
@@ -24,7 +25,7 @@ export default function Screen({
 
   return (
     <>
-    <div className={`screen ${dir === "back" ? "route-back" : "route-enter"}`}>
+    <div className={`screen ${dir === "back" ? "route-back" : "route-enter"}${className ? ` ${className}` : ""}`}>
       {(title || showBack || right) && (
         <div className="topbar">
           {showBack ? (

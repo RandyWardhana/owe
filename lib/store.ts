@@ -199,6 +199,8 @@ export const useStore = create<AppState>()(
       discardDraft: () =>
         set({ draft: emptyDraft(), view: "home", stack: [], dir: "back" }),
 
+      goHome: () => set({ view: "home", stack: [], dir: "back" }),
+
       mergeHistory: (incoming, incomingTombstones) =>
         set((s) =>
           mergeHistories(s.history, incoming, s.tombstones, incomingTombstones),
