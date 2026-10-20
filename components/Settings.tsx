@@ -2,6 +2,7 @@
 
 import { useStore } from "@/lib/store";
 import { useT, LANGS } from "@/lib/i18n";
+import { ACCENTS } from "@/lib/accents";
 import { CURRENCIES } from "@/lib/currency";
 import { buzz } from "@/lib/util";
 import type { Lang, Rounding, Theme } from "@/lib/types";
@@ -10,7 +11,6 @@ import Sheet from "./Sheet";
 import SyncSettings from "./SyncSettings";
 import { Sun, Moon, Check, Chevron } from "./icons";
 
-const ACCENTS = ["#9be52e", "#ffd23f", "#ff8a3d", "#ff5d8f", "#9b8cff", "#3dd7d0"];
 const ROUNDINGS: { value: Rounding; key: string }[] = [
   { value: "none", key: "settings.roundExact" },
   { value: "whole", key: "settings.roundWhole" },

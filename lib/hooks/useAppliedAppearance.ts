@@ -2,6 +2,7 @@ import { useEffect } from "react";
 
 import { useStore } from "@/lib/store";
 import { applyAccentFavicon } from "@/lib/favicon";
+import { ACCENT_COOKIE, knownAccent } from "@/lib/accents";
 
 export function useAppliedAppearance(): void {
   const theme = useStore((s) => s.theme);
@@ -19,5 +20,13 @@ export function useAppliedAppearance(): void {
   // appearance (the app, shared links, /landing).
   useEffect(() => {
     void applyAccentFavicon(accent);
+
+    // The installed app's icon can only follow the accent if the server can
+    // see it, and the manifest request carries cookies, not localStorage.
+    // Only one of the six known accents is ever written.
+    const known = knownAccent(accent);
+    if (known) {
+      document.cookie = `${ACCENT_COOKIE}=${known.slice(1)}; path=/; max-age=31536000; samesite=lax`;
+    }
   }, [accent]);
 }

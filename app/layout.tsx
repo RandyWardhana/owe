@@ -31,7 +31,6 @@ export const metadata: Metadata = {
   title: TITLE,
   description: DESCRIPTION,
   applicationName: "owe",
-  manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
@@ -89,6 +88,12 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <body suppressHydrationWarning>
+        {/* Rendered here, not through `metadata.manifest`, for one attribute:
+            use-credentials. Without it browsers fetch the manifest without
+            cookies, so the accent cookie never reaches the manifest route and
+            an installed app could never pick up its accent icon. React puts
+            the <link> in <head>. */}
+        <link rel="manifest" href="/manifest.webmanifest" crossOrigin="use-credentials" />
         <script dangerouslySetInnerHTML={{ __html: bootScript }} />
         <div id="root">{children}</div>
         <Analytics />
