@@ -25,7 +25,9 @@
 - ✋ **Assign by tapping** — mark who had each item, or split a shared dish evenly between a few people.
 - 🧮 **Fair, itemised splits** — per-person totals with tax, service and discounts apportioned proportionally; expand any person to see exactly which items are theirs.
 - 💸 **Settle up** — see who pays whom, with each person's bank / e-wallet number one tap to copy.
-- ☁️ **Your bills, backed up** — saved splits sync to an anonymous, end-to-end-encrypted cloud row keyed to your device, so they survive a cleared cache — still no account.
+- ☁️ **Your bills, backed up** — saved splits sync to an anonymous, encrypted cloud row keyed to your device, so they survive a cleared cache — still no account.
+- 🧾 **Proof of payment** — whoever owes can attach the transfer receipt; only the person who made the bill can mark the line settled.
+- ✍️ **Claim your own plate** — items the maker could not attribute travel with the link, so whoever ordered one puts their own name on it.
 - 🔗 **Share without an app** — lock a split in, then share a link; whoever opens it sees the totals, each person's items, and payment numbers right in their browser.
 - 🌍 **Bilingual** — English and Indonesia.
 - 🎨 **Make it yours** — light / dark theme, six accent colors, currency, rounding, and a motion toggle.
@@ -53,11 +55,12 @@ owe keeps as much as possible on your device, and what does leave is minimal or 
 - The **split → assign → settle flow runs entirely offline.** Your splits, history and preferences live in `localStorage` — no account, no login.
 - **Anonymous usage analytics.** Firebase Analytics (`lib/analytics.ts`) records which screens are opened, which buttons are tapped, and uncaught errors (as `exception` events — Crashlytics has no web SDK). Never bill contents: no items, names, amounts, payment details or links. Google signals and ad personalisation are off, and development builds send nothing (`NEXT_PUBLIC_ANALYTICS_DEBUG=1` to test).
 - **Reading a receipt** is the one step that needs a connection: the photo is sent to [OCR.space](https://ocr.space/) only to extract text. Offline, the scan buttons prompt you to reconnect or enter items by hand.
-- **Backup is anonymous and encrypted.** Your bill list is mirrored to Supabase keyed by `sha256(deviceId)`, with the payload **AES-GCM encrypted** using a key derived from a device id that never leaves the browser — so rows are opaque and only your device can read them.
-- **Shared bills are encrypted too.** A short link stores the encrypted bill in Supabase; a long link packs it into the URL itself. Either way the recipient only sees the bill in the link they were given.
+- **Backup is anonymous and end-to-end encrypted.** Your bill list is mirrored to Cloudflare D1 keyed by `sha256(deviceId)`, with the payload **AES-GCM encrypted** under a key derived from a device id that never leaves the browser. The server stores only the hash, so it genuinely cannot read your history — and neither can we.
+- **Shared bills are encrypted in transit and at rest**, but not from us: the key is a constant this app ships, so that any link opens without a password. A short link stores the encrypted bill and hands out a random, unguessable id; a long link packs the bill into the URL itself. Treat a share link as the secret — anyone holding one can read the split.
+- **Payment receipts** are readable by anyone holding that link, on purpose: settling up is a group conversation. Only the device that created the bill can confirm a payment or delete the bill.
 - A service worker (Serwist) precaches the app so it loads instantly and the core flow works with no connection.
 
-> Supabase is **optional** — without it, owe runs fully local (no cloud backup, and shares fall back to self-contained long links).
+> The cloud is **optional** — without it, owe runs fully local (no backup, no receipts, and shares fall back to self-contained long links).
 
 ## 🛠️ Tech stack
 
@@ -67,7 +70,7 @@ owe keeps as much as possible on your device, and what does leave is minimal or 
 | Language | [TypeScript](https://www.typescriptlang.org/) |
 | State | [Zustand](https://github.com/pmndrs/zustand) (persisted to `localStorage`) |
 | Receipt OCR | [OCR.space](https://ocr.space/) via a server route |
-| Cloud (optional) | [Supabase](https://supabase.com/) — encrypted bill backup + shared bills |
+| Cloud (optional) | [Cloudflare D1 + R2](https://developers.cloudflare.com/d1/) behind the `owe-db` Worker in [`worker/`](./worker) — shared bills, encrypted backups, payment receipts |
 | Crypto | Web Crypto `AES-GCM` (shared bills + per-device backup) |
 | PWA / offline | [Serwist](https://serwist.pages.dev/) service worker |
 | Styling | Hand-written CSS with design tokens + light/dark theming |
@@ -93,7 +96,8 @@ Everything works out of the box with sensible defaults — both of these are opt
 
 - **`NEXT_PUBLIC_FIREBASE_*`** — Firebase web config for anonymous usage analytics (see `lib/analytics.ts`). Leave empty and analytics stays off.
 - **`OCRSPACE_API_KEY`** — receipt scanning calls [OCR.space](https://ocr.space/ocrapi). The built-in `helloworld` demo key works but is rate-limited; set your own free key (25k/month) for reliability.
-- **`NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY`** — enable cloud backup and short share links. Without them, owe stays fully local.
+- **`NEXT_PUBLIC_OWE_CLOUD=1`** plus **`OWE_DB_URL` / `OWE_DB_SECRET`** — enable cloud backup, payment receipts and short share links. Without them, owe stays fully local. See [`worker/README.md`](./worker/README.md) for the one-time Cloudflare setup.
+- **`ADMIN_PASSWORD`** (8+ characters) — enables `/admin`, a console for recovering a bill someone has lost. Off unless set.
 
 > [!NOTE]
 > The PWA service worker is **disabled in development** and only generated for production builds. If you ever run a production build locally and later see stale assets in dev, unregister the service worker (DevTools → Application → Storage → *Clear site data*) once.
@@ -106,6 +110,8 @@ Everything works out of the box with sensible defaults — both of these are opt
 | `pnpm build` | Production build (generates the service worker) |
 | `pnpm start` | Serve the production build |
 | `pnpm lint` | Run ESLint |
+| `pnpm typecheck` | `tsc --noEmit` |
+| `pnpm test` | Unit tests (compiles the pure `lib/` modules first) |
 
 ## 📁 Project structure
 
@@ -114,8 +120,11 @@ app/
   layout.tsx        # root layout + PWA metadata
   page.tsx          # screen router (home → scan → … → breakdown)
   sw.ts             # Serwist service worker
-  api/scan/         # server route → OCR.space
+  not-found.tsx     # 404 · error.tsx · global-error.tsx
+  api/              # scan (OCR.space), bill, claim, proof, sync, admin
   s/                # shared-bill pages (+ link metadata)
+  admin/            # bill-recovery console
+  landing/          # marketing page
   styles/           # design tokens + per-screen CSS
 components/
   Sheet.tsx         # draggable bottom-sheet primitive
@@ -124,19 +133,25 @@ components/
   ui/               # ClickSpark, AnimatedMoney, CopyButton, …
 lib/
   store.ts          # Zustand store (persisted)
+  historyMerge.ts   # folding two devices' bill lists together
   ocr.ts            # receipt parsing
   calc.ts           # split math
   breakdown.ts      # per-person settlement
   currency.ts       # currencies + formatting
   payments.ts       # payment-method catalogue
   share.ts          # encode/decode/encrypt shared splits
+  shareId.ts        # the random id a share link points at
   shareMeta.ts      # share-link Open Graph metadata
-  supabase.ts       # lazy Supabase client (optional)
+  oweDb.ts          # server-side client for the owe-db Worker
   bills.ts          # shared-bill storage + paid sync
+  proofs.ts         # payment receipts
+  billOwner.ts      # per-bill owner tokens
   device.ts         # anonymous per-device id
   userBills.ts      # encrypted history backup
+  adminAuth.ts      # password gate for /admin
   i18n/             # en + id dictionaries
   hooks/            # composable hooks
+worker/             # owe-db — Cloudflare Worker over D1 + R2
 ```
 
 ## ⚙️ Settings
