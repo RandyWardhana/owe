@@ -217,7 +217,7 @@ export const COPY: Record<Lang, LandingCopy> = {
       lead: "From the first snap to the last “paid”, nothing in owe asks you to sign up, stay online, or trust it with your bills.",
       stats: [
         { value: "0", label: "Accounts needed" },
-        { value: "6", label: "Currencies" },
+        { value: "13", label: "Currencies" },
         { value: "2", label: "Languages" },
       ],
       items: [
@@ -346,7 +346,7 @@ export const COPY: Record<Lang, LandingCopy> = {
       lead: "Dari foto pertama sampai “lunas” terakhir, owe nggak pernah minta kamu daftar, online terus, atau nitip tagihanmu ke server.",
       stats: [
         { value: "0", label: "Akun dibutuhkan" },
-        { value: "6", label: "Mata uang" },
+        { value: "13", label: "Mata uang" },
         { value: "2", label: "Bahasa" },
       ],
       items: [

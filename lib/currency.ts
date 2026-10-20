@@ -5,12 +5,27 @@ export interface CurrencyDef {
   locale: string;
 }
 
+/* Ordered as the Settings list shows them: IDR first, the rest of ASEAN, then
+   the others. Timor-Leste uses USD, so every ASEAN member is covered.
+
+   `dec` follows how the money is actually counted, not ISO's minor unit: đồng,
+   riel, kip and kyat are whole numbers in everyday prices. MMK formats with
+   en-MM because my-MM prints Burmese digits (၁,၂၃၄), which the app's English
+   and Indonesian UI does not otherwise use. Every code here must also be in the
+   daily rates feed (app/api/rates), or "Show this bill in" cannot offer it. */
 export const CURRENCIES: Record<string, CurrencyDef> = {
   IDR: { sym: "Rp", code: "IDR", dec: 0, locale: "id-ID" },
   MYR: { sym: "RM", code: "MYR", dec: 2, locale: "ms-MY" },
-  JPY: { sym: "¥", code: "JPY", dec: 0, locale: "ja-JP" },
-  USD: { sym: "$", code: "USD", dec: 2, locale: "en-US" },
   SGD: { sym: "S$", code: "SGD", dec: 2, locale: "en-SG" },
+  THB: { sym: "฿", code: "THB", dec: 2, locale: "th-TH" },
+  PHP: { sym: "₱", code: "PHP", dec: 2, locale: "en-PH" },
+  VND: { sym: "₫", code: "VND", dec: 0, locale: "vi-VN" },
+  BND: { sym: "B$", code: "BND", dec: 2, locale: "ms-BN" },
+  KHR: { sym: "៛", code: "KHR", dec: 0, locale: "km-KH" },
+  LAK: { sym: "₭", code: "LAK", dec: 0, locale: "lo-LA" },
+  MMK: { sym: "Ks", code: "MMK", dec: 0, locale: "en-MM" },
+  USD: { sym: "$", code: "USD", dec: 2, locale: "en-US" },
+  JPY: { sym: "¥", code: "JPY", dec: 0, locale: "ja-JP" },
   TWD: { sym: "NT$", code: "TWD", dec: 0, locale: "zh-TW" },
 };
 

@@ -147,12 +147,12 @@ Everything is tweakable from the in-app settings sheet:
 - **Accent** — six accent colors that recolor the whole UI.
 - **Animations** — a single toggle that respects `prefers-reduced-motion`.
 - **Language** — English or Bahasa Indonesia.
-- **Currency** — IDR (default), MYR, JPY, USD, SGD, TWD.
+- **Currency** — IDR (default), every other ASEAN currency (MYR, SGD, THB, PHP, VND, BND, KHR, LAK, MMK), plus USD, JPY and TWD.
 - **Rounding** — exact, whole, or round up to the nearest 5.
 
 ## 💳 Currencies & payment methods
 
-**Currencies:** IDR · MYR · JPY · USD · SGD · TWD
+**Currencies:** IDR · MYR · SGD · THB · PHP · VND · BND · KHR · LAK · MMK · USD · JPY · TWD
 
 **Payment methods:** Bank transfer · GoPay · OVO · DANA · ShopeePay · LinkAja · PayPal · Other
 
