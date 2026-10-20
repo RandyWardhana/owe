@@ -237,6 +237,12 @@ const id: Dict = {
     roundWhole: "Bulat",
     roundUp5: "+5",
     sync: "Sinkron antar perangkat",
+    syncName: "Namamu",
+    syncNameHint:
+      "Opsional. Menandai cadanganmu supaya tim owe bisa menemukan tagihanmu kalau kamu minta bantuan. Hanya bagian ini dari cadanganmu yang bisa kami baca.",
+    syncNamePlaceholder: "mis. Randy",
+    syncNameSaved: "Nama tersimpan",
+    syncNameCleared: "Nama dihapus",
     syncCode: "Kode sinkronmu",
     syncCodeHint:
       "Salin ini dan tempel di perangkat atau browser lain untuk melihat tagihan yang sama.",
