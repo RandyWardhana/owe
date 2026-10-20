@@ -1,67 +1,142 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 
-import { Check, Sparkle, Users } from "@/components/icons";
+import { ArrowRight, Check, Minus, Plus, Sparkle, Trash, Users } from "@/components/icons";
 import { personColor, personInk } from "@/lib/util";
+import { translate } from "@/lib/i18n";
 
 import Money from "./Money";
 import Reveal from "./Reveal";
+import { PEOPLE, PRESETS } from "./data";
+import { fill, useCopy, useLandingLang } from "./copy";
+import { track } from "@/lib/analytics";
 
-const PEOPLE = [
-  { name: "Aya", swatch: 3 },
-  { name: "Ben", swatch: 2 },
-  { name: "Cleo", swatch: 1 },
-  { name: "Dee", swatch: 5 },
-];
+/* One line of the board: who is on it, how many each of them had, and
+   whether those counts apply. Mirrors the app's Item (assignedTo / units /
+   countEach) so the demo divides a line exactly the way the app does. */
+interface Line {
+  who: number[];
+  units: number[];
+  each: boolean;
+}
 
-const ITEMS = [
-  { name: "Tonkotsu ramen", price: 78000, start: [0] },
-  { name: "Gyoza (6 pcs)", price: 45000, start: [0, 1] },
-  { name: "Karaage", price: 52000, start: [1, 2] },
-  { name: "Matcha latte", price: 38000, start: [2] },
-  { name: "Mochi, 4 pcs", price: 36000, start: [0, 1, 2, 3] },
-];
+const ones = () => PEOPLE.map(() => 1);
 
-const TAX = 0.1;
-const SERVICE = 0.05;
+const startOf = (preset: number): Line[] =>
+  PRESETS[preset].items.map((item) => ({
+    who: [...item.start],
+    units: PEOPLE.map((_, p) => {
+      const k = item.start.indexOf(p);
+      return k >= 0 && item.counts ? item.counts[k] : 1;
+    }),
+    each: Boolean(item.counts),
+  }));
+
+const qtyOf = (i: { qty?: number }) => Math.max(1, i.qty ?? 1);
+
+/* Count each only means something with several people on a line of several,
+   the same rule as Assign: "6x Es teh" where one of them had two. */
+const counting = (item: { qty?: number }, line: Line) => qtyOf(item) > 1 && line.who.length > 1 && line.each;
+const countedOf = (line: Line) => line.who.reduce((sum, p) => sum + line.units[p], 0);
 
 /* The one section that is not a claim about the product.
    Splitting a bill sounds simple until a plate is shared four ways and the tax
    has to follow it; letting people tap that themselves lands the point faster
-   than any sentence about "fair splits". */
+   than any sentence about "fair splits".
+
+   Built like the reference's pizza builder: a preset loads a whole bill in one
+   tap, a counter says how far along you are, Clear empties the board, and the
+   result panel stays in view while you tap, so every change has a visible
+   effect. */
 export default function TrySplit() {
-  const [assigned, setAssigned] = useState<number[][]>(() => ITEMS.map((i) => [...i.start]));
+  const lang = useLandingLang();
+  const copy = useCopy();
+  const TRY = copy.try;
+  // Words the app's Assign step already owns, from its own dictionary.
+  const app = (key: string, vars?: Record<string, string | number>) => translate(lang, `assign.${key}`, vars);
+  const num = (n: number) => Math.round(n).toLocaleString("id-ID");
+  const [preset, setPreset] = useState(0);
+  const [lines, setLines] = useState<Line[]>(() => startOf(0));
+  // One "they touched it" event per visit, not one per tap.
+  const [tapped, setTapped] = useState(false);
+  const demo = (action: string, extra?: Record<string, string | boolean>) =>
+    track("landing_demo", { action, preset: PRESETS[preset].id, ...extra });
+  const bill = PRESETS[preset];
 
-  const toggle = (item: number, person: number) =>
-    setAssigned((current) =>
-      current.map((who, i) => {
-        if (i !== item) return who;
-        return who.includes(person) ? who.filter((p) => p !== person) : [...who, person].sort();
-      }),
-    );
+  const load = (index: number) => {
+    setPreset(index);
+    setLines(startOf(index));
+    track("landing_demo", { action: "preset", preset: PRESETS[index].id });
+  };
 
-  const everyone = () => setAssigned(ITEMS.map(() => PEOPLE.map((_, i) => i)));
-  const reset = () => setAssigned(ITEMS.map((i) => [...i.start]));
+  const edit = (item: number, change: (line: Line) => Line) =>
+    setLines((current) => current.map((line, i) => (i === item ? change(line) : line)));
 
-  const { totals, subtotal, fees, grand, orphans } = useMemo(() => {
+  // Taking someone off a line forgets their count, as the app does, so putting
+  // them back starts them at one rather than at a stale number.
+  const toggle = (item: number, person: number) => {
+    if (!tapped) {
+      setTapped(true);
+      demo("tap_face");
+    }
+    edit(item, (line) => {
+      const on = line.who.includes(person);
+      const units = [...line.units];
+      units[person] = 1;
+      return {
+        ...line,
+        who: on ? line.who.filter((p) => p !== person) : [...line.who, person].sort(),
+        units,
+      };
+    });
+  };
+
+  const setEach = (item: number, each: boolean) => {
+    demo("count_each", { on: each });
+    edit(item, (line) => ({ ...line, each }));
+  };
+
+  // + stops once the whole line is accounted for, for everyone on it — not
+  // just at the line's qty per person (the app's fc095da fix).
+  const step = (item: number, person: number, delta: number) =>
+    edit(item, (line) => {
+      const qty = qtyOf(bill.items[item]);
+      if (delta > 0 && countedOf(line) >= qty) return line;
+      const units = [...line.units];
+      units[person] = Math.min(qty, Math.max(1, units[person] + delta));
+      return { ...line, units };
+    });
+
+  const everyone = () => {
+    demo("share_all");
+    setLines((current) => current.map((line) => ({ ...line, who: PEOPLE.map((_, i) => i), units: ones() })));
+  };
+  const clear = () => {
+    demo("clear");
+    setLines(bill.items.map(() => ({ who: [], units: ones(), each: false })));
+  };
+
+  const { totals, subtotal, fees, grand, covered } = useMemo(() => {
     const perPerson = PEOPLE.map(() => 0);
     let counted = 0;
-    let unassigned = 0;
+    let done = 0;
 
-    ITEMS.forEach((item, i) => {
-      const who = assigned[i];
-      if (who.length === 0) {
-        unassigned += 1;
-        return;
-      }
+    bill.items.forEach((item, i) => {
+      const line = lines[i];
+      if (!line || line.who.length === 0) return;
+      done += 1;
       counted += item.price;
-      who.forEach((p) => {
-        perPerson[p] += item.price / who.length;
+      // Counted: pay for what you had. Shared: everyone on it pays the same.
+      const units = counting(item, line) ? countedOf(line) : line.who.length;
+      line.who.forEach((p) => {
+        const mine = counting(item, line) ? line.units[p] : 1;
+        perPerson[p] += (item.price * mine) / units;
       });
     });
 
-    const feeTotal = counted * (TAX + SERVICE);
+    const feeTotal = counted * (bill.tax + bill.service);
     const scale = counted === 0 ? 0 : (counted + feeTotal) / counted;
 
     return {
@@ -69,38 +144,80 @@ export default function TrySplit() {
       subtotal: counted,
       fees: feeTotal,
       grand: counted + feeTotal,
-      orphans: unassigned,
+      covered: done,
     };
-  }, [assigned]);
+  }, [lines, bill]);
+
+  const count = bill.items.length;
+  const orphans = count - covered;
+  const feeLabel = [
+    bill.tax ? fill(TRY.tax, { n: Math.round(bill.tax * 100) }) : "",
+    bill.service ? fill(TRY.service, { n: Math.round(bill.service * 100) }) : "",
+  ]
+    .filter(Boolean)
+    .join(" + ");
 
   return (
     <section className="lp-section lp-try" id="try">
+      {/* The reference's lime disc behind the floating cards, drifting on its
+          own plane as the page scrolls. */}
+      <span className="lp-try__blob" data-parallax="0.12" aria-hidden="true" />
       <div className="lp-wrap">
         <Reveal className="lp-section__head">
-          <span className="lp-eyebrow">Have a go</span>
-          <h2 className="disp lp-h2">Tap who had what</h2>
-          <p className="lp-lead lp-lead--center">
-            This is the real thing, not a picture of it. Tap a face to put someone
-            on a dish — everything below recalculates, tax and service included.
-          </p>
+          <span className="lp-eyebrow">{TRY.eyebrow}</span>
+          <h2 className="disp lp-h2">{TRY.title}</h2>
+          <p className="lp-lead lp-lead--center">{TRY.lead}</p>
+        </Reveal>
+
+        <Reveal className="lp-presets">
+          <span className="lp-presets__label">{TRY.presetsLabel}</span>
+          <div className="lp-presets__row" role="radiogroup" aria-label={TRY.presetsLabel}>
+            {PRESETS.map((p, i) => (
+              <button
+                key={p.id}
+                type="button"
+                role="radio"
+                aria-checked={i === preset}
+                className={`lp-preset ${i === preset ? "is-on" : ""}`}
+                onClick={() => load(i)}
+              >
+                <span className="lp-preset__name">{copy.presets[p.id]}</span>
+                <span className="lp-preset__meta">
+                  {p.items.length} items · {p.place}
+                </span>
+              </button>
+            ))}
+          </div>
         </Reveal>
 
         <Reveal className="lp-try__board">
           <div className="lp-try__bill card">
             <div className="lp-try__billhead">
-              <span className="lp-try__place">Ramen Ya</span>
+              <span className="lp-try__place">{bill.place}</span>
               <span className="lp-try__hint">
-                <Users size={13} /> tap a face
+                <Users size={13} /> {TRY.tapFace}
               </span>
             </div>
 
             <ul className="lp-try__items">
-              {ITEMS.map((item, i) => {
-                const who = assigned[i];
+              {bill.items.map((item, i) => {
+                const line = lines[i] ?? { who: [], units: ones(), each: false };
+                const who = line.who;
+                const qty = qtyOf(item);
+                const countable = qty > 1 && who.length > 1;
+                const isCounting = counting(item, line);
+                const counted = countedOf(line);
+                const uneven = isCounting && who.some((p) => line.units[p] !== 1);
                 return (
-                  <li key={item.name} className={`lp-try__item ${who.length ? "" : "is-orphan"}`}>
+                  <li key={`${bill.id}-${item.name}`} className={`lp-try__item ${who.length ? "" : "is-orphan"}`}>
                     <div className="lp-try__itemtop">
-                      <span className="lp-try__iname">{item.name}</span>
+                      <span className="lp-try__iname">
+                        {item.name}
+                        {qty > 1 ? <span className="lp-try__qty"> ×{qty}</span> : null}
+                        {who.length > 1 && !isCounting ? (
+                          <span className="badge-shared lp-try__badge">{app("shared")}</span>
+                        ) : null}
+                      </span>
                       <span className="lp-try__iprice tnum">
                         {item.price.toLocaleString("id-ID")}
                       </span>
@@ -119,7 +236,7 @@ export default function TrySplit() {
                               ["--tint-ink" as string]: personInk(person.swatch),
                             }}
                             aria-pressed={on}
-                            aria-label={`${on ? "Remove" : "Add"} ${person.name} ${on ? "from" : "to"} ${item.name}`}
+                            aria-label={fill(on ? TRY.remove : TRY.add, { name: person.name, item: item.name })}
                             onClick={() => toggle(i, p)}
                           >
                             <span>{person.name[0]}</span>
@@ -129,69 +246,156 @@ export default function TrySplit() {
                       })}
 
                       <span className="lp-try__each tnum">
-                        {who.length > 1
-                          ? `${Math.round(item.price / who.length).toLocaleString("id-ID")} each`
-                          : who.length === 1
-                            ? "all theirs"
-                            : "nobody yet"}
+                        {uneven
+                          ? app("perUnit", { amount: num(item.price / counted) })
+                          : who.length > 1
+                            ? app("each", { amount: num(item.price / who.length) })
+                            : who.length === 1
+                              ? TRY.allTheirs
+                              : TRY.nobodyYet}
                       </span>
                     </div>
+
+                    {/* The app's Assign control, same classes and words: a
+                        line of several, shared by several, can be counted. */}
+                    {countable ? (
+                      <div className="units lp-try__units">
+                        <div className="seg seg--full units__mode" role="group">
+                          <button
+                            type="button"
+                            className={`seg__btn ${isCounting ? "" : "on"}`}
+                            aria-pressed={!isCounting}
+                            onClick={() => setEach(i, false)}
+                          >
+                            {app("modeShared")}
+                          </button>
+                          <button
+                            type="button"
+                            className={`seg__btn ${isCounting ? "on" : ""}`}
+                            aria-pressed={isCounting}
+                            onClick={() => setEach(i, true)}
+                          >
+                            {app("modeEach")}
+                          </button>
+                        </div>
+                        {isCounting ? (
+                          <>
+                            <div className="muted units__hint">
+                              {app("howMany", { counted, qty })}
+                            </div>
+                            {who.map((p) => {
+                              const n = line.units[p];
+                              const name = PEOPLE[p].name;
+                              return (
+                                <div className="row between units__row" key={name}>
+                                  <span className="truncate units__name">{name}</span>
+                                  <div className="units__step">
+                                    <button
+                                      type="button"
+                                      className="units__btn"
+                                      aria-label={app("less", { name })}
+                                      disabled={n <= 1}
+                                      onClick={() => step(i, p, -1)}
+                                    >
+                                      <Minus size={15} />
+                                    </button>
+                                    <span className="units__n tnum">{n}</span>
+                                    <button
+                                      type="button"
+                                      className="units__btn"
+                                      aria-label={app("more", { name })}
+                                      disabled={counted >= qty}
+                                      onClick={() => step(i, p, 1)}
+                                    >
+                                      <Plus size={15} />
+                                    </button>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </>
+                        ) : null}
+                      </div>
+                    ) : null}
                   </li>
                 );
               })}
             </ul>
 
+            <div className="lp-try__actions">
+              <button type="button" className="lp-try__btn" onClick={everyone}>
+                <Sparkle size={15} /> {TRY.shareAll}
+              </button>
+              <button type="button" className="lp-try__btn" onClick={clear}>
+                <Trash size={15} /> {TRY.clear}
+              </button>
+            </div>
+          </div>
+
+          {/* The order panel: sticky on wide screens so the totals stay next to
+              the dish you are tapping, the way the reference keeps the pie and
+              its price on screen together. */}
+          <aside className="lp-try__panel card" aria-live="polite">
+            <div className="lp-try__count">
+              <span className="lp-try__countnum tnum">
+                {covered} {TRY.of} {count}
+              </span>{" "}
+              {TRY.assigned}
+              <span className="lp-try__meter" aria-hidden="true">
+                <i style={{ transform: `scaleX(${count ? covered / count : 0})` }} />
+              </span>
+            </div>
+
+            <div className="lp-try__people">
+              {PEOPLE.map((person, p) => {
+                const amount = totals[p];
+                return (
+                  <div key={person.name} className={`lp-try__person ${amount ? "" : "is-out"}`}>
+                    <span
+                      className="lp-try__pav"
+                      style={{
+                        background: personColor(person.swatch),
+                        color: personInk(person.swatch),
+                      }}
+                    >
+                      {person.name[0]}
+                    </span>
+                    <span className="lp-try__pname">{person.name}</span>
+                    <Money value={amount} className="lp-try__pamt disp" />
+                  </div>
+                );
+              })}
+            </div>
+
             <div className="lp-try__sums">
               <div className="lp-try__sum">
-                <span>Subtotal</span>
+                <span>{TRY.subtotal}</span>
                 <Money value={subtotal} />
               </div>
-              <div className="lp-try__sum">
-                <span>Tax 10% + service 5%</span>
-                <Money value={fees} />
-              </div>
+              {feeLabel ? (
+                <div className="lp-try__sum">
+                  <span>{feeLabel}</span>
+                  <Money value={fees} />
+                </div>
+              ) : null}
               <div className="lp-try__sum lp-try__sum--grand">
-                <span>Total</span>
+                <span>{TRY.total}</span>
                 <Money value={grand} className="disp" />
               </div>
             </div>
 
-            <div className="lp-try__actions">
-              <button type="button" className="lp-try__btn" onClick={everyone}>
-                <Sparkle size={15} /> Share everything
-              </button>
-              <button type="button" className="lp-try__btn" onClick={reset}>
-                Start over
-              </button>
-            </div>
-          </div>
-
-          <div className="lp-try__people">
-            {PEOPLE.map((person, p) => {
-              const amount = totals[p];
-              return (
-                <div key={person.name} className={`lp-try__person card ${amount ? "" : "is-out"}`}>
-                  <span
-                    className="lp-try__pav"
-                    style={{
-                      background: personColor(person.swatch),
-                      color: personInk(person.swatch),
-                    }}
-                  >
-                    {person.name[0]}
-                  </span>
-                  <span className="lp-try__pname">{person.name}</span>
-                  <Money value={amount} className="lp-try__pamt disp" />
-                </div>
-              );
-            })}
-
             <p className={`lp-try__note ${orphans ? "is-warn" : ""}`}>
-              {orphans
-                ? `${orphans} ${orphans === 1 ? "item has" : "items have"} nobody on ${orphans === 1 ? "it" : "them"} — nobody is charged for ${orphans === 1 ? "it" : "them"}.`
-                : "Every item is covered. This is what everyone gets sent."}
+              {orphans === 1
+                ? TRY.orphansOne
+                : orphans
+                  ? fill(TRY.orphansMany, { n: orphans })
+                  : TRY.covered}
             </p>
-          </div>
+
+            <Link href="/" className="lp-cta lp-cta--ink lp-try__go" onClick={() => track("landing_cta", { location: "demo" })}>
+              {TRY.cta} <ArrowRight size={17} className="lp-cta__arrow" />
+            </Link>
+          </aside>
         </Reveal>
       </div>
     </section>

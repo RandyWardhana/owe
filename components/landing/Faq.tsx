@@ -3,17 +3,19 @@
 import { useState } from "react";
 import { Plus } from "@/components/icons";
 import Reveal from "./Reveal";
-import { FAQS } from "./data";
+import { useCopy } from "./copy";
 
 export default function Faq() {
   const [open, setOpen] = useState<number | null>(0);
+  const copy = useCopy();
+  const FAQS = copy.faqs;
 
   return (
     <section className="lp-section" id="faq">
       <div className="lp-wrap lp-wrap--narrow">
         <Reveal className="lp-section__head">
-          <span className="lp-eyebrow">Good to know</span>
-          <h2 className="disp lp-h2">Questions, answered</h2>
+          <span className="lp-eyebrow">{copy.faqHead.eyebrow}</span>
+          <h2 className="disp lp-h2">{copy.faqHead.title}</h2>
         </Reveal>
 
         <ul className="lp-faq">
@@ -21,7 +23,7 @@ export default function Faq() {
             const isOpen = open === i;
             return (
               <Reveal
-                key={item.q}
+                key={i}
                 as="li"
                 delay={i * 40}
                 className={`lp-faq__item card ${isOpen ? "is-open" : ""}`}

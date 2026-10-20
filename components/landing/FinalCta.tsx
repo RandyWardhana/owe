@@ -1,45 +1,49 @@
 "use client";
 
-import { useRef } from "react";
 import Link from "next/link";
-import { ArrowRight } from "@/components/icons";
+import { ArrowRight, WifiOff } from "@/components/icons";
 
 import Reveal from "./Reveal";
-import { usePlayful } from "./motion";
-import { FINAL_CTA } from "./data";
+import { useCopy } from "./copy";
+import { track } from "@/lib/analytics";
 
-/* The button leans toward the cursor. Pointer-only and tiny in amplitude --
-   enough to make the last thing on the page feel alive without turning the one
-   action that matters into a moving target. */
+/* The reference ends on one long hand-drawn line that winds down the page and
+   lands on "Get the App for Free". Here the line drops in from the FAQ above
+   and draws itself as it scrolls into view (data-draw, see useScrollFx), so
+   the last thing that moves on the page points at the one button left. */
 export default function FinalCta() {
-  const play = usePlayful();
-  const btn = useRef<HTMLAnchorElement>(null);
-
-  const lean = (e: React.MouseEvent) => {
-    const el = btn.current;
-    if (!el || !play || !window.matchMedia("(pointer: fine)").matches) return;
-    const box = el.getBoundingClientRect();
-    const x = (e.clientX - (box.left + box.width / 2)) / box.width;
-    const y = (e.clientY - (box.top + box.height / 2)) / box.height;
-    el.style.transform = `translate(${x * 10}px, ${y * 8}px)`;
-  };
-
-  const settle = () => {
-    if (btn.current) btn.current.style.transform = "";
-  };
-
+  const FINAL = useCopy().final;
   return (
     <section className="lp-final">
-      <span className="lp-final__glow" aria-hidden="true" />
+      <svg
+        className="lp-scribble lp-final__line"
+        viewBox="0 0 300 260"
+        preserveAspectRatio="none"
+        data-draw
+        aria-hidden="true"
+      >
+        <path
+          pathLength={1}
+          d="M150 0 C 150 40, 70 50, 80 96 C 90 140, 200 110, 206 150 C 212 196, 110 176, 132 222 C 140 238, 150 246, 150 258"
+        />
+      </svg>
+
       <div className="lp-wrap">
         <Reveal className="lp-final__inner">
-          <h2 className="disp lp-final__title">{FINAL_CTA.title}</h2>
-          <p className="lp-final__lead">{FINAL_CTA.lead}</p>
-          <div className="lp-final__pad" onMouseMove={lean} onMouseLeave={settle}>
-            <Link href="/" ref={btn} className="lp-final__btn">
-              {FINAL_CTA.button} <ArrowRight size={20} />
-            </Link>
-          </div>
+          <h2 className="disp lp-final__title">
+            {FINAL.title.map((line, i) => (
+              <span key={i} className="lp-hero__line">
+                {line}
+              </span>
+            ))}
+          </h2>
+          <p className="lp-final__lead">{FINAL.lead}</p>
+          <Link href="/" className="lp-cta lp-cta--ink lp-final__btn" onClick={() => track("landing_cta", { location: "final" })}>
+            {FINAL.button} <ArrowRight size={18} />
+          </Link>
+          <p className="lp-final__install">
+            <WifiOff size={14} /> {FINAL.install}
+          </p>
         </Reveal>
       </div>
     </section>
