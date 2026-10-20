@@ -91,7 +91,7 @@ Open [http://localhost:6769](http://localhost:6769).
 Everything works out of the box with sensible defaults — both of these are optional. Copy `.env.local.example` to `.env.local` to override:
 
 - **`OCRSPACE_API_KEY`** — receipt scanning calls [OCR.space](https://ocr.space/ocrapi). The built-in `helloworld` demo key works but is rate-limited; set your own free key (25k/month) for reliability.
-- **`NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY`** — enable cloud backup and short share links. Without them, owe stays fully local. When set, run [`supabase/schema.sql`](./supabase/schema.sql) once in the Supabase SQL editor to create the tables.
+- **`NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY`** — enable cloud backup and short share links. Without them, owe stays fully local.
 
 > [!NOTE]
 > The PWA service worker is **disabled in development** and only generated for production builds. If you ever run a production build locally and later see stale assets in dev, unregister the service worker (DevTools → Application → Storage → *Clear site data*) once.
