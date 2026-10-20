@@ -258,6 +258,17 @@ const id: Dict = {
     iosHint: 'Ketuk tombol Bagikan, lalu "Tambahkan ke Layar Utama".',
     dismiss: "Nanti saja",
   },
+  status: {
+    notFoundTitle: "Tautan ini tidak menuju ke mana-mana",
+    notFoundBody:
+      "Patungan yang kamu cari tidak ada di sini. Tautan berbagi yang sudah dihapus tidak bisa dibuka lagi — minta pengirimnya membagikan ulang.",
+    errorTitle: "Ada yang bermasalah di sisi kami",
+    errorBody:
+      "Patunganmu tersimpan di perangkat ini, jadi tidak ada yang hilang. Coba lagi, atau kembali dan buka tagihannya sekali lagi.",
+    retry: "Coba lagi",
+    home: "Kembali ke patunganku",
+    details: "Detail teknis",
+  },
   offline: "Kamu sedang offline",
   backOnline: "Kamu kembali online",
 };

@@ -52,9 +52,9 @@ export default function SharedMissing({
         </div>
       }
     >
-      <div className="pad rise" style={{ paddingTop: "calc(20px + var(--safe-top))" }}>
+      <div className="pad rise shared-missing" style={{ paddingTop: "calc(20px + var(--safe-top))" }}>
         <div className="shared-mark disp">{t("app.name")}</div>
-        <div className="card empty" style={{ marginTop: 18 }}>
+        <div className="card empty shared-missing__card">
           {kind === "offline" ? <WifiOff size={28} /> : <Receipt size={28} />}
           <h2 className="disp shared-title" style={{ color: "var(--ink)" }}>
             {t(`shared.missing.${kind}Title`)}
