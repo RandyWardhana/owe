@@ -45,6 +45,6 @@ export function setSyncName(name: string): void {
     if (trimmed) localStorage.setItem(NAME_KEY, trimmed);
     else localStorage.removeItem(NAME_KEY);
   } catch {
-    /* storage blocked */
+    // storage blocked
   }
 }

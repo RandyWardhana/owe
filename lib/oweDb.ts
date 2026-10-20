@@ -1,8 +1,7 @@
-/* Cloud storage for shared bills and per-device history.
-   Replaces the Supabase client: the data now lives in Cloudflare D1, reached
-   through the owe-db Worker (D1 bindings only work from Cloudflare compute, and
-   this app runs on Vercel). Every call is server-side; the browser never holds
-   the secret. */
+import type { Claims, StoredBill } from "../entities/share";
+
+// Data lives in Cloudflare D1 behind the owe-db Worker, because D1 bindings only work from
+// Cloudflare compute and this app runs on Vercel. Server-side only; the browser never holds the secret.
 
 const base = (process.env.OWE_DB_URL ?? "").replace(/\/+$/, "");
 const secret = process.env.OWE_DB_SECRET ?? "";
@@ -31,20 +30,15 @@ async function call<T>(
   }
 }
 
-export type Claims = Record<string, number[]>;
-export type BillRow = { data: string | null; paid: number[]; claims: Claims };
-
-/* null when the Worker could not be asked (not configured, unreachable, or it
-   errored) -- as opposed to a row with no data, which is a bill that is not
-   there. Callers that show a link need to tell those apart. */
-export const readBill = (id: string): Promise<BillRow | null> =>
-  call<BillRow | null>(`/bill?id=${encodeURIComponent(id)}`, {
+// null means the Worker could not be asked, unlike a row with no data (no such bill).
+// Callers that show a link must tell the two apart.
+export const readBill = (id: string): Promise<StoredBill | null> =>
+  call<StoredBill | null>(`/bill?id=${encodeURIComponent(id)}`, {
     method: "GET",
     fallback: null,
   });
 
-/* No owner token: whoever holds the link is the person who ordered the thing,
-   and they are not the device that made the bill. */
+// No owner token: the claimer holds a link, not the device that made the bill.
 export const writeClaim = (
   id: string,
   item: string,
@@ -187,7 +181,6 @@ export async function removeBill(
   }
 }
 
-/* Server-rendered share pages read the bill straight from here. */
 export async function getBillData(id: string): Promise<string | null> {
   return (await readBill(id))?.data ?? null;
 }

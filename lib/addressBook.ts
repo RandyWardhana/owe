@@ -1,19 +1,13 @@
-import type { Account, Person } from "./types";
+import type { Person } from "../entities/bill";
+import type { Contact } from "../entities/contact";
+import type { Account } from "../entities/payment";
 import { uid } from "./util";
 
-/* Everyone you have split with before, and where to send them money.
-   Device-local: this never leaves the browser and is not part of a shared bill.
-   Keyed by the lower-cased name, because that is what the person typing
-   actually matches on. */
+// Device-local: never leaves the browser and is not part of a shared bill.
+// Keyed by lower-cased name, which is what the person typing matches on.
 
 const KEY = "owe.contacts.v1";
 const LIMIT = 200;
-
-export interface Contact {
-  name: string;
-  accounts: { key: Account["key"]; value: string }[];
-  usedAt: number;
-}
 
 const normalize = (name: string): string => name.trim().toLowerCase();
 
@@ -37,12 +31,10 @@ function write(contacts: Contact[]): void {
   }
 }
 
-/** Most recently used first — the order a picker should show them in. */
 export function contacts(): Contact[] {
   return read().sort((a, b) => b.usedAt - a.usedAt);
 }
 
-/** Saved accounts for a name, ready to drop into a Person. */
 export function accountsFor(name: string): Account[] {
   const key = normalize(name);
   if (!key) return [];
@@ -62,13 +54,7 @@ export function isKnown(name: string): boolean {
   return Boolean(key) && read().some((contact) => normalize(contact.name) === key);
 }
 
-/**
- * Remember these people for next time.
- *
- * Only those with a name AND at least one filled account are worth keeping —
- * a bare name saves nobody the question "where do I transfer?". A later bill
- * replaces the stored accounts, so correcting a number once fixes it for good.
- */
+/** Keeps only people with a name and a filled account; a later bill replaces stored accounts. */
 export function remember(people: Person[]): void {
   const existing = read();
   const now = Date.now();
@@ -80,9 +66,9 @@ export function remember(people: Person[]): void {
       .map((account) => ({ key: account.key, value: account.value.trim() }));
     if (!name || !accounts.length) return;
 
-    const at = existing.findIndex((c) => normalize(c.name) === normalize(name));
+    const matchIndex = existing.findIndex((saved) => normalize(saved.name) === normalize(name));
     const contact: Contact = { name, accounts, usedAt: now };
-    if (at >= 0) existing[at] = contact;
+    if (matchIndex >= 0) existing[matchIndex] = contact;
     else existing.unshift(contact);
   });
 
@@ -90,12 +76,8 @@ export function remember(people: Person[]): void {
 }
 
 /**
- * Fold in the address book from another of your devices.
- *
- * Most recent write wins per person, so correcting someone's number on the
- * phone reaches the laptop rather than being overwritten by whatever the laptop
- * happened to remember. Nothing is ever removed by a merge: a contact missing
- * from the other device means it never saw them, not that they were deleted.
+ * Most recent write wins per person. A merge never removes anything: a contact missing from
+ * the other device means it never saw them, not that they were deleted.
  */
 export function mergeContacts(incoming: Contact[]): void {
   if (!Array.isArray(incoming) || incoming.length === 0) return;

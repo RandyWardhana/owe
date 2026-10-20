@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 import { fmtMoney } from "./currency";
-import type { SharedBill } from "./types";
+import type { SharedBill } from "../entities/share";
 
 const FALLBACK: Metadata = { title: "owe — a shared split" };
 

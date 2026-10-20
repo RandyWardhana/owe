@@ -1,8 +1,9 @@
 import { hasCloudSync } from "./cloudSync";
 import { deviceId, setSyncName, syncKey, syncName } from "./device";
 import { adoptTokens, allTokens } from "./billOwner";
-import { contacts, mergeContacts, type Contact } from "./addressBook";
-import type { Draft } from "./types";
+import { contacts, mergeContacts } from "./addressBook";
+import type { Draft } from "../entities/bill";
+import type { SyncPayload } from "../entities/sync";
 
 function online(): boolean {
   return typeof navigator === "undefined" || navigator.onLine;
@@ -32,56 +33,54 @@ function fromB64(str: string): Uint8Array {
   return out;
 }
 
-interface Payload {
-  history: Draft[];
-  /* Bills deleted on any device. Without these a delete is undone by the very
-     next sync, which reads as the app losing your instruction. */
-  tombstones?: Record<string, number>;
-  /* Saved people. Re-entering everyone's bank details on a second device is
-     the tedium this app exists to remove; it should not reappear the moment
-     you pick up a different phone. */
-  contacts?: Contact[];
-  /* billId -> owner token. Without these, your other device can see a bill it
-     created but cannot confirm anyone's payment on it: the token proving
-     ownership lived only in the browser that first shared it. */
-  owners?: Record<string, string>;
-  /* The name the user typed under Sync, so a second device picks it up too. */
-  name?: string;
-}
-
-async function encrypt(payload: Payload, id: string): Promise<string> {
+async function encrypt(payload: SyncPayload, id: string): Promise<string> {
   const key = await keyFor(id);
   const iv = crypto.getRandomValues(new Uint8Array(12));
   const raw = new TextEncoder().encode(JSON.stringify(payload));
-  const ct = new Uint8Array(
+  const ciphertext = new Uint8Array(
     await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, raw),
   );
-  const packed = new Uint8Array(iv.length + ct.length);
+  const packed = new Uint8Array(iv.length + ciphertext.length);
   packed.set(iv, 0);
-  packed.set(ct, iv.length);
+  packed.set(ciphertext, iv.length);
   return toB64(packed);
 }
 
-async function decrypt(data: string, id: string): Promise<Payload | null> {
+async function decrypt(data: string, id: string): Promise<SyncPayload | null> {
   try {
     const key = await keyFor(id);
     const packed = fromB64(data);
     const iv = packed.slice(0, 12);
-    const ct = packed.slice(12);
+    const ciphertext = packed.slice(12);
     const raw = new Uint8Array(
-      await crypto.subtle.decrypt({ name: "AES-GCM", iv }, key, ct),
+      await crypto.subtle.decrypt({ name: "AES-GCM", iv }, key, ciphertext),
     );
     const parsed = JSON.parse(new TextDecoder().decode(raw));
     // Older backups are a bare array; newer ones wrap it so tokens can ride along.
     if (Array.isArray(parsed)) return { history: parsed as Draft[] };
-    if (parsed && Array.isArray(parsed.history)) return parsed as Payload;
+    if (parsed && Array.isArray(parsed.history)) return parsed as SyncPayload;
     return null;
   } catch {
     return null;
   }
 }
 
-export async function pullHistory(): Promise<Payload | null> {
+function sharedIds(history: Draft[]): string[] {
+  return [...new Set(history.map((entry) => entry.shareId).filter((id): id is string => Boolean(id)))];
+}
+
+function ownedTokens(ids: string[]): Record<string, string> {
+  const tokens = allTokens();
+  return Object.fromEntries(ids.filter((id) => tokens[id]).map((id) => [id, tokens[id]]));
+}
+
+// History holds finished bills, but syncSaved mirrors the live draft's wizard step into it;
+// normalise so the other device doesn't render a finished split as unfinished.
+function forSync(history: Draft[]): Draft[] {
+  return history.map((entry) => ({ ...entry, step: "breakdown" as const }));
+}
+
+export async function pullHistory(): Promise<SyncPayload | null> {
   const id = deviceId();
   if (!hasCloudSync || !id || !online()) return null;
   try {
@@ -102,34 +101,12 @@ export async function pullHistory(): Promise<Payload | null> {
   }
 }
 
-function sharedIds(history: Draft[]): string[] {
-  return [...new Set(history.map((entry) => entry.shareId).filter((id): id is string => Boolean(id)))];
-}
-
-function ownedTokens(ids: string[]): Record<string, string> {
-  const tokens = allTokens();
-  return Object.fromEntries(ids.filter((id) => tokens[id]).map((id) => [id, tokens[id]]));
-}
-
-/**
- * What actually goes over the wire.
- *
- * `step` is where the user is standing in the wizard, not a property of the
- * bill. syncSaved mirrors the live draft into its history entry on every
- * keystroke, so a bill being edited was pushed carrying step:"assign" -- and
- * the other device rendered a finished split as an unfinished draft. History is
- * a list of finished bills by definition, so it is normalised on the way out.
- */
-function forSync(history: Draft[]): Draft[] {
-  return history.map((entry) => ({ ...entry, step: "breakdown" as const }));
-}
-
 export async function pushHistory(
   history: Draft[],
   tombstones: Record<string, number> = {},
 ): Promise<void> {
-  // never overwrite the cloud copy with an empty list — a failed restore on a
-  // fresh/evicted context would otherwise wipe a good backup
+  // Never overwrite the cloud copy with an empty list: a failed restore on a fresh or
+  // evicted context would otherwise wipe a good backup.
   if (!history.length && !Object.keys(tombstones).length) return;
   const id = deviceId();
   if (!hasCloudSync || !id || !online()) return;
@@ -148,6 +125,6 @@ export async function pushHistory(
       body: JSON.stringify({ key, data, bills: shared, owned: ownedTokens(shared), name }),
     });
   } catch {
-    /* best-effort */
+    // best-effort
   }
 }

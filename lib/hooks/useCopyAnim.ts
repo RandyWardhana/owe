@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { useStore } from "@/lib/store";
-import { buzz } from "@/lib/util";
-
-export type CopyPhase = "idle" | "copied" | "leaving";
+import type { CopyPhase } from "../../entities/appearance";
+import { useStore } from "../store";
+import { buzz } from "../util";
 
 export function useCopyAnim() {
   const showToast = useStore((s) => s.showToast);

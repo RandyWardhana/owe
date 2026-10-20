@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 
-import { useStore } from "@/lib/store";
-import { pullHistory, pushHistory } from "@/lib/userBills";
+import { useStore } from "../store";
+import { pullHistory, pushHistory } from "../userBills";
 
 export function useBillBackup() {
   const history = useStore((s) => s.history);

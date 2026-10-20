@@ -1,21 +1,15 @@
-import type {
-  Draft,
-  Item,
-  PersonSplit,
-  Rounding,
-  Settlement,
-  SplitResult,
-} from "./types";
+import type { Draft, Item, PersonSplit, Settlement, SplitResult } from "../entities/bill";
+import type { Rounding } from "../entities/currency";
 
-export function lineTotal(it: Pick<Item, "qty" | "price">): number {
-  return (Number(it.qty) || 0) * (Number(it.price) || 0);
+export function lineTotal(item: Pick<Item, "qty" | "price">): number {
+  return (Number(item.qty) || 0) * (Number(item.price) || 0);
 }
 
-/* How many of the line this person had: at least 1, at most the line's qty. */
-export function unitsOf(it: Pick<Item, "qty" | "units">, personId: string): number {
-  const max = Math.max(1, Math.floor(Number(it.qty) || 1));
-  const n = Math.floor(Number(it.units?.[personId]) || 1);
-  return Math.min(max, Math.max(1, n));
+/** Clamped to between 1 and the line's qty. */
+export function unitsOf(item: Pick<Item, "qty" | "units">, personId: string): number {
+  const max = Math.max(1, Math.floor(Number(item.qty) || 1));
+  const units = Math.floor(Number(item.units?.[personId]) || 1);
+  return Math.min(max, Math.max(1, units));
 }
 
 export function roundVal(value: number, mode: Rounding): number {
@@ -52,12 +46,10 @@ export function computeSplit(
       if (lineAmount > 0 || item.name) unassignedItems.push(item);
       return;
     }
-    /* Someone who had two of the six drinks pays for two: a line counted per
-       person divides by units, not heads. A shared line, or one where every
-       count is 1, is the plain even split. */
+    // A line counted per person divides by units, not heads.
     const weights = assignees.map((id) => (item.countEach ? unitsOf(item, id) : 1));
-    const totalUnits = weights.reduce((sum, w) => sum + w, 0);
-    const uneven = weights.some((w) => w !== 1);
+    const totalUnits = weights.reduce((sum, weight) => sum + weight, 0);
+    const uneven = weights.some((weight) => weight !== 1);
     assignees.forEach((id, index) => {
       const share = (lineAmount * weights[index]) / totalUnits;
       base[id].subtotal += share;
@@ -86,12 +78,8 @@ export function computeSplit(
 
   const perPerson: PersonSplit[] = people.map((person) => {
     const subtotal = base[person.id].subtotal;
-    /* Fees follow the items they were charged on, so an item nobody has taken
-       carries its own tax and service until someone does. Dividing by the
-       ASSIGNED subtotal instead spread the whole tax bill -- including the tax
-       on items still unclaimed -- across whoever happened to be assigned, and
-       then charged it a second time when the item was finally claimed. With
-       every item assigned the two are identical. */
+    // Divide by the full items subtotal, not the assigned one: an unclaimed item keeps its own
+    // fees until claimed, so they are never charged twice.
     const fraction = itemsSubtotal > 0 ? subtotal / itemsSubtotal : 0;
     const taxShare = tax * fraction;
     const serviceShare = service * fraction;

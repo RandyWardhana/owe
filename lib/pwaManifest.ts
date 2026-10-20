@@ -1,17 +1,9 @@
+import type { Manifest } from "../entities/pwa";
 import { DEFAULT_ACCENT, knownAccent } from "./accents";
 
-/* The web app manifest, built per request so an installed owe can carry the
-   accent its owner picked (Chrome on Android re-reads the manifest about once
-   a day and updates the installed icon; see app/manifest.webmanifest).
-
-   Everything that is not "a valid, non-default accent with the feature on"
-   gets BASE, which is the old static public/manifest.webmanifest field for
-   field -- so the default lime, a missing or tampered cookie, the kill switch
-   and any error all leave installed apps exactly as they were. The manifest
-   URL, start_url and scope never change: Chrome identifies the installed app
-   by them, and changing them would orphan existing installs. No `id` is added
-   either, for the same reason -- it would only be safe if it resolved to the
-   id Chrome already derived, and there is nothing to gain from betting on it. */
+// Anything but a valid non-default accent with the feature on gets BASE_MANIFEST unchanged.
+// Never change the manifest URL, start_url or scope, or add an `id`: Chrome identifies the
+// installed app by them, and changing them would orphan existing installs.
 
 export const BASE_MANIFEST = {
   name: "owe — scan · split · settle",
@@ -30,8 +22,6 @@ export const BASE_MANIFEST = {
     { src: "/icon-512x512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
   ],
 };
-
-export type Manifest = typeof BASE_MANIFEST;
 
 export function buildManifest(cookieValue: string | null | undefined, enabled: boolean): Manifest {
   if (!enabled) return BASE_MANIFEST;

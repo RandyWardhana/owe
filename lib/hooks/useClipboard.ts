@@ -1,7 +1,7 @@
 import { useCallback } from "react";
 
-import { useStore } from "@/lib/store";
-import { buzz } from "@/lib/util";
+import { useStore } from "../store";
+import { buzz } from "../util";
 
 export function useClipboard() {
   const showToast = useStore((s) => s.showToast);

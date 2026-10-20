@@ -1,20 +1,14 @@
 import { useEffect, useState } from "react";
 
-import { decryptShare } from "@/lib/share";
-import { loadBill, type BillMissing } from "@/lib/bills";
-import type { SharedBill } from "@/lib/types";
-import { track } from "@/lib/analytics";
+import { decryptShare } from "../share";
+import { loadBill } from "../bills";
+import type { BillMissing, SharedState } from "../../entities/share";
+import { track } from "../analytics";
 
-type SharedState = SharedBill | null | undefined;
-
-/* Resolves the shared bill from the URL. Two link shapes are supported:
-   - short:  /s/owe-xxxxxx   → fetch the encrypted bill from the cloud by id
-   - long:   /s?s=<payload>  → the bill is self-contained in the link */
+// Short links (/s/owe-xxxxxx) fetch the bill by id; long links (/s?s=<payload>) carry it inline.
 export function useSharedBill() {
   const [shared, setShared] = useState<SharedState>(undefined);
   const [shareId, setShareId] = useState<string | null>(null);
-  /* Set when the URL is a shared link that could not be opened, so the app can
-     say why instead of quietly showing home as if no link had been followed. */
   const [missing, setMissing] = useState<BillMissing | null>(null);
 
   useEffect(() => {

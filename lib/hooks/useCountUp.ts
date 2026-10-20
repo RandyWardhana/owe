@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 
-import { useStore } from "@/lib/store";
+import { useStore } from "../store";
 
 const easeOutCubic = (progress: number) => 1 - Math.pow(1 - progress, 3);
 
@@ -30,9 +30,9 @@ export function useCountUp(value: number, duration = 650): number {
     if (from === to) return;
 
     let start: number | null = null;
-    const tick = (ts: number) => {
-      if (start === null) start = ts;
-      const progress = Math.min(1, (ts - start) / duration);
+    const tick = (timestamp: number) => {
+      if (start === null) start = timestamp;
+      const progress = Math.min(1, (timestamp - start) / duration);
       set(from + (to - from) * easeOutCubic(progress));
       if (progress < 1) {
         rafRef.current = requestAnimationFrame(tick);

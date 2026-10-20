@@ -1,8 +1,7 @@
-import type { Draft } from "./types";
+import type { Draft } from "../entities/bill";
+import type { Tombstones } from "../entities/sync";
 
 export const HISTORY_LIMIT = 200;
-
-export type Tombstones = Record<string, number>;
 
 export const changedAt = (draft: Draft): number =>
   draft.updatedAt || draft.createdAt || 0;

@@ -1,37 +1,24 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { buzz } from "@/lib/util";
-import { fetchBill, saveClaim, savePaid, type Claims } from "@/lib/bills";
-import { legacyShareId } from "@/lib/shareId";
-import { pollWhileVisible } from "@/lib/poll";
-import { isOwner as deviceOwnsBill, ownerToken } from "@/lib/billOwner";
-import {
-  fetchProofs,
-  removeProof,
-  uploadProof,
-  type RemoveResult,
-  type UploadResult,
-} from "@/lib/proofs";
-import { hasCloudSync } from "@/lib/cloudSync";
-import { useStore } from "@/lib/store";
-import type { SharedBill } from "@/lib/types";
-import { track } from "@/lib/analytics";
+import { buzz } from "../util";
+import { fetchBill, saveClaim, savePaid } from "../bills";
+import { legacyShareId } from "../shareId";
+import { pollWhileVisible } from "../poll";
+import { isOwner as deviceOwnsBill, ownerToken } from "../billOwner";
+import { fetchProofs, removeProof, uploadProof } from "../proofs";
+import { hasCloudSync } from "../cloudSync";
+import { useStore } from "../store";
+import { track } from "../analytics";
+import type { RemoveResult, UploadResult } from "../../entities/proof";
+import type { Claims, SettlementState, SharedBill } from "../../entities/share";
 
-/* Settling up, from both sides of the same screen.
-
-   A guest uploads the transfer receipt; that is all they can do. Only the
-   device that created the bill can turn a line green, because only it holds the
-   owner token — otherwise anyone with the link could tick themselves off.
-
-   The paid set still mirrors to localStorage so the screen survives a reload
-   and a dead connection, exactly as it did before proofs existed. */
+// A guest can only upload a receipt. Only the device holding the owner token can mark a line
+// paid, otherwise anyone with the link could tick themselves off. Paid and proofs mirror to
+// localStorage so the screen survives a reload and a dead connection.
 
 const localKey = (id: string) => "owe.shared." + id;
 const proofKey = (id: string) => "owe.proofs." + id;
 
-/* Proofs get the same local mirror `paid` has. Without it a refresh while the
-   server was unreachable showed "Paid already?" on a line that already had a
-   receipt attached -- the guest would upload it a second time. */
 function readProofs(id: string): Set<number> {
   try {
     const raw = localStorage.getItem(proofKey(id));
@@ -45,7 +32,7 @@ function writeProofs(id: string, indices: Set<number>) {
   try {
     localStorage.setItem(proofKey(id), JSON.stringify([...indices]));
   } catch {
-    /* private mode; the server copy is still authoritative */
+    // private mode; the server copy is still authoritative
   }
 }
 
@@ -62,32 +49,11 @@ function writeLocal(id: string, paid: Set<number>) {
   try {
     localStorage.setItem(localKey(id), JSON.stringify([...paid]));
   } catch {
-    /* private mode; the server copy is still authoritative */
+    // private mode; the server copy is still authoritative
   }
 }
 
-const online = () => typeof navigator === "undefined" || navigator.onLine;
-
-export interface Settlement {
-  paid: Set<number>;
-  proofs: Set<number>;
-  isOwner: boolean;
-  uploading: number | null;
-  /** itemId -> the people who put their names on it. */
-  claims: Claims;
-  /** What each person's claims add to their share, fees included. */
-  claimedTotals: number[];
-  /** Put someone on an unassigned item, or take them off with on:false. */
-  claim: (itemId: string, person: number, on: boolean) => Promise<boolean>;
-  /** Owner only. No-ops for a guest, who has no token to send. */
-  confirm: (index: number) => void;
-  /** Guest side: attach the receipt for this person. */
-  submitProof: (index: number, file: File) => Promise<UploadResult>;
-  /** Take a receipt down. Refused once the line is confirmed, unless owner. */
-  dropProof: (index: number) => Promise<RemoveResult>;
-}
-
-export function useSettlement(bill: SharedBill, shareId?: string): Settlement {
+export function useSettlement(bill: SharedBill, shareId?: string): SettlementState {
   const id = useMemo(() => shareId || legacyShareId(bill), [bill, shareId]);
   const [paid, setPaid] = useState<Set<number>>(() => readLocal(id, bill));
   const [proofs, setProofs] = useState<Set<number>>(() => readProofs(id));
@@ -111,7 +77,7 @@ export function useSettlement(bill: SharedBill, shareId?: string): Settlement {
     fetchProofs(id).then((list) => {
       // null means the server never answered; keep what we already knew.
       if (!list) return;
-      const next = new Set(list.map((p) => p.index));
+      const next = new Set(list.map((proof) => proof.index));
       setProofs(next);
       writeProofs(id, next);
     });
@@ -152,8 +118,6 @@ export function useSettlement(bill: SharedBill, shareId?: string): Settlement {
       else next.add(index);
       apply(next);
 
-      // Put it back if the server refuses, rather than showing a change that
-      // the next reload will undo.
       track("mark_paid", { by: "owner_link", paid: next.has(index) });
       savePaid(id, [...next]).then((ok) => {
         if (ok) return;
@@ -183,8 +147,7 @@ export function useSettlement(bill: SharedBill, shareId?: string): Settlement {
         if (result.claims) setClaims(result.claims);
         return true;
       }
-      // The server refuses once the holder has been confirmed as paid; showing
-      // the change anyway would promise a total nobody is going to be charged.
+      // The server refuses once the holder has been confirmed as paid.
       setClaims(result.claims ?? before);
       showToast("shared.claimRefused");
       return false;
@@ -200,8 +163,7 @@ export function useSettlement(bill: SharedBill, shareId?: string): Settlement {
         (who) => who >= 0 && who < totals.length,
       );
       if (!holders.length) continue;
-      // A plate three people shared costs each of them a third of it, fees and
-      // all -- the same rule the maker's own assign step uses.
+      // Same rule as the assign step: an even split, fees included.
       const each = (item.amount * rate) / holders.length;
       for (const who of holders) totals[who] += each;
     }

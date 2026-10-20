@@ -1,25 +1,19 @@
 import { hasCloudSync } from "./cloudSync";
 import { claimBill, forgetBill, ownerToken } from "./billOwner";
 import { syncKey } from "./device";
-import type { SharedBill } from "./types";
+import type { BillMissing, Claims, StoredBill } from "../entities/share";
 
-/* Cloud layer for shared bills, proxied through our own server (/api/bill) so
-   the browser never talks to the database directly. Stores `{ id, data, paid }`:
-   - id   — the random share id, minted once per bill (see lib/shareId.ts)
-   - data — the encrypted share string, so a short link can point to the bill
-   - paid — which person indices have settled
-   Every call no-ops gracefully when cloud isn't configured / offline. */
+// Proxied through /api/bill so the browser never talks to the database directly.
+// Every call no-ops when cloud sync isn't configured or the device is offline.
 
 function isOnline(): boolean {
   return typeof navigator === "undefined" || navigator.onLine;
 }
 
-/** Stores the encrypted bill so a short link can resolve it. Returns success. */
 export async function saveBill(id: string, data: string): Promise<boolean> {
   if (!hasCloudSync || !isOnline()) return false;
   try {
-    // Sharing a bill claims it for this device. Only the claim that lands first
-    // counts, so re-sharing is harmless and a stranger cannot take it over.
+    // The first claim to land wins, so re-sharing is harmless and a stranger cannot take it over.
     const { ownerHash } = await import("./billOwner");
     const token = claimBill(id);
     const owner_hash = await ownerHash(token);
@@ -37,26 +31,9 @@ export async function saveBill(id: string, data: string): Promise<boolean> {
   }
 }
 
-export type Claims = Record<string, number[]>;
-
-/** Loads a stored bill (encrypted data + paid state + claims) by id. */
-export type BillRowData = { data: string | null; paid: number[]; claims: Claims };
-
-/* Why a short link has no bill behind it. Each one needs a different answer
-   for the person holding the link, so they are kept apart rather than all
-   collapsing into "nothing here". */
-export type BillMissing =
-  | "no-cloud" // this build was made without NEXT_PUBLIC_OWE_CLOUD
-  | "offline"
-  | "no-db" // the server has no OWE_DB_URL / OWE_DB_SECRET
-  | "db-unreachable" // the server could not reach the owe-db Worker
-  | "server" // /api/bill itself failed
-  | "not-found" // the server answered, and there is no bill under that id
-  | "unreadable"; // there is a bill, but it would not decrypt
-
 export async function loadBill(
   id: string,
-): Promise<{ ok: true; row: BillRowData } | { ok: false; reason: BillMissing }> {
+): Promise<{ ok: true; row: StoredBill } | { ok: false; reason: BillMissing }> {
   if (!hasCloudSync) return { ok: false, reason: "no-cloud" };
   if (!isOnline()) return { ok: false, reason: "offline" };
   try {
@@ -85,19 +62,14 @@ export async function loadBill(
   }
 }
 
-export async function fetchBill(id: string): Promise<BillRowData | null> {
+export async function fetchBill(id: string): Promise<StoredBill | null> {
   const result = await loadBill(id);
   return result.ok ? result.row : null;
 }
 
 /**
- * Adds or removes one person on an unassigned item.
- *
- * Unlike savePaid this carries no owner token: the person claiming is a guest
- * on someone else's link. One person per call rather than the whole set, so
- * two people claiming the same plate at once cannot overwrite each other.
- * Returns the server's view so a refused write (an item somebody on it has
- * already settled) cannot leave the screen showing what the server rejected.
+ * No owner token: the claimer is a guest. One person per call so concurrent claims cannot
+ * overwrite each other; returns the server's claims so a refused write is not shown as applied.
  */
 export async function saveClaim(
   id: string,
@@ -119,14 +91,7 @@ export async function saveClaim(
   }
 }
 
-/**
- * Upserts the paid indices for a bill.
- *
- * Reports whether the server took it. It used to swallow everything, so a write
- * the server REFUSED -- a bill this device no longer owns -- still looked like
- * it worked: the tick moved, and the next reload put it back. A settle screen
- * that quietly disagrees with the server is worse than one that says no.
- */
+/** Returns false when the server refuses the write (e.g. this device no longer owns the bill). */
 export async function savePaid(id: string, paid: number[]): Promise<boolean> {
   if (!hasCloudSync || !isOnline()) return false;
   try {
@@ -146,10 +111,8 @@ export async function savePaid(id: string, paid: number[]): Promise<boolean> {
 }
 
 /**
- * Erase a shared bill from the server: its row, its receipts, and the R2 objects
- * behind them. Only the device that created it can; everyone else holds a link,
- * not a claim. Succeeds quietly when the bill was never shared, so the caller
- * can always follow it with a local delete.
+ * Erases the row, its receipts and their R2 objects. Only the owning device can. Succeeds when
+ * the bill was never shared, so the caller can always follow it with a local delete.
  */
 export async function deleteBill(id: string): Promise<boolean> {
   const token = ownerToken(id);
