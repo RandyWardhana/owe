@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Manrope, Bricolage_Grotesque } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import AnalyticsBridge from "@/components/AnalyticsBridge";
+import ClickSpark from "@/components/ui/ClickSpark";
 import "./globals.css";
 
 const manrope = Manrope({
@@ -99,6 +100,10 @@ export default function RootLayout({
         <div id="root">{children}</div>
         <Analytics />
         <AnalyticsBridge />
+        {/* One canvas for every route -- the app, shared links, /landing,
+            /admin -- instead of one per screen inside App, which left the
+            pages outside it without the click spark. */}
+        <ClickSpark />
       </body>
     </html>
   );
