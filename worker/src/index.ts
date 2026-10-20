@@ -182,9 +182,9 @@ async function putBill(
   // Only the creating device may change who has paid. A bill with no owner is
   // one created before ownership existed; it stays open so old links keep
   // working. Ownership is claimed once, on the write that creates the row.
-  if (Array.isArray(body.paid) && ownerHash) {
-    const presented = ownerToken ? await sha256Hex(ownerToken) : "";
-    if (presented !== ownerHash) return json({ ok: false, error: "not the owner" }, 403);
+  const presented = ownerToken ? await sha256Hex(ownerToken) : "";
+  if (Array.isArray(body.paid) && ownerHash && presented !== ownerHash) {
+    return json({ ok: false, error: "not the owner" }, 403);
   }
 
   const claiming =
@@ -192,30 +192,44 @@ async function putBill(
       ? (body.owner_hash as string)
       : null;
 
+  const isOwner = Boolean(claiming) || (Boolean(ownerHash) && presented === ownerHash);
+  const syncKey = isOwner && isSyncKey(body.sync_key) ? body.sync_key : null;
+
   const hasData = typeof body.data === "string";
   const hasPaid = Array.isArray(body.paid);
   const now = new Date().toISOString();
+  const data = hasData ? (body.data as string) : null;
+  const paid = hasPaid ? JSON.stringify(body.paid) : null;
 
   // COALESCE so a paid-only write keeps the bill, and a data-only write keeps
   // whoever has already settled. The old upsert sent whole rows and could blank
   // a column that simply was not in this request.
-  await env.DB.prepare(
-    `INSERT INTO bills (id, data, paid, updated_at, owner_hash)
-     VALUES (?1, ?2, COALESCE(?3, '[]'), ?4, ?5)
-     ON CONFLICT(id) DO UPDATE SET
-       data       = COALESCE(excluded.data, bills.data),
-       paid       = COALESCE(?3, bills.paid),
-       updated_at = excluded.updated_at,
-       owner_hash = COALESCE(bills.owner_hash, excluded.owner_hash)`,
-  )
-    .bind(
-      id,
-      hasData ? (body.data as string) : null,
-      hasPaid ? JSON.stringify(body.paid) : null,
-      now,
-      claiming,
+  try {
+    await env.DB.prepare(
+      `INSERT INTO bills (id, data, paid, updated_at, owner_hash, sync_key)
+       VALUES (?1, ?2, COALESCE(?3, '[]'), ?4, ?5, ?6)
+       ON CONFLICT(id) DO UPDATE SET
+         data       = COALESCE(excluded.data, bills.data),
+         paid       = COALESCE(?3, bills.paid),
+         updated_at = excluded.updated_at,
+         owner_hash = COALESCE(bills.owner_hash, excluded.owner_hash),
+         sync_key   = COALESCE(?6, bills.sync_key)`,
     )
-    .run();
+      .bind(id, data, paid, now, claiming, syncKey)
+      .run();
+  } catch {
+    await env.DB.prepare(
+      `INSERT INTO bills (id, data, paid, updated_at, owner_hash)
+       VALUES (?1, ?2, COALESCE(?3, '[]'), ?4, ?5)
+       ON CONFLICT(id) DO UPDATE SET
+         data       = COALESCE(excluded.data, bills.data),
+         paid       = COALESCE(?3, bills.paid),
+         updated_at = excluded.updated_at,
+         owner_hash = COALESCE(bills.owner_hash, excluded.owner_hash)`,
+    )
+      .bind(id, data, paid, now, claiming)
+      .run();
+  }
 
   return json({ ok: true });
 }
@@ -228,20 +242,81 @@ async function getUserBills(env: Env, key: string): Promise<Response> {
   return json({ data: row?.data ?? null });
 }
 
+function isSyncKey(value: unknown): value is string {
+  return typeof value === "string" && /^[0-9a-f]{64}$/.test(value);
+}
+
+async function linkOwnedBills(env: Env, key: string, value: unknown): Promise<void> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return;
+  const pairs = Object.entries(value as Record<string, unknown>)
+    .filter(
+      (pair): pair is [string, string] =>
+        pair[0].length > 0 && pair[0].length <= 64 && typeof pair[1] === "string" && pair[1].length > 0,
+    )
+    .slice(0, 1000);
+  if (!pairs.length) return;
+  const statements = await Promise.all(
+    pairs.map(async ([id, token]) =>
+      env.DB.prepare(
+        "UPDATE bills SET sync_key = ?1 WHERE id = ?2 AND owner_hash = ?3 AND sync_key IS NOT ?1",
+      ).bind(key, id, await sha256Hex(token)),
+    ),
+  );
+  try {
+    await env.DB.batch(statements);
+  } catch {
+    /* sync_key not migrated yet */
+  }
+}
+
+function billIdsOf(value: unknown): string[] | null {
+  if (!Array.isArray(value)) return null;
+  const ids = value
+    .filter((id): id is string => typeof id === "string" && id.length > 0 && id.length <= 64)
+    .slice(0, 1000);
+  return [...new Set(ids)];
+}
+
 async function putUserBills(env: Env, body: Record<string, unknown>): Promise<Response> {
   const key = typeof body.key === "string" ? body.key : "";
   const data = typeof body.data === "string" ? body.data : "";
   if (!key || !data) return json({ ok: false }, 400);
+  const now = new Date().toISOString();
+  const billIds = billIdsOf(body.bills);
 
-  await env.DB.prepare(
-    `INSERT INTO user_bills (key, data, updated_at)
-     VALUES (?1, ?2, ?3)
-     ON CONFLICT(key) DO UPDATE SET
-       data       = excluded.data,
-       updated_at = excluded.updated_at`,
-  )
-    .bind(key, data, new Date().toISOString())
-    .run();
+  try {
+    await env.DB.prepare(
+      `INSERT INTO user_bills (key, data, updated_at, bill_ids)
+       VALUES (?1, ?2, ?3, COALESCE(?4, '[]'))
+       ON CONFLICT(key) DO UPDATE SET
+         data       = excluded.data,
+         updated_at = excluded.updated_at,
+         bill_ids   = COALESCE(?4, user_bills.bill_ids)`,
+    )
+      .bind(key, data, now, billIds ? JSON.stringify(billIds) : null)
+      .run();
+  } catch {
+    await env.DB.prepare(
+      `INSERT INTO user_bills (key, data, updated_at)
+       VALUES (?1, ?2, ?3)
+       ON CONFLICT(key) DO UPDATE SET
+         data       = excluded.data,
+         updated_at = excluded.updated_at`,
+    )
+      .bind(key, data, now)
+      .run();
+  }
+
+  if (typeof body.name === "string") {
+    const name = body.name.trim().slice(0, 40) || null;
+    try {
+      await env.DB.prepare("UPDATE user_bills SET name = ? WHERE key = ?").bind(name, key).run();
+    } catch {
+      /* name not migrated yet */
+    }
+  }
+
+  if (isSyncKey(key)) await linkOwnedBills(env, key, body.owned);
 
   return json({ ok: true });
 }
@@ -394,18 +469,42 @@ async function deleteBill(env: Env, url: URL, ownerToken: string): Promise<Respo
     return json({ ok: false, error: "not the owner" }, 403);
   }
 
+  return json({ ok: true, ...(await eraseBill(env, id)) });
+}
+
+async function eraseBill(env: Env, id: string): Promise<{ proofs: number; files: number }> {
   const { results } = await env.DB.prepare("SELECT r2_key FROM proofs WHERE bill_id = ?")
     .bind(id)
     .all<{ r2_key: string }>();
 
-  for (const row of results ?? []) await env.PROOFS.delete(row.r2_key);
+  const keys = new Set((results ?? []).map((row) => row.r2_key));
+  let cursor: string | undefined;
+  do {
+    const page = await env.PROOFS.list({ prefix: `${id}/`, cursor });
+    page.objects.forEach((object) => keys.add(object.key));
+    cursor = page.truncated ? page.cursor : undefined;
+  } while (cursor);
+  if (keys.size) await env.PROOFS.delete([...keys]);
 
   await env.DB.batch([
     env.DB.prepare("DELETE FROM proofs WHERE bill_id = ?").bind(id),
     env.DB.prepare("DELETE FROM bills WHERE id = ?").bind(id),
   ]);
 
-  return json({ ok: true, proofs: (results ?? []).length });
+  return { proofs: (results ?? []).length, files: keys.size };
+}
+
+async function adminDeleteBackup(env: Env, key: string): Promise<Response> {
+  if (!key) return json({ ok: false }, 400);
+  const { meta } = await env.DB.prepare("DELETE FROM user_bills WHERE key = ?").bind(key).run();
+  return json({ ok: true, changed: meta?.changes ?? 0 });
+}
+
+async function adminDeleteBill(env: Env, id: string): Promise<Response> {
+  if (!id) return json({ ok: false }, 400);
+  const bill = await env.DB.prepare("SELECT id FROM bills WHERE id = ?").bind(id).first();
+  if (!bill) return json({ ok: true, alreadyGone: true, proofs: 0, files: 0 });
+  return json({ ok: true, ...(await eraseBill(env, id)) });
 }
 
 /* ---- Admin ------------------------------------------------------------- *
@@ -417,21 +516,37 @@ async function deleteBill(env: Env, url: URL, ownerToken: string): Promise<Respo
  * ------------------------------------------------------------------------ */
 
 async function adminBills(env: Env): Promise<Response> {
-  const { results } = await env.DB.prepare(
-    `SELECT b.id, b.data, b.paid, b.updated_at,
-            b.claims,
-            b.owner_hash IS NOT NULL AS owned,
-            (SELECT COUNT(*) FROM proofs p WHERE p.bill_id = b.id) AS proofs
-       FROM bills b ORDER BY b.updated_at DESC LIMIT 500`,
-  ).all();
-  return json({ bills: results ?? [] });
+  const query = (syncKey: string) =>
+    env.DB.prepare(
+      `SELECT b.id, b.data, b.paid, b.updated_at,
+              b.claims,
+              b.owner_hash IS NOT NULL AS owned,${syncKey}
+              (SELECT COUNT(*) FROM proofs p WHERE p.bill_id = b.id) AS proofs
+         FROM bills b ORDER BY b.updated_at DESC LIMIT 500`,
+    ).all();
+  try {
+    const { results } = await query(" b.sync_key,");
+    return json({ bills: results ?? [] });
+  } catch {
+    const { results } = await query("");
+    return json({ bills: results ?? [] });
+  }
 }
 
 async function adminBackups(env: Env): Promise<Response> {
-  const { results } = await env.DB.prepare(
-    "SELECT key, length(data) AS size, updated_at FROM user_bills ORDER BY updated_at DESC LIMIT 500",
-  ).all();
-  return json({ backups: results ?? [] });
+  const columns = ["bill_ids, name", "bill_ids", ""];
+  for (const extra of columns) {
+    try {
+      const { results } = await env.DB.prepare(
+        `SELECT key, length(data) AS size, updated_at${extra ? `, ${extra}` : ""}
+           FROM user_bills ORDER BY updated_at DESC LIMIT 500`,
+      ).all();
+      return json({ backups: results ?? [], indexed: extra !== "" });
+    } catch {
+      /* fall back to the columns this database has */
+    }
+  }
+  return json({ backups: [], indexed: false });
 }
 
 async function adminBackup(env: Env, key: string): Promise<Response> {
@@ -439,24 +554,6 @@ async function adminBackup(env: Env, key: string): Promise<Response> {
     .bind(key)
     .first<{ data: string; updated_at: string }>();
   return json({ backup: row ?? null });
-}
-
-/**
- * Release an ownership claim.
- *
- * The token behind owner_hash lives in one browser's localStorage. Lose that —
- * clear site data, change domain, change phone — and the bill can never be
- * changed again by anyone, because only the hash is stored. Clearing it reopens
- * the bill so the next share re-claims it.
- */
-async function adminRelease(env: Env, id: string): Promise<Response> {
-  if (!id) return json({ ok: false }, 400);
-  const { meta } = await env.DB.prepare(
-    "UPDATE bills SET owner_hash = NULL WHERE id = ? AND owner_hash IS NOT NULL",
-  )
-    .bind(id)
-    .run();
-  return json({ ok: true, changed: meta?.changes ?? 0 });
 }
 
 async function adminObjects(env: Env, prefix: string): Promise<Response> {
@@ -470,11 +567,82 @@ async function adminObjects(env: Env, prefix: string): Promise<Response> {
     cursor = page.truncated ? page.cursor : undefined;
   } while (cursor);
 
-  const { results } = await env.DB.prepare("SELECT r2_key FROM proofs").all<{ r2_key: string }>();
-  const referenced = new Set((results ?? []).map((r) => r.r2_key));
+  const { results } = await env.DB.prepare(
+    "SELECT r2_key, bill_id, person_index, content_type FROM proofs",
+  ).all<{ r2_key: string; bill_id: string; person_index: number; content_type: string }>();
+  const referenced = new Map((results ?? []).map((r) => [r.r2_key, r]));
 
   return json({
-    objects: objects.map((o) => ({ ...o, orphan: !referenced.has(o.key) })),
+    objects: objects.map((o) => {
+      const row = referenced.get(o.key);
+      return {
+        ...o,
+        orphan: !row,
+        bill_id: row?.bill_id ?? null,
+        person_index: row?.person_index ?? null,
+        content_type: row?.content_type ?? null,
+      };
+    }),
+  });
+}
+
+async function adminBill(env: Env, id: string): Promise<Response> {
+  if (!id) return json({ bill: null }, 400);
+  const read = (syncKey: string) =>
+    env.DB.prepare(
+      `SELECT id, data, paid, claims, updated_at, owner_hash IS NOT NULL AS owned${syncKey}
+         FROM bills WHERE id = ?`,
+    )
+      .bind(id)
+      .first();
+  const bill = await read(", sync_key").catch(() => read(""));
+  if (!bill) return json({ bill: null });
+  const { results } = await env.DB.prepare(
+    `SELECT person_index, r2_key, content_type, size, uploaded_at
+       FROM proofs WHERE bill_id = ? ORDER BY person_index`,
+  )
+    .bind(id)
+    .all();
+  return json({ bill, proofs: results ?? [] });
+}
+
+async function adminSetOwner(env: Env, id: string, body: Record<string, unknown>): Promise<Response> {
+  const ownerHash = typeof body.owner_hash === "string" ? body.owner_hash : "";
+  if (!id || !/^[0-9a-f]{64}$/.test(ownerHash)) return json({ ok: false }, 400);
+  if (isSyncKey(body.sync_key)) {
+    try {
+      const { meta } = await env.DB.prepare("UPDATE bills SET owner_hash = ?, sync_key = ? WHERE id = ?")
+        .bind(ownerHash, body.sync_key, id)
+        .run();
+      return json({ ok: true, changed: meta?.changes ?? 0 });
+    } catch {
+      /* sync_key not migrated yet */
+    }
+  }
+  const { meta } = await env.DB.prepare("UPDATE bills SET owner_hash = ? WHERE id = ?")
+    .bind(ownerHash, id)
+    .run();
+  return json({ ok: true, changed: meta?.changes ?? 0 });
+}
+
+async function adminIndexBackup(env: Env, key: string, body: Record<string, unknown>): Promise<Response> {
+  const billIds = billIdsOf(body.bills);
+  if (!key || !billIds) return json({ ok: false }, 400);
+  const { meta } = await env.DB.prepare("UPDATE user_bills SET bill_ids = ? WHERE key = ?")
+    .bind(JSON.stringify(billIds), key)
+    .run();
+  return json({ ok: true, changed: meta?.changes ?? 0 });
+}
+
+async function adminGetObject(env: Env, key: string): Promise<Response> {
+  if (!key) return json({ error: "bad request" }, 400);
+  const object = await env.PROOFS.get(key);
+  if (!object) return json({ error: "not found" }, 404);
+  return new Response(object.body, {
+    headers: {
+      "content-type": object.httpMetadata?.contentType ?? "application/octet-stream",
+      "cache-control": "private, max-age=300",
+    },
   });
 }
 
@@ -528,11 +696,26 @@ export default {
         if (req.method === "GET" && path === "/admin/backup") {
           return await adminBackup(env, url.searchParams.get("key") ?? "");
         }
+        if (req.method === "POST" && path === "/admin/backup-bills") {
+          return await adminIndexBackup(env, url.searchParams.get("key") ?? "", await req.json());
+        }
         if (req.method === "GET" && path === "/admin/objects") {
           return await adminObjects(env, url.searchParams.get("prefix") ?? "");
         }
-        if (req.method === "POST" && path === "/admin/release") {
-          return await adminRelease(env, url.searchParams.get("id") ?? "");
+        if (req.method === "GET" && path === "/admin/bill") {
+          return await adminBill(env, url.searchParams.get("id") ?? "");
+        }
+        if (req.method === "POST" && path === "/admin/owner") {
+          return await adminSetOwner(env, url.searchParams.get("id") ?? "", await req.json());
+        }
+        if (req.method === "GET" && path === "/admin/object") {
+          return await adminGetObject(env, url.searchParams.get("key") ?? "");
+        }
+        if (req.method === "DELETE" && path === "/admin/backup") {
+          return await adminDeleteBackup(env, url.searchParams.get("key") ?? "");
+        }
+        if (req.method === "DELETE" && path === "/admin/bill") {
+          return await adminDeleteBill(env, url.searchParams.get("id") ?? "");
         }
         if (req.method === "DELETE" && path === "/admin/object") {
           return await adminDeleteObject(env, url.searchParams.get("key") ?? "");

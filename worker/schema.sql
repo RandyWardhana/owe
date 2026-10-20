@@ -15,13 +15,18 @@ CREATE TABLE IF NOT EXISTS bills (
   paid       TEXT NOT NULL DEFAULT '[]',
   claims     TEXT NOT NULL DEFAULT '{}',
   updated_at TEXT NOT NULL,
-  owner_hash TEXT
+  owner_hash TEXT,
+  sync_key   TEXT
 );
+
+CREATE INDEX IF NOT EXISTS bills_sync_key ON bills (sync_key);
 
 CREATE TABLE IF NOT EXISTS user_bills (
   key        TEXT PRIMARY KEY,
   data       TEXT NOT NULL,
-  updated_at TEXT NOT NULL
+  updated_at TEXT NOT NULL,
+  bill_ids   TEXT NOT NULL DEFAULT '[]',
+  name       TEXT
 );
 
 -- Payment proof, one per person per bill and replaceable. `r2_key` points into
