@@ -17,6 +17,8 @@ const ENTRIES = [
   "lib/accents.ts",
   "lib/pwaManifest.ts",
   "lib/brandMark.ts",
+  "lib/receipt.ts",
+  "lib/pattern.ts",
 ];
 
 rmSync(OUT, { recursive: true, force: true });
