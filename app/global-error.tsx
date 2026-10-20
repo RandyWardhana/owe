@@ -2,7 +2,6 @@
 
 import { useEffect } from "react";
 
-import { Warning } from "@/components/icons";
 import type { GlobalErrorProps } from "@/entities/props/app";
 
 export default function GlobalError({
@@ -37,8 +36,8 @@ export default function GlobalError({
           <div
             aria-hidden="true"
             style={{
-              width: 62,
-              height: 62,
+              width: 72,
+              height: 72,
               margin: "0 auto",
               display: "grid",
               placeItems: "center",
@@ -47,7 +46,19 @@ export default function GlobalError({
               color: "#b9722f",
             }}
           >
-            <Warning size={28} />
+            <svg
+              width="32"
+              height="32"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+              <path d="M12 9v4M12 17h.01" />
+            </svg>
           </div>
           <h1 style={{ fontSize: 22, margin: "16px 0 8px", fontWeight: 700 }}>
             owe could not start
