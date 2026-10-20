@@ -15,6 +15,8 @@ const ENTRIES = [
   "lib/calc.ts",
   "lib/historyMerge.ts",
   "lib/poll.ts",
+  "lib/share.ts",
+  "lib/shareId.ts",
   "lib/accents.ts",
   "lib/pwaManifest.ts",
   "lib/brandMark.ts",
@@ -23,7 +25,7 @@ const ENTRIES = [
 execFileSync(
   "npx",
   ["tsc", ...ENTRIES, "--outDir", OUT,
-   "--module", "es2022", "--target", "es2022",
+   "--module", "es2022", "--target", "es2022", "--lib", "es2022,dom",
    "--moduleResolution", "bundler", "--skipLibCheck"],
   { stdio: "inherit" },
 );

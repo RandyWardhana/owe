@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { buzz } from "@/lib/util";
-import { billId, fetchBill, saveClaim, savePaid, type Claims } from "@/lib/bills";
+import { fetchBill, saveClaim, savePaid, type Claims } from "@/lib/bills";
+import { legacyShareId } from "@/lib/shareId";
 import { pollWhileVisible } from "@/lib/poll";
 import { isOwner as deviceOwnsBill, ownerToken } from "@/lib/billOwner";
 import {
@@ -87,9 +88,7 @@ export interface Settlement {
 }
 
 export function useSettlement(bill: SharedBill, shareId?: string): Settlement {
-  // The link that was opened is the source of truth. Re-hashing the bill
-  // would miss every edit made since it was shared.
-  const id = useMemo(() => shareId || billId(bill), [bill, shareId]);
+  const id = useMemo(() => shareId || legacyShareId(bill), [bill, shareId]);
   const [paid, setPaid] = useState<Set<number>>(() => readLocal(id, bill));
   const [proofs, setProofs] = useState<Set<number>>(() => readProofs(id));
   const [uploading, setUploading] = useState<number | null>(null);

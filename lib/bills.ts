@@ -4,28 +4,13 @@ import type { SharedBill } from "./types";
 
 /* Cloud layer for shared bills, proxied through our own server (/api/bill) so
    the browser never talks to the database directly. Stores `{ id, data, paid }`:
-   - id   — deterministic, derived from the bill (same for everyone)
+   - id   — the random share id, minted once per bill (see lib/shareId.ts)
    - data — the encrypted share string, so a short link can point to the bill
    - paid — which person indices have settled
    Every call no-ops gracefully when cloud isn't configured / offline. */
 
 function isOnline(): boolean {
   return typeof navigator === "undefined" || navigator.onLine;
-}
-
-/** Deterministic bill id — same for everyone who opens the same bill. */
-export function billId(bill: SharedBill): string {
-  const signature = JSON.stringify([
-    bill.title,
-    bill.currency,
-    bill.grandTotal,
-    bill.people.map((person) => [person.name, person.total]),
-  ]);
-  let hash = 0;
-  for (let i = 0; i < signature.length; i++) {
-    hash = (hash * 31 + signature.charCodeAt(i)) | 0;
-  }
-  return "owe-" + (hash >>> 0).toString(36).padStart(6, "0");
 }
 
 /** Stores the encrypted bill so a short link can resolve it. Returns success. */

@@ -7,7 +7,7 @@ import { useStore } from "@/lib/store";
 import { fmtAmountPlain, fmtMoney } from "@/lib/currency";
 import { useSettlement } from "@/lib/hooks/useSettlement";
 import { useRate } from "@/lib/hooks/useRate";
-import { billId } from "@/lib/bills";
+import { legacyShareId } from "@/lib/shareId";
 import { proofUrl } from "@/lib/proofs";
 import type { SharedBill } from "@/lib/types";
 import { convertBill } from "@/lib/convert";
@@ -71,7 +71,7 @@ export default function SharedView({
           : "shared.proofFailed",
     );
   };
-  const id = useMemo(() => shareId || billId(bill), [bill, shareId]);
+  const id = useMemo(() => shareId || legacyShareId(bill), [bill, shareId]);
 
   /* Shown -- and copied -- in the viewer's currency if they picked one: a
      friend paying from a Malaysian account sends ringgit, so the amount they

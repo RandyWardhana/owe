@@ -7,7 +7,7 @@ import { useT } from "@/lib/i18n";
 import { computeSplit, settlements } from "@/lib/calc";
 import { buildSharedBill, buildSummaryText } from "@/lib/breakdown";
 import { useShareLink } from "@/lib/hooks";
-import { billId } from "@/lib/bills";
+import { resolveShareId } from "@/lib/shareId";
 import { useOwnerSettlement } from "@/lib/hooks/useOwnerSettlement";
 import ProofLightbox from "@/components/ui/ProofLightbox";
 import { buzz } from "@/lib/util";
@@ -112,10 +112,8 @@ export default function Breakdown() {
     () => buildSharedBill(draft.title, result, draft.people, payerId, currency, paidList),
     [draft.title, draft.people, result, payerId, currency, paidList],
   );
-  // Freeze the share id the first time a bill is locked, seeding it from the
-  // content hash so links already sent out keep resolving. After that an edit
-  // republishes to the SAME id instead of stranding everyone on the old one.
-  const shareId = draft.shareId || billId(bill);
+  const [mintedShareId] = useState(() => resolveShareId(bill, draft.shareId));
+  const shareId = draft.shareId || mintedShareId;
 
   useEffect(() => {
     if (isSaved && !draft.shareId) patchDraft({ shareId });
