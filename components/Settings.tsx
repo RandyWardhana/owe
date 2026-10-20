@@ -2,6 +2,7 @@
 
 import { useStore } from "@/lib/store";
 import { useT, LANGS } from "@/lib/i18n";
+import { ACCENTS } from "@/lib/accents";
 import { CURRENCIES } from "@/lib/currency";
 import { buzz } from "@/lib/util";
 import type { Lang, Rounding, Theme } from "@/lib/types";
@@ -10,24 +11,28 @@ import Sheet from "./Sheet";
 import SyncSettings from "./SyncSettings";
 import { Sun, Moon, Check, Chevron } from "./icons";
 
-const ACCENTS = ["#9be52e", "#ffd23f", "#ff8a3d", "#ff5d8f", "#9b8cff", "#3dd7d0"];
+
 const ROUNDINGS: { value: Rounding; key: string }[] = [
   { value: "none", key: "settings.roundExact" },
   { value: "whole", key: "settings.roundWhole" },
   { value: "up5", key: "settings.roundUp5" },
 ];
 
-export default function Settings({
-  open,
-  onClose,
-  billCurrency,
-}: {
-  open: boolean;
-  onClose: () => void;
+interface SettingsOptions {
   /* Set when opened over a shared bill: money settings then mean "show this
      bill in", and rounding and backups -- which act on your own bills -- go. */
   billCurrency?: string;
-}) {
+  /* The /landing page: there is no bill to show money for and nothing to back
+     up, so only look-and-feel and language. Same controls, same stored
+     settings, so a choice made there is already in place when the app opens. */
+  appearanceOnly?: boolean;
+}
+
+/* The settings themselves, without a container. The app and shared links show
+   them in a bottom sheet (Settings, below); /landing on a desktop shows them in
+   a dropdown under its gear, where a sheet rising from the bottom of a wide
+   screen looked out of place. */
+export function SettingsBody({ billCurrency, appearanceOnly = false }: SettingsOptions) {
   const t = useT();
   const theme = useStore((s) => s.theme);
   const lang = useStore((s) => s.lang);
@@ -55,7 +60,7 @@ export default function Settings({
   };
 
   return (
-    <Sheet open={open} onClose={onClose} title={t("settings.title")}>
+    <>
       <p className="label">{t("settings.appearance")}</p>
       <div className="set-group">
         <div className="set-item">
@@ -132,8 +137,8 @@ export default function Settings({
         </div>
       </div>
 
-      <p className="label">{t("settings.money")}</p>
-      {billCurrency ? (
+      {appearanceOnly ? null : <p className="label">{t("settings.money")}</p>}
+      {appearanceOnly ? null : billCurrency ? (
         <div className="set-group">
           <div className="set-item">
             <span className="set-item__label">{t("settings.viewIn")}</span>
@@ -198,9 +203,22 @@ export default function Settings({
         </div>
       )}
 
-      {billCurrency ? null : <SyncSettings />}
+      {billCurrency || appearanceOnly ? null : <SyncSettings />}
 
       <p className="muted about">{t("settings.about")}</p>
+    </>
+  );
+}
+
+export default function Settings({
+  open,
+  onClose,
+  ...options
+}: SettingsOptions & { open: boolean; onClose: () => void }) {
+  const t = useT();
+  return (
+    <Sheet open={open} onClose={onClose} title={t("settings.title")}>
+      <SettingsBody {...options} />
     </Sheet>
   );
 }

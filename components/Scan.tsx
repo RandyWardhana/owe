@@ -9,6 +9,7 @@ import { buzz } from "@/lib/util";
 
 import Screen from "./Screen";
 import { Camera, Image as ImageIcon } from "./icons";
+import { track } from "@/lib/analytics";
 
 export default function Scan() {
   const t = useT();
@@ -36,8 +37,13 @@ export default function Scan() {
       setProgress(creepProgress);
     }, 180);
 
+    const started = Date.now();
     const res = await scanReceipt(file, currency);
     clearInterval(creep);
+    track("scan_result", {
+      outcome: res ? "read" : "empty",
+      seconds: Math.round((Date.now() - started) / 1000),
+    });
     setProgress(1);
 
     if (!res) {
@@ -65,6 +71,7 @@ export default function Scan() {
   const pick = (ref: React.RefObject<HTMLInputElement | null>) => {
     if (typeof navigator !== "undefined" && !navigator.onLine) {
       buzz(20);
+      track("scan_result", { outcome: "offline" });
       showToast("scan.offline");
       return;
     }

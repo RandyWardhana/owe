@@ -2,7 +2,7 @@
   "name": "owe",
   "version": "0.1.0",
   "private": true,
-  "description": "owe \u2014 scan a receipt, split it, settle up. offline-first PWA.",
+  "description": "owe — scan a receipt, split it, settle up. offline-first PWA.",
   "scripts": {
     "dev": "next dev -p 6769",
     "build": "next build",
@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@vercel/analytics": "^2.0.1",
+    "firebase": "^13.0.0",
     "next": "^15.1.6",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",

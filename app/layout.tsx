@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import { Manrope, Bricolage_Grotesque } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
+import AnalyticsBridge from "@/components/AnalyticsBridge";
+import ClickSpark from "@/components/ui/ClickSpark";
 import "./globals.css";
 
 const manrope = Manrope({
@@ -24,14 +26,13 @@ const SITE_URL =
   "http://localhost:3000";
 const TITLE = "owe — scan · split · settle";
 const DESCRIPTION =
-  "Scan a receipt, split it, settle up. Offline-first. Nothing leaves your phone unless you share it.";
+  "Scan a receipt, split it, settle up. Offline-first. Your bills stay on your phone unless you share them.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: TITLE,
   description: DESCRIPTION,
   applicationName: "owe",
-  manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
@@ -89,9 +90,20 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <body suppressHydrationWarning>
+        {/* Rendered here, not through `metadata.manifest`, for one attribute:
+            use-credentials. Without it browsers fetch the manifest without
+            cookies, so the accent cookie never reaches the manifest route and
+            an installed app could never pick up its accent icon. React puts
+            the <link> in <head>. */}
+        <link rel="manifest" href="/manifest.webmanifest" crossOrigin="use-credentials" />
         <script dangerouslySetInnerHTML={{ __html: bootScript }} />
         <div id="root">{children}</div>
         <Analytics />
+        <AnalyticsBridge />
+        {/* One canvas for every route -- the app, shared links, /landing,
+            /admin -- instead of one per screen inside App, which left the
+            pages outside it without the click spark. */}
+        <ClickSpark />
       </body>
     </html>
   );

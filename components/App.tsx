@@ -23,7 +23,6 @@ const SharedView = dynamic(() => import("@/components/shared/SharedView"), {
   loading: () => <div className="shell" />,
 });
 import Toast from "@/components/Toast";
-import ClickSpark from "@/components/ui/ClickSpark";
 import InstallPrompt from "@/components/ui/InstallPrompt";
 import OfflineBar from "@/components/ui/OfflineBar";
 
@@ -45,7 +44,6 @@ export default function App() {
       <div className="shell">
         <SharedView bill={shared} shareId={shareId} onMakeOwn={clear} />
         <Toast />
-        <ClickSpark />
         <InstallPrompt />
         <OfflineBar />
       </div>
@@ -75,7 +73,6 @@ export default function App() {
       {screens[view] ?? screens.home}
       <Settings open={settingsOpen} onClose={() => setSettingsOpen(false)} />
       <Toast />
-      <ClickSpark />
       {view === "home" ? <InstallPrompt /> : null}
       <OfflineBar />
     </div>

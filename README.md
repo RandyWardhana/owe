@@ -27,7 +27,7 @@
 - 💸 **Settle up** — see who pays whom, with each person's bank / e-wallet number one tap to copy.
 - ☁️ **Your bills, backed up** — saved splits sync to an anonymous, end-to-end-encrypted cloud row keyed to your device, so they survive a cleared cache — still no account.
 - 🔗 **Share without an app** — lock a split in, then share a link; whoever opens it sees the totals, each person's items, and payment numbers right in their browser.
-- 🌍 **Bilingual** — English and Bahasa Indonesia.
+- 🌍 **Bilingual** — English and Indonesia.
 - 🎨 **Make it yours** — light / dark theme, six accent colors, currency, rounding, and a motion toggle.
 - 📲 **Installable** — add to your home screen and run it standalone; the split-and-settle flow works with no connection.
 
@@ -51,6 +51,7 @@ Home ──▶ Scan ──▶ Review ──▶ People ──▶ Assign ──▶
 owe keeps as much as possible on your device, and what does leave is minimal or encrypted:
 
 - The **split → assign → settle flow runs entirely offline.** Your splits, history and preferences live in `localStorage` — no account, no login.
+- **Anonymous usage analytics.** Firebase Analytics (`lib/analytics.ts`) records which screens are opened, which buttons are tapped, and uncaught errors (as `exception` events — Crashlytics has no web SDK). Never bill contents: no items, names, amounts, payment details or links. Google signals and ad personalisation are off, and development builds send nothing (`NEXT_PUBLIC_ANALYTICS_DEBUG=1` to test).
 - **Reading a receipt** is the one step that needs a connection: the photo is sent to [OCR.space](https://ocr.space/) only to extract text. Offline, the scan buttons prompt you to reconnect or enter items by hand.
 - **Backup is anonymous and encrypted.** Your bill list is mirrored to Supabase keyed by `sha256(deviceId)`, with the payload **AES-GCM encrypted** using a key derived from a device id that never leaves the browser — so rows are opaque and only your device can read them.
 - **Shared bills are encrypted too.** A short link stores the encrypted bill in Supabase; a long link packs it into the URL itself. Either way the recipient only sees the bill in the link they were given.
@@ -90,8 +91,9 @@ Open [http://localhost:6769](http://localhost:6769).
 
 Everything works out of the box with sensible defaults — both of these are optional. Copy `.env.local.example` to `.env.local` to override:
 
+- **`NEXT_PUBLIC_FIREBASE_*`** — Firebase web config for anonymous usage analytics (see `lib/analytics.ts`). Leave empty and analytics stays off.
 - **`OCRSPACE_API_KEY`** — receipt scanning calls [OCR.space](https://ocr.space/ocrapi). The built-in `helloworld` demo key works but is rate-limited; set your own free key (25k/month) for reliability.
-- **`NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY`** — enable cloud backup and short share links. Without them, owe stays fully local. When set, run [`supabase/schema.sql`](./supabase/schema.sql) once in the Supabase SQL editor to create the tables.
+- **`NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY`** — enable cloud backup and short share links. Without them, owe stays fully local.
 
 > [!NOTE]
 > The PWA service worker is **disabled in development** and only generated for production builds. If you ever run a production build locally and later see stale assets in dev, unregister the service worker (DevTools → Application → Storage → *Clear site data*) once.
@@ -144,13 +146,13 @@ Everything is tweakable from the in-app settings sheet:
 - **Theme** — light or dark (native form controls follow the theme via `color-scheme`).
 - **Accent** — six accent colors that recolor the whole UI.
 - **Animations** — a single toggle that respects `prefers-reduced-motion`.
-- **Language** — English or Bahasa Indonesia.
-- **Currency** — IDR (default), MYR, JPY, USD, SGD, TWD.
+- **Language** — English or Indonesia.
+- **Currency** — IDR (default), every other ASEAN currency (MYR, SGD, THB, PHP, VND, BND, KHR, LAK, MMK), plus USD, JPY and TWD.
 - **Rounding** — exact, whole, or round up to the nearest 5.
 
 ## 💳 Currencies & payment methods
 
-**Currencies:** IDR · MYR · JPY · USD · SGD · TWD
+**Currencies:** IDR · MYR · SGD · THB · PHP · VND · BND · KHR · LAK · MMK · USD · JPY · TWD
 
 **Payment methods:** Bank transfer · GoPay · OVO · DANA · ShopeePay · LinkAja · PayPal · Other
 

@@ -82,8 +82,12 @@ export default function ClickSpark() {
 
     const onClick = (e: MouseEvent) => {
       if (!animRef.current || reduce) return;
+      // Anything you press, not only <button>: the landing's actions are
+      // links, and a spark on "Scan a receipt" but not on "Open the app"
+      // reads as a bug. Disabled controls stay quiet.
       const target = e.target as HTMLElement | null;
-      if (!target?.closest("button")) return;
+      const control = target?.closest<HTMLElement>("button, a[href], [role='button'], summary, label[for]");
+      if (!control || control.matches(":disabled, [aria-disabled='true']")) return;
 
       color =
         getComputedStyle(document.documentElement)
