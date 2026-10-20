@@ -14,6 +14,7 @@ const ENTRIES = [
   "lib/adminRestore.ts",
   "lib/calc.ts",
   "lib/historyMerge.ts",
+  "lib/poll.ts",
   "lib/accents.ts",
   "lib/pwaManifest.ts",
   "lib/brandMark.ts",

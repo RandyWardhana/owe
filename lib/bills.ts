@@ -102,12 +102,6 @@ export async function fetchBill(id: string): Promise<BillRowData | null> {
   return result.ok ? result.row : null;
 }
 
-/** Returns the server's paid indices, or null if unavailable / not found. */
-export async function fetchPaid(id: string): Promise<number[] | null> {
-  const row = await fetchBill(id);
-  return row ? row.paid : null;
-}
-
 /**
  * Adds or removes one person on an unassigned item.
  *
@@ -159,35 +153,6 @@ export async function savePaid(id: string, paid: number[]): Promise<boolean> {
   } catch {
     return false;
   }
-}
-
-/** Polls for paid changes on a bill (every 5s). Returns an unsubscribe fn. */
-export function subscribePaid(
-  id: string,
-  onChange: (paid: number[]) => void,
-): () => void {
-  if (!hasCloudSync) return () => {};
-  let stopped = false;
-  let last = "";
-
-  const tick = async () => {
-    if (stopped || !isOnline()) return;
-    const paid = await fetchPaid(id);
-    if (stopped || !paid) return;
-    const key = JSON.stringify(paid);
-    if (key !== last) {
-      last = key;
-      onChange(paid);
-    }
-  };
-
-  const interval = setInterval(tick, 5000);
-  tick();
-
-  return () => {
-    stopped = true;
-    clearInterval(interval);
-  };
 }
 
 /**

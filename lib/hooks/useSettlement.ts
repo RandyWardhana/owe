@@ -1,14 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { buzz } from "@/lib/util";
-import {
-  billId,
-  fetchBill,
-  saveClaim,
-  savePaid,
-  subscribePaid,
-  type Claims,
-} from "@/lib/bills";
+import { billId, fetchBill, saveClaim, savePaid, type Claims } from "@/lib/bills";
+import { pollWhileVisible } from "@/lib/poll";
 import { isOwner as deviceOwnsBill, ownerToken } from "@/lib/billOwner";
 import {
   fetchProofs,
@@ -132,34 +126,20 @@ export function useSettlement(bill: SharedBill, shareId?: string): Settlement {
     setIsOwner(deviceOwnsBill(id));
     apply(readLocal(id, bill));
     setProofs(readProofs(id));
-    refreshProofs();
 
-    if (hasCloudSync && online()) {
+    const stop = pollWhileVisible(() => {
+      refreshProofs();
+      if (!hasCloudSync) return;
       fetchBill(id).then((row) => {
         if (cancelled || !row) return;
         apply(new Set(row.paid));
         setClaims(row.claims);
       });
-    }
-
-    const unsubscribe = subscribePaid(id, (server) => {
-      if (!cancelled) apply(new Set(server));
     });
-    /* Claims arrive from other people's phones, so the screen has to keep
-       asking; there is no push channel and the maker needs to see a name land
-       on an item without reloading. */
-    const poll = setInterval(() => {
-      refreshProofs();
-      if (!hasCloudSync || !online()) return;
-      fetchBill(id).then((row) => {
-        if (!cancelled && row) setClaims(row.claims);
-      });
-    }, 5000);
 
     return () => {
       cancelled = true;
-      unsubscribe();
-      clearInterval(poll);
+      stop();
     };
   }, [id, bill, apply, refreshProofs]);
 
