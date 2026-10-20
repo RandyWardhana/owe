@@ -92,7 +92,7 @@ deliberately inline-styled English with no dependency on anything that might be 
 
 ### Invariants that will bite
 
-- **`SharePayload` single-character keys are the wire format** (`lib/types.ts`). They are
+- **`SharePayload` single-character keys are the wire format** (`entities/share.ts`). They are
   JSON → deflate → AES-GCM → base64url'd into share URLs. Renaming one breaks every link already
   sent. Map to/from the readable `SharedBill` at the `toWire`/`fromWire` boundary in
   `lib/share.ts` and keep app code on the readable shape. New fields must be optional — readers
@@ -155,10 +155,53 @@ All optional; the app degrades to fully local without them.
 | `ADMIN_PASSWORD` | server | enables `/admin`; must be 8+ chars |
 | `NEXT_PUBLIC_SITE_URL` | build | `metadataBase`; falls back to Vercel-provided URLs |
 
-## Conventions
+## Code design
 
-- Comments in this codebase explain *why*, usually naming the bug the code prevents. Several
-  encode hard-won constraints (the wire format, the fee denominator, the guard module). Match
-  that register or leave them alone; do not strip them as noise.
+Follow these in every change, so the codebase reads as one system rather than a pile of
+generated files.
+
+### Where things go
+
+- `entities/`: every `type` and `interface`, and nothing else. Domain types by area
+  (`bill.ts`, `share.ts`, `payment.ts`, `proof.ts`, `sync.ts`, `admin.ts`, …); component props
+  and view-local types in `entities/props/<feature>.ts`, one file per `components/` folder.
+  Never declare a type inside `lib/`, `components/` or `app/`, and never between functions.
+- `lib/`: logic, no types. `lib/hooks/`: React hooks. Runtime constants shared by server and
+  client code live in their own module (e.g. `lib/adminConstants.ts`), never in `entities/`.
+- `components/<feature>/`: UI. `app/`: routes and API handlers, kept thin.
+- Import entities with `import type`. Inside `lib/` use relative paths (`../entities/bill`);
+  the test build compiles `lib/` without the `@/` alias. Elsewhere use `@/entities/...`.
+
+### Inside a file
+
+Order: imports, then constants, then helpers, then the main export (the component, the route
+handler, or the module's public functions). One component per file unless a sub-component is
+private to its parent.
+
+### Names
+
+- Say what the value is: `bill`, `person`, `draft`, `entry`, `account`, `file`, `row`. No
+  single letters or abbreviations for domain values (`b`, `p`, `d`, `it`, `x`, `pi`).
+- Accepted idioms: `(s) => s.theme` store selectors, `e` for events, `(a, b)` in sort
+  comparators, `i`/`j` numeric indexes, `const t = useT()`.
+- Exported type names carry their feature (`AdminTab`, `ReceiptSlip`, `SettleUpProps`), so a
+  name means one thing across the repo.
+
+### The wire format is not a naming problem
+
+`SharePayload`'s one-letter keys (`t`, `pp`, `py`, …) are persisted in every share link and
+every stored bill; renaming them breaks both. Read and write bills through `lib/share.ts`
+(`toWire` / `fromWire`) and work with the readable `SharedBill` everywhere else, the admin
+included.
+
+### Comments
+
+Write a comment only when the code cannot explain itself: a security or ownership rule, a
+persisted format, a workaround with a non-obvious reason. Never narrate what the next line
+does, and never write history ("it used to…", "the old version…"); that belongs in the commit
+message.
+
+### Other
+
 - Path alias is `@/*` → repo root.
 - `worker/` is excluded from the root `tsconfig.json` and has its own.
