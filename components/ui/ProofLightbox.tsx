@@ -15,9 +15,8 @@ import { X } from "@/components/icons";
 
    Two sizes, because one is never enough. A phone screenshot is around
    1170x2532; fitted to a 390pt screen that is 29% scale, which is honest about
-   the whole image and useless for reading the amount. The app sets
-   maximumScale: 1 so the browser's own pinch-zoom is unavailable, which means
-   the zoom has to live here. Tap the image to switch between fitting the
+   the whole image and useless for reading the amount, so the zoom lives here
+   rather than relying on pinch-zoom. Tap the image to switch between fitting the
    screen and filling the width; tap anywhere else to close. */
 
 interface Props {

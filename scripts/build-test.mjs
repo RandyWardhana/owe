@@ -7,11 +7,25 @@ import { join } from "node:path";
 
 const OUT = ".test-build";
 
+const ENTRIES = [
+  "lib/addressBook.ts",
+  "lib/util.ts",
+  "lib/adminDb.ts",
+  "lib/adminRestore.ts",
+  "lib/calc.ts",
+  "lib/historyMerge.ts",
+  "lib/poll.ts",
+  "lib/share.ts",
+  "lib/shareId.ts",
+  "lib/accents.ts",
+  "lib/pwaManifest.ts",
+  "lib/brandMark.ts",
+];
+
 execFileSync(
   "npx",
-  ["tsc", "lib/addressBook.ts", "lib/util.ts", "lib/adminDb.ts", "lib/adminRestore.ts", "lib/calc.ts",
-   "lib/accents.ts", "lib/pwaManifest.ts", "lib/brandMark.ts", "--outDir", OUT,
-   "--module", "es2022", "--target", "es2022",
+  ["tsc", ...ENTRIES, "--outDir", OUT,
+   "--module", "es2022", "--target", "es2022", "--lib", "es2022,dom",
    "--moduleResolution", "bundler", "--skipLibCheck"],
   { stdio: "inherit" },
 );

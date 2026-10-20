@@ -1,12 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import {
-  fetchBill,
-  saveClaim,
-  savePaid,
-  subscribePaid,
-  type Claims,
-} from "@/lib/bills";
+import { fetchBill, saveClaim, savePaid, type Claims } from "@/lib/bills";
+import { pollWhileVisible } from "@/lib/poll";
 import { fetchProofs, proofUrl } from "@/lib/proofs";
 import { useStore } from "@/lib/store";
 import type { Person } from "@/lib/types";
@@ -56,33 +51,22 @@ export function useOwnerSettlement(
     if (!live || !shareId) return;
     let stopped = false;
 
-    fetchBill(shareId).then((row) => {
-      if (stopped || !row) return;
-      setPaidIdx(row.paid);
-      setClaims(row.claims);
-    });
-    fetchProofs(shareId).then((list) => {
-      if (!stopped && list) setProofIdx(list.map((p) => p.index));
-    });
-
-    const unsubscribe = subscribePaid(shareId, (server) => {
-      if (!stopped) setPaidIdx(server);
-    });
     /* Claims land from other people's phones while the maker is looking at
        this screen -- the one place they actually watch the bill from. */
-    const poll = setInterval(() => {
+    const stop = pollWhileVisible(() => {
       fetchProofs(shareId).then((list) => {
         if (!stopped && list) setProofIdx(list.map((p) => p.index));
       });
       fetchBill(shareId).then((row) => {
-        if (!stopped && row) setClaims(row.claims);
+        if (stopped || !row) return;
+        setPaidIdx(row.paid);
+        setClaims(row.claims);
       });
-    }, 5000);
+    });
 
     return () => {
       stopped = true;
-      unsubscribe();
-      clearInterval(poll);
+      stop();
     };
   }, [live, shareId]);
 

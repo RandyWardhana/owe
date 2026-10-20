@@ -64,7 +64,6 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
   viewportFit: "cover",
   themeColor: [
     { media: "(prefers-color-scheme: light)", color: "#fbfbf7" },
@@ -98,7 +97,7 @@ export default function RootLayout({
         <link rel="manifest" href="/manifest.webmanifest" crossOrigin="use-credentials" />
         <script dangerouslySetInnerHTML={{ __html: bootScript }} />
         <div id="root">{children}</div>
-        <Analytics />
+        {process.env.VERCEL_ENV ? <Analytics /> : null}
         <AnalyticsBridge />
         {/* One canvas for every route -- the app, shared links, /landing,
             /admin -- instead of one per screen inside App, which left the

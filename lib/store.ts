@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 
 import { remember } from "./addressBook";
+import { HISTORY_LIMIT, mergeHistories } from "./historyMerge";
 import type {
   Draft,
   Lang,
@@ -246,7 +247,7 @@ export const useStore = create<State>()(
         set((s) => {
           const without = s.history.filter((x) => x.id !== entry.id);
           return {
-            history: [entry, ...without].slice(0, 30),
+            history: [entry, ...without].slice(0, HISTORY_LIMIT),
             draft: entry,
           };
         });
@@ -268,28 +269,9 @@ export const useStore = create<State>()(
         set({ draft: emptyDraft(), view: "home", stack: [], dir: "back" }),
 
       mergeHistory: (incoming, incomingTombstones) =>
-        set((s) => {
-          // Last write wins per bill. Falling back to createdAt keeps entries
-          // saved before updatedAt existed comparable, and a local copy only
-          // wins a genuine tie -- previously it won every time, because every
-          // comparison was a tie.
-          const when = (d: Draft) => d.updatedAt || d.createdAt || 0;
-          const tombstones = { ...incomingTombstones, ...s.tombstones };
-          const byId = new Map<string, Draft>();
-          for (const d of incoming) byId.set(d.id, d);
-          for (const d of s.history) {
-            const ex = byId.get(d.id);
-            if (!ex || when(d) >= when(ex)) byId.set(d.id, d);
-          }
-          const merged = Array.from(byId.values())
-            // A bill deleted after its last edit stays deleted. Comparing the
-            // times rather than dropping outright means re-creating a bill with
-            // the same id still works.
-            .filter((d) => !(tombstones[d.id] && tombstones[d.id] >= when(d)))
-            .sort((a, b) => when(b) - when(a))
-            .slice(0, 30);
-          return { history: merged, tombstones };
-        }),
+        set((s) =>
+          mergeHistories(s.history, incoming, s.tombstones, incomingTombstones),
+        ),
 
       finish: () =>
         set({ draft: emptyDraft(), dir: "back", stack: [], view: "home" }),

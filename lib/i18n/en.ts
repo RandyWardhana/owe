@@ -256,6 +256,17 @@ const en = {
     iosHint: 'Tap the Share button, then "Add to Home Screen".',
     dismiss: "Not now",
   },
+  status: {
+    notFoundTitle: "That link leads nowhere",
+    notFoundBody:
+      "The split you're after isn't here. A share link that has been deleted stops working — ask whoever sent it to share it again.",
+    errorTitle: "Something broke on our side",
+    errorBody:
+      "Your splits are stored on this device, so nothing has been lost. Try again, or head back and reopen the bill.",
+    retry: "Try again",
+    home: "Back to my splits",
+    details: "Technical details",
+  },
   offline: "You're offline",
   backOnline: "You're back online",
 };

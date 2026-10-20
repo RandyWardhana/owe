@@ -1,14 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { buzz } from "@/lib/util";
-import {
-  billId,
-  fetchBill,
-  saveClaim,
-  savePaid,
-  subscribePaid,
-  type Claims,
-} from "@/lib/bills";
+import { fetchBill, saveClaim, savePaid, type Claims } from "@/lib/bills";
+import { legacyShareId } from "@/lib/shareId";
+import { pollWhileVisible } from "@/lib/poll";
 import { isOwner as deviceOwnsBill, ownerToken } from "@/lib/billOwner";
 import {
   fetchProofs,
@@ -93,9 +88,7 @@ export interface Settlement {
 }
 
 export function useSettlement(bill: SharedBill, shareId?: string): Settlement {
-  // The link that was opened is the source of truth. Re-hashing the bill
-  // would miss every edit made since it was shared.
-  const id = useMemo(() => shareId || billId(bill), [bill, shareId]);
+  const id = useMemo(() => shareId || legacyShareId(bill), [bill, shareId]);
   const [paid, setPaid] = useState<Set<number>>(() => readLocal(id, bill));
   const [proofs, setProofs] = useState<Set<number>>(() => readProofs(id));
   const [uploading, setUploading] = useState<number | null>(null);
@@ -132,34 +125,20 @@ export function useSettlement(bill: SharedBill, shareId?: string): Settlement {
     setIsOwner(deviceOwnsBill(id));
     apply(readLocal(id, bill));
     setProofs(readProofs(id));
-    refreshProofs();
 
-    if (hasCloudSync && online()) {
+    const stop = pollWhileVisible(() => {
+      refreshProofs();
+      if (!hasCloudSync) return;
       fetchBill(id).then((row) => {
         if (cancelled || !row) return;
         apply(new Set(row.paid));
         setClaims(row.claims);
       });
-    }
-
-    const unsubscribe = subscribePaid(id, (server) => {
-      if (!cancelled) apply(new Set(server));
     });
-    /* Claims arrive from other people's phones, so the screen has to keep
-       asking; there is no push channel and the maker needs to see a name land
-       on an item without reloading. */
-    const poll = setInterval(() => {
-      refreshProofs();
-      if (!hasCloudSync || !online()) return;
-      fetchBill(id).then((row) => {
-        if (!cancelled && row) setClaims(row.claims);
-      });
-    }, 5000);
 
     return () => {
       cancelled = true;
-      unsubscribe();
-      clearInterval(poll);
+      stop();
     };
   }, [id, bill, apply, refreshProofs]);
 
