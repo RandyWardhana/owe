@@ -5,6 +5,7 @@ import { useT, LANGS } from "@/lib/i18n";
 import { ACCENTS } from "@/lib/accents";
 import { CURRENCIES } from "@/lib/currency";
 import { buzz } from "@/lib/util";
+import { originOf, switchTheme } from "@/lib/themeTransition";
 import type { Lang, Rounding, Theme } from "@/lib/types";
 
 import Sheet from "./Sheet";
@@ -49,14 +50,9 @@ export function SettingsBody({ billCurrency, appearanceOnly = false }: SettingsO
   const viewCurrency = useStore((s) => s.viewCurrency);
   const setViewCurrency = useStore((s) => s.setViewCurrency);
 
-  const pickTheme = (next: Theme) => {
+  const pickTheme = (next: Theme, event: React.MouseEvent<HTMLButtonElement>) => {
     buzz(8);
-    const root = document.documentElement;
-    root.classList.add("theme-switching");
-    setTheme(next);
-    requestAnimationFrame(() =>
-      requestAnimationFrame(() => root.classList.remove("theme-switching")),
-    );
+    switchTheme(next, setTheme, originOf(event));
   };
 
   return (
@@ -68,15 +64,15 @@ export function SettingsBody({ billCurrency, appearanceOnly = false }: SettingsO
           <div className="seg">
             <button
               className={`seg__btn ${theme === "light" ? "on" : ""}`}
-              onClick={() => pickTheme("light")}
+              onClick={(e) => pickTheme("light", e)}
             >
-              <Sun size={16} /> {t("settings.light")}
+              <Sun size={16} className="seg__sun" /> {t("settings.light")}
             </button>
             <button
               className={`seg__btn ${theme === "dark" ? "on" : ""}`}
-              onClick={() => pickTheme("dark")}
+              onClick={(e) => pickTheme("dark", e)}
             >
-              <Moon size={16} /> {t("settings.dark")}
+              <Moon size={16} className="seg__moon" /> {t("settings.dark")}
             </button>
           </div>
         </div>

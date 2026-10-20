@@ -134,3 +134,47 @@
 .theme-switching * {
   transition: none !important;
 }
+
+.theme-reveal::view-transition-old(root),
+.theme-reveal::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+.theme-reveal::view-transition-new(root) {
+  z-index: 2;
+}
+
+.theme-reveal--light .seg__btn.on .seg__sun {
+  animation: seg-sunrise 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.theme-reveal--dark .seg__btn.on .seg__moon {
+  animation: seg-moonrise 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes seg-sunrise {
+  from {
+    transform: rotate(-120deg) scale(0.4);
+    opacity: 0.2;
+  }
+  60% {
+    transform: rotate(20deg) scale(1.25);
+    opacity: 1;
+  }
+  to {
+    transform: rotate(0) scale(1);
+  }
+}
+
+@keyframes seg-moonrise {
+  from {
+    transform: translateY(6px) rotate(50deg) scale(0.5);
+    opacity: 0.2;
+  }
+  60% {
+    transform: translateY(-2px) rotate(-14deg) scale(1.2);
+    opacity: 1;
+  }
+  to {
+    transform: translateY(0) rotate(0) scale(1);
+  }
+}
