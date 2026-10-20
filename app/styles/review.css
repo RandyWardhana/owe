@@ -15,7 +15,7 @@
   grid-column: 2;
   border: 0;
   background: transparent;
-  font-size: 15.5px;
+  font-size: 16px;
   font-weight: 700;
   color: var(--ink);
   outline: none;
@@ -78,7 +78,7 @@
   outline: none;
   color: var(--ink);
   font-weight: 700;
-  font-size: 15px;
+  font-size: 16px;
   text-align: center;
 }
 .pricebox {
@@ -98,7 +98,7 @@
   outline: none;
   color: var(--ink);
   font-weight: 700;
-  font-size: 15px;
+  font-size: 16px;
 }
 .item__line {
   font-size: 15px;
@@ -132,7 +132,7 @@
   outline: none;
   text-align: right;
   font-weight: 700;
-  font-size: 15px;
+  font-size: 16px;
   color: var(--ink);
 }
 .charge__right {
