@@ -1,21 +1,11 @@
 import { hasCloudSync } from "./cloudSync";
-import { deviceId } from "./device";
+import { deviceId, setSyncName, syncKey, syncName } from "./device";
 import { adoptTokens, allTokens } from "./billOwner";
 import { contacts, mergeContacts, type Contact } from "./addressBook";
 import type { Draft } from "./types";
 
 function online(): boolean {
   return typeof navigator === "undefined" || navigator.onLine;
-}
-
-async function digestHex(text: string): Promise<string> {
-  const buffer = await crypto.subtle.digest(
-    "SHA-256",
-    new TextEncoder().encode(text),
-  );
-  return Array.from(new Uint8Array(buffer))
-    .map((byte) => byte.toString(16).padStart(2, "0"))
-    .join("");
 }
 
 async function keyFor(id: string): Promise<CryptoKey> {
@@ -55,6 +45,8 @@ interface Payload {
      created but cannot confirm anyone's payment on it: the token proving
      ownership lived only in the browser that first shared it. */
   owners?: Record<string, string>;
+  /* The name the user typed under Sync, so a second device picks it up too. */
+  name?: string;
 }
 
 async function encrypt(payload: Payload, id: string): Promise<string> {
@@ -93,7 +85,8 @@ export async function pullHistory(): Promise<Payload | null> {
   const id = deviceId();
   if (!hasCloudSync || !id || !online()) return null;
   try {
-    const key = await digestHex(id);
+    const key = await syncKey(id);
+    if (!key) return null;
     const response = await fetch(`/api/sync?key=${encodeURIComponent(key)}`);
     if (!response.ok) return null;
     const json = (await response.json()) as { data?: string | null };
@@ -102,10 +95,20 @@ export async function pullHistory(): Promise<Payload | null> {
     if (!payload) return null;
     if (payload.owners) adoptTokens(payload.owners);
     if (payload.contacts) mergeContacts(payload.contacts);
+    if (payload.name && !syncName()) setSyncName(payload.name);
     return payload;
   } catch {
     return null;
   }
+}
+
+function sharedIds(history: Draft[]): string[] {
+  return [...new Set(history.map((entry) => entry.shareId).filter((id): id is string => Boolean(id)))];
+}
+
+function ownedTokens(ids: string[]): Record<string, string> {
+  const tokens = allTokens();
+  return Object.fromEntries(ids.filter((id) => tokens[id]).map((id) => [id, tokens[id]]));
 }
 
 /**
@@ -131,15 +134,18 @@ export async function pushHistory(
   const id = deviceId();
   if (!hasCloudSync || !id || !online()) return;
   try {
-    const key = await digestHex(id);
+    const key = await syncKey(id);
+    if (!key) return;
+    const shared = sharedIds(history);
+    const name = syncName();
     const data = await encrypt(
-      { history: forSync(history), owners: allTokens(), tombstones, contacts: contacts() },
+      { history: forSync(history), owners: allTokens(), tombstones, contacts: contacts(), ...(name ? { name } : {}) },
       id,
     );
     await fetch("/api/sync", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ key, data }),
+      body: JSON.stringify({ key, data, bills: shared, owned: ownedTokens(shared), name }),
     });
   } catch {
     /* best-effort */

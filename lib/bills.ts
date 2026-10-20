@@ -1,5 +1,6 @@
 import { hasCloudSync } from "./cloudSync";
 import { claimBill, forgetBill, ownerToken } from "./billOwner";
+import { syncKey } from "./device";
 import type { SharedBill } from "./types";
 
 /* Cloud layer for shared bills, proxied through our own server (/api/bill) so
@@ -20,11 +21,13 @@ export async function saveBill(id: string, data: string): Promise<boolean> {
     // Sharing a bill claims it for this device. Only the claim that lands first
     // counts, so re-sharing is harmless and a stranger cannot take it over.
     const { ownerHash } = await import("./billOwner");
-    const owner_hash = await ownerHash(claimBill(id));
+    const token = claimBill(id);
+    const owner_hash = await ownerHash(token);
+    const sync_key = (await syncKey()) || undefined;
     const response = await fetch("/api/bill", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ id, data, owner_hash }),
+      body: JSON.stringify({ id, data, owner_hash, owner_token: token, sync_key }),
     });
     if (!response.ok) return false;
     const body = (await response.json()) as { ok?: boolean };
@@ -127,10 +130,12 @@ export async function saveClaim(
 export async function savePaid(id: string, paid: number[]): Promise<boolean> {
   if (!hasCloudSync || !isOnline()) return false;
   try {
+    const token = ownerToken(id);
+    const sync_key = token ? (await syncKey()) || undefined : undefined;
     const res = await fetch("/api/bill", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ id, paid, owner_token: ownerToken(id) ?? undefined }),
+      body: JSON.stringify({ id, paid, owner_token: token ?? undefined, sync_key }),
     });
     if (!res.ok) return false;
     const body = (await res.json()) as { ok?: boolean };
