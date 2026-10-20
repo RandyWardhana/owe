@@ -7,10 +7,6 @@ import { useCopy } from "./copy";
 
 const ICONS = [Camera, Users, Share];
 
-/* Three numbered cards after the reference's "Get the most out of" pair: a
-   flat grey card, the words top-left, and a lime blob with an icon breaking
-   out of the bottom-right corner. They land one after another, which reads as
-   the order of the steps without a single arrow. */
 export default function HowItWorks() {
   const HOW = useCopy().how;
   return (
@@ -22,16 +18,16 @@ export default function HowItWorks() {
         </Reveal>
 
         <ol className="lp-steps">
-          {HOW.steps.map((s, i) => {
+          {HOW.steps.map((step, i) => {
             const Icon = ICONS[i];
             return (
-              <Reveal key={s.num} as="li" delay={i * 120} className="lp-step lp-pop">
+              <Reveal key={step.num} as="li" delay={i * 120} className="lp-step lp-pop">
                 <span className="lp-step__num disp">
-                  {HOW.step} {s.num}
+                  {HOW.step} {step.num}
                 </span>
-                <h3 className="lp-step__title">{s.title}</h3>
-                <p className="lp-step__desc">{s.desc}</p>
-                <p className="lp-step__line">{s.line}</p>
+                <h3 className="lp-step__title">{step.title}</h3>
+                <p className="lp-step__desc">{step.desc}</p>
+                <p className="lp-step__line">{step.line}</p>
                 <span className={`lp-step__art lp-step__art--${i}`} aria-hidden="true">
                   <span className="lp-step__blob" />
                   <span className="lp-step__icon">

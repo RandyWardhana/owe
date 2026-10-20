@@ -6,14 +6,15 @@ import { useStore } from "@/lib/store";
 import { useT } from "@/lib/i18n";
 import { buzz } from "@/lib/util";
 import { deleteBill } from "@/lib/bills";
-import type { Draft } from "@/lib/types";
+import type { Draft } from "@/entities/bill";
 
 import Screen from "@/components/Screen";
 import { Gear, Camera, Pencil, Receipt, Chevron, Trash } from "@/components/icons";
 import Sheet from "@/components/Sheet";
 import HistoryRow from "./HistoryRow";
+import type { HomeProps } from "@/entities/props/home";
 
-export default function Home({ onOpenSettings }: { onOpenSettings: () => void }) {
+export default function Home({ onOpenSettings }: HomeProps) {
   const t = useT();
   const currency = useStore((s) => s.currency);
   const history = useStore((s) => s.history);

@@ -2,17 +2,14 @@
 
 import { useT } from "@/lib/i18n";
 import { fmtMoney } from "@/lib/currency";
-import type { SplitResult } from "@/lib/types";
 
 import AnimatedMoney from "@/components/ui/AnimatedMoney";
+import type { TotalCardProps } from "@/entities/props/breakdown";
 
 export default function TotalCard({
   result,
   currency,
-}: {
-  result: SplitResult;
-  currency: string;
-}) {
+}: TotalCardProps) {
   const t = useT();
 
   const sub: string[] = [

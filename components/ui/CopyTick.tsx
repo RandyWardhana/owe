@@ -1,19 +1,13 @@
 "use client";
 
-import type { ReactNode } from "react";
-
-import type { CopyPhase } from "@/lib/hooks";
 import { Copy, Check } from "@/components/icons";
+import type { CopyTickProps } from "@/entities/props/ui";
 
 export default function CopyTick({
   phase,
   size = 15,
   icon,
-}: {
-  phase: CopyPhase;
-  size?: number;
-  icon?: ReactNode;
-}) {
+}: CopyTickProps) {
   return (
     <span className="cp-swap" data-phase={phase}>
       <span className="cp-copy">{icon ?? <Copy size={size} />}</span>

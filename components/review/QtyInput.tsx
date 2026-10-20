@@ -1,14 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import type { QtyInputProps } from "@/entities/props/review";
 
 export default function QtyInput({
   value,
   onChange,
-}: {
-  value: number;
-  onChange: (qty: number) => void;
-}) {
+}: QtyInputProps) {
   const [text, setText] = useState(String(value));
 
   useEffect(() => {

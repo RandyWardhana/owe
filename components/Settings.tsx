@@ -6,12 +6,13 @@ import { ACCENTS } from "@/lib/accents";
 import { CURRENCIES } from "@/lib/currency";
 import { buzz } from "@/lib/util";
 import { originOf, switchTheme } from "@/lib/themeTransition";
-import type { Lang, Rounding, Theme } from "@/lib/types";
+import type { Rounding } from "@/entities/currency";
+import type { Lang, Theme } from "@/entities/settings";
 
 import Sheet from "./Sheet";
 import SyncSettings from "./SyncSettings";
 import { Sun, Moon, Check, Chevron } from "./icons";
-
+import type { SettingsOptions, SettingsProps } from "@/entities/props/ui";
 
 const ROUNDINGS: { value: Rounding; key: string }[] = [
   { value: "none", key: "settings.roundExact" },
@@ -19,20 +20,8 @@ const ROUNDINGS: { value: Rounding; key: string }[] = [
   { value: "up5", key: "settings.roundUp5" },
 ];
 
-interface SettingsOptions {
-  /* Set when opened over a shared bill: money settings then mean "show this
-     bill in", and rounding and backups -- which act on your own bills -- go. */
-  billCurrency?: string;
-  /* The /landing page: there is no bill to show money for and nothing to back
-     up, so only look-and-feel and language. Same controls, same stored
-     settings, so a choice made there is already in place when the app opens. */
-  appearanceOnly?: boolean;
-}
-
-/* The settings themselves, without a container. The app and shared links show
-   them in a bottom sheet (Settings, below); /landing on a desktop shows them in
-   a dropdown under its gear, where a sheet rising from the bottom of a wide
-   screen looked out of place. */
+/* No container: the app shows this in a bottom sheet, /landing on a desktop
+   in a dropdown under its gear. */
 export function SettingsBody({ billCurrency, appearanceOnly = false }: SettingsOptions) {
   const t = useT();
   const theme = useStore((s) => s.theme);
@@ -80,18 +69,18 @@ export function SettingsBody({ billCurrency, appearanceOnly = false }: SettingsO
         <div className="set-item">
           <span className="set-item__label">{t("settings.accent")}</span>
           <div className="swatches">
-            {ACCENTS.map((c) => (
+            {ACCENTS.map((accentColor) => (
               <button
-                key={c}
-                className={`swatch ${accent === c ? "on" : ""}`}
-                style={{ background: c }}
-                aria-label={c}
+                key={accentColor}
+                className={`swatch ${accent === accentColor ? "on" : ""}`}
+                style={{ background: accentColor }}
+                aria-label={accentColor}
                 onClick={() => {
                   buzz(6);
-                  setAccent(c);
+                  setAccent(accentColor);
                 }}
               >
-                {accent === c ? <Check size={15} /> : null}
+                {accent === accentColor ? <Check size={15} /> : null}
               </button>
             ))}
           </div>
@@ -117,16 +106,16 @@ export function SettingsBody({ billCurrency, appearanceOnly = false }: SettingsO
       <div className="set-group">
         <div className="set-item set-item--stack">
           <div className="seg seg--full">
-            {LANGS.map((l) => (
+            {LANGS.map((language) => (
               <button
-                key={l.value}
-                className={`seg__btn ${lang === l.value ? "on" : ""}`}
+                key={language.value}
+                className={`seg__btn ${lang === language.value ? "on" : ""}`}
                 onClick={() => {
                   buzz(6);
-                  setLang(l.value as Lang);
+                  setLang(language.value as Lang);
                 }}
               >
-                {l.label}
+                {language.label}
               </button>
             ))}
           </div>
@@ -182,16 +171,16 @@ export function SettingsBody({ billCurrency, appearanceOnly = false }: SettingsO
           <div className="set-item">
             <span className="set-item__label">{t("settings.rounding")}</span>
             <div className="seg">
-              {ROUNDINGS.map((r) => (
+              {ROUNDINGS.map((roundingOption) => (
                 <button
-                  key={r.value}
-                  className={`seg__btn ${rounding === r.value ? "on" : ""}`}
+                  key={roundingOption.value}
+                  className={`seg__btn ${rounding === roundingOption.value ? "on" : ""}`}
                   onClick={() => {
                     buzz(5);
-                    setRounding(r.value);
+                    setRounding(roundingOption.value);
                   }}
                 >
-                  {t(r.key)}
+                  {t(roundingOption.key)}
                 </button>
               ))}
             </div>
@@ -210,7 +199,7 @@ export default function Settings({
   open,
   onClose,
   ...options
-}: SettingsOptions & { open: boolean; onClose: () => void }) {
+}: SettingsProps) {
   const t = useT();
   return (
     <Sheet open={open} onClose={onClose} title={t("settings.title")}>

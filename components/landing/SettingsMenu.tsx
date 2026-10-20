@@ -5,21 +5,16 @@ import { useEffect, useRef, useState } from "react";
 import { Gear } from "@/components/icons";
 import { SettingsBody } from "@/components/Settings";
 import { track } from "@/lib/analytics";
+import type { SettingsMenuProps } from "@/entities/props/landing";
 
 const DESKTOP = "(min-width: 760px)";
 
-/* The landing's gear. On a desktop it opens a dropdown hanging from the gear,
-   with a small pointer aimed at it; a bottom sheet rising from the foot of a
-   wide screen read as a phone screen dropped onto a web page. On a phone the
-   sheet is still the right thing, so there the gear hands off to it
+/* A dropdown on desktop; on a phone the gear hands off to the sheet
    (`onOpenSheet`, rendered by Landing on its viewport-fixed layer). */
 export default function SettingsMenu({
   label,
   onOpenSheet,
-}: {
-  label: string;
-  onOpenSheet: () => void;
-}) {
+}: SettingsMenuProps) {
   const [open, setOpen] = useState(false);
   const [desktop, setDesktop] = useState(false);
   const wrap = useRef<HTMLDivElement>(null);
@@ -64,7 +59,7 @@ export default function SettingsMenu({
         aria-expanded={desktop ? open : undefined}
         onClick={() => {
           if (!open) track("landing_settings_open", { kind: desktop ? "dropdown" : "sheet" });
-          if (desktop) setOpen((o) => !o);
+          if (desktop) setOpen((wasOpen) => !wasOpen);
           else onOpenSheet();
         }}
       >

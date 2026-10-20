@@ -1,12 +1,10 @@
 import { OWE_MARK_PATH } from "@/lib/brandMark";
+import type { AppIconProps } from "@/entities/props/ui";
 
-/* The owe app icon drawn in place, in the current accent: the square takes
-   --accent and the mark --on-accent, so it follows the accent picker and stays
-   legible in both themes. public/icon.svg is fixed lime, which is right for
-   the files a browser or launcher caches, but wrong inside the app, where the
-   rest of the page has already changed colour. Same mark as the file: the path
-   comes from lib/brandMark, which a test keeps in step with icon.svg. */
-export default function AppIcon({ className, size }: { className?: string; size?: number }) {
+/* Drawn in place so it follows the accent; public/icon.svg stays fixed lime for
+   browser and launcher caches. The path comes from lib/brandMark, which a test
+   keeps in step with icon.svg. */
+export default function AppIcon({ className, size }: AppIconProps) {
   return (
     <svg
       className={className}

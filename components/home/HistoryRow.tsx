@@ -3,9 +3,9 @@
 import { useT } from "@/lib/i18n";
 import { fmtMoney } from "@/lib/currency";
 import { initials, personColor, personInk } from "@/lib/util";
-import type { Draft } from "@/lib/types";
 
 import { Trash } from "@/components/icons";
+import type { HistoryRowProps } from "@/entities/props/home";
 
 export default function HistoryRow({
   draft,
@@ -13,13 +13,7 @@ export default function HistoryRow({
   currency,
   onOpen,
   onDelete,
-}: {
-  draft: Draft;
-  index: number;
-  currency: string;
-  onOpen: () => void;
-  onDelete: () => void;
-}) {
+}: HistoryRowProps) {
   const t = useT();
   const total = draft.summary?.grandTotal ?? 0;
   const date = new Date(draft.createdAt).toLocaleDateString(undefined, {
@@ -31,17 +25,17 @@ export default function HistoryRow({
     <div className="card hist" style={{ ["--i" as string]: index }}>
       <button className="hist__open tappable" onClick={onOpen}>
       <div className="hist__avatars">
-        {draft.people.slice(0, 3).map((p, k) => (
+        {draft.people.slice(0, 3).map((person, personIndex) => (
           <span
-            key={p.id}
+            key={person.id}
             className="avatar hist__av"
             style={{
-              background: personColor(k),
-              color: personInk(k),
-              marginLeft: k ? -10 : 0,
+              background: personColor(personIndex),
+              color: personInk(personIndex),
+              marginLeft: personIndex ? -10 : 0,
             }}
           >
-            {initials(p.name)}
+            {initials(person.name)}
           </span>
         ))}
       </div>

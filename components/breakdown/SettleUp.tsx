@@ -3,28 +3,12 @@
 import { useT } from "@/lib/i18n";
 import { useCopyAnim } from "@/lib/hooks";
 import { initials, personColor, personInk } from "@/lib/util";
-import type { Person, Settlement } from "@/lib/types";
 
 import { Check } from "@/components/icons";
 import AnimatedMoney from "@/components/ui/AnimatedMoney";
 import CopyTick from "@/components/ui/CopyTick";
 import AccountRow from "@/components/ui/AccountRow";
-
-interface Props {
-  people: Person[];
-  payer: Person | null;
-  payerId: string | null;
-  settle: Settlement[];
-  paid: string[];
-  currency: string;
-  summary: string;
-  onSetPayer: (id: string) => void;
-  onTogglePaid: (id: string) => void;
-  /* Receipts uploaded through the share link, by person id. Empty until the
-     bill has been shared — an unshared split has nobody to upload one. */
-  proofOf?: (personId: string) => string | null;
-  onViewProof?: (personId: string) => void;
-}
+import type { SettleUpProps } from "@/entities/props/breakdown";
 
 export default function SettleUp({
   people,
@@ -38,10 +22,10 @@ export default function SettleUp({
   onTogglePaid,
   proofOf,
   onViewProof,
-}: Props) {
+}: SettleUpProps) {
   const t = useT();
   const summaryCopy = useCopyAnim();
-  const colorOf = (id: string) => people.findIndex((p) => p.id === id);
+  const colorOf = (id: string) => people.findIndex((person) => person.id === id);
 
   return (
     <>
@@ -51,27 +35,27 @@ export default function SettleUp({
       <div className="card settle">
         <div className="settle__q dim">{t("breakdown.whoPaid")}</div>
         <div className="who" style={{ marginTop: 10 }}>
-          {people.map((p) => {
-            const on = p.id === payerId;
-            const ci = colorOf(p.id);
+          {people.map((person) => {
+            const on = person.id === payerId;
+            const colorIndex = colorOf(person.id);
             return (
               <button
-                key={p.id}
+                key={person.id}
                 className={`who__chip ${on ? "on" : ""}`}
                 style={
                   on
-                    ? { background: personColor(ci), color: personInk(ci), borderColor: "transparent" }
+                    ? { background: personColor(colorIndex), color: personInk(colorIndex), borderColor: "transparent" }
                     : undefined
                 }
-                onClick={() => onSetPayer(p.id)}
+                onClick={() => onSetPayer(person.id)}
               >
                 <span
                   className="avatar who__av"
-                  style={{ background: personColor(ci), color: personInk(ci) }}
+                  style={{ background: personColor(colorIndex), color: personInk(colorIndex) }}
                 >
-                  {on ? <Check size={13} /> : initials(p.name)}
+                  {on ? <Check size={13} /> : initials(person.name)}
                 </span>
-                <span className="truncate">{p.name || "—"}</span>
+                <span className="truncate">{person.name || "—"}</span>
               </button>
             );
           })}
@@ -81,21 +65,21 @@ export default function SettleUp({
           <p className="muted settle__hint">{t("breakdown.coversOwn")}</p>
         ) : (
           <div className="col-gap" style={{ marginTop: 14 }}>
-            {settle.map((s) => {
-              const isPaid = paid.includes(s.from);
-              const proof = proofOf?.(s.from) ?? null;
+            {settle.map((settlement) => {
+              const isPaid = paid.includes(settlement.from);
+              const proof = proofOf?.(settlement.from) ?? null;
               return (
-                <div className={`owe-row ${isPaid ? "is-paid" : ""}`} key={s.from}>
+                <div className={`owe-row ${isPaid ? "is-paid" : ""}`} key={settlement.from}>
                   <button
                     className="owe-check"
                     aria-pressed={isPaid}
-                    aria-label={t("breakdown.markPaid", { name: s.fromName || "—" })}
-                    onClick={() => onTogglePaid(s.from)}
+                    aria-label={t("breakdown.markPaid", { name: settlement.fromName || "—" })}
+                    onClick={() => onTogglePaid(settlement.from)}
                   >
                     {isPaid ? <Check size={15} /> : null}
                   </button>
                   <div className="grow" style={{ minWidth: 0 }}>
-                    <div className="owe-row__name truncate">{s.fromName || "—"}</div>
+                    <div className="owe-row__name truncate">{settlement.fromName || "—"}</div>
                     <div className="muted owe-row__sub">
                       {isPaid
                         ? t("breakdown.paid")
@@ -107,14 +91,14 @@ export default function SettleUp({
                   {proof ? (
                     <button
                       className="settle__thumb owe-row__proof"
-                      onClick={() => onViewProof?.(s.from)}
+                      onClick={() => onViewProof?.(settlement.from)}
                       aria-label={t("shared.viewProof")}
                     >
                       <img src={proof} alt="" onError={(e) => { e.currentTarget.style.display = "none"; }} />
                     </button>
                   ) : null}
                   <span className="owe-row__amt disp tnum">
-                    <AnimatedMoney value={s.amount} currency={currency} />
+                    <AnimatedMoney value={settlement.amount} currency={currency} />
                   </span>
                 </div>
               );
@@ -125,8 +109,8 @@ export default function SettleUp({
                 <div className="label" style={{ margin: "4px 0 8px" }}>
                   {t("breakdown.payVia", { name: payer.name || "—" })}
                 </div>
-                {payer.accounts.map((a) => (
-                  <AccountRow key={a.id} methodKey={a.key} value={a.value} />
+                {payer.accounts.map((account) => (
+                  <AccountRow key={account.id} methodKey={account.key} value={account.value} />
                 ))}
               </div>
             ) : null}

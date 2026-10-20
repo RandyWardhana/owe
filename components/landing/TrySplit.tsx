@@ -12,53 +12,36 @@ import Reveal from "./Reveal";
 import { PEOPLE, PRESETS } from "./data";
 import { fill, useCopy, useLandingLang } from "./copy";
 import { track } from "@/lib/analytics";
-
-/* One line of the board: who is on it, how many each of them had, and
-   whether those counts apply. Mirrors the app's Item (assignedTo / units /
-   countEach) so the demo divides a line exactly the way the app does. */
-interface Line {
-  who: number[];
-  units: number[];
-  each: boolean;
-}
+import type { TrySplitLine } from "@/entities/props/landing";
 
 const ones = () => PEOPLE.map(() => 1);
 
-const startOf = (preset: number): Line[] =>
+const startOf = (preset: number): TrySplitLine[] =>
   PRESETS[preset].items.map((item) => ({
     who: [...item.start],
-    units: PEOPLE.map((_, p) => {
-      const k = item.start.indexOf(p);
-      return k >= 0 && item.counts ? item.counts[k] : 1;
+    units: PEOPLE.map((_, personIndex) => {
+      const slot = item.start.indexOf(personIndex);
+      return slot >= 0 && item.counts ? item.counts[slot] : 1;
     }),
     each: Boolean(item.counts),
   }));
 
-const qtyOf = (i: { qty?: number }) => Math.max(1, i.qty ?? 1);
+const qtyOf = (item: { qty?: number }) => Math.max(1, item.qty ?? 1);
 
 /* Count each only means something with several people on a line of several,
    the same rule as Assign: "6x Es teh" where one of them had two. */
-const counting = (item: { qty?: number }, line: Line) => qtyOf(item) > 1 && line.who.length > 1 && line.each;
-const countedOf = (line: Line) => line.who.reduce((sum, p) => sum + line.units[p], 0);
+const counting = (item: { qty?: number }, line: TrySplitLine) => qtyOf(item) > 1 && line.who.length > 1 && line.each;
+const countedOf = (line: TrySplitLine) => line.who.reduce((sum, personIndex) => sum + line.units[personIndex], 0);
 
-/* The one section that is not a claim about the product.
-   Splitting a bill sounds simple until a plate is shared four ways and the tax
-   has to follow it; letting people tap that themselves lands the point faster
-   than any sentence about "fair splits".
-
-   Built like the reference's pizza builder: a preset loads a whole bill in one
-   tap, a counter says how far along you are, Clear empties the board, and the
-   result panel stays in view while you tap, so every change has a visible
-   effect. */
 export default function TrySplit() {
   const lang = useLandingLang();
   const copy = useCopy();
   const TRY = copy.try;
   // Words the app's Assign step already owns, from its own dictionary.
   const app = (key: string, vars?: Record<string, string | number>) => translate(lang, `assign.${key}`, vars);
-  const num = (n: number) => Math.round(n).toLocaleString("id-ID");
+  const num = (amount: number) => Math.round(amount).toLocaleString("id-ID");
   const [preset, setPreset] = useState(0);
-  const [lines, setLines] = useState<Line[]>(() => startOf(0));
+  const [lines, setLines] = useState<TrySplitLine[]>(() => startOf(0));
   // One "they touched it" event per visit, not one per tap.
   const [tapped, setTapped] = useState(false);
   const demo = (action: string, extra?: Record<string, string | boolean>) =>
@@ -71,7 +54,7 @@ export default function TrySplit() {
     track("landing_demo", { action: "preset", preset: PRESETS[index].id });
   };
 
-  const edit = (item: number, change: (line: Line) => Line) =>
+  const edit = (item: number, change: (line: TrySplitLine) => TrySplitLine) =>
     setLines((current) => current.map((line, i) => (i === item ? change(line) : line)));
 
   // Taking someone off a line forgets their count, as the app does, so putting
@@ -87,7 +70,7 @@ export default function TrySplit() {
       units[person] = 1;
       return {
         ...line,
-        who: on ? line.who.filter((p) => p !== person) : [...line.who, person].sort(),
+        who: on ? line.who.filter((member) => member !== person) : [...line.who, person].sort(),
         units,
       };
     });
@@ -98,8 +81,8 @@ export default function TrySplit() {
     edit(item, (line) => ({ ...line, each }));
   };
 
-  // + stops once the whole line is accounted for, for everyone on it — not
-  // just at the line's qty per person (the app's fc095da fix).
+  // + stops once the whole line is accounted for, for everyone on it, not
+  // just at the line's qty per person.
   const step = (item: number, person: number, delta: number) =>
     edit(item, (line) => {
       const qty = qtyOf(bill.items[item]);
@@ -128,11 +111,10 @@ export default function TrySplit() {
       if (!line || line.who.length === 0) return;
       done += 1;
       counted += item.price;
-      // Counted: pay for what you had. Shared: everyone on it pays the same.
       const units = counting(item, line) ? countedOf(line) : line.who.length;
-      line.who.forEach((p) => {
-        const mine = counting(item, line) ? line.units[p] : 1;
-        perPerson[p] += (item.price * mine) / units;
+      line.who.forEach((personIndex) => {
+        const mine = counting(item, line) ? line.units[personIndex] : 1;
+        perPerson[personIndex] += (item.price * mine) / units;
       });
     });
 
@@ -159,8 +141,6 @@ export default function TrySplit() {
 
   return (
     <section className="lp-section lp-try" id="try">
-      {/* The reference's lime disc behind the floating cards, drifting on its
-          own plane as the page scrolls. */}
       <span className="lp-try__blob" data-parallax="0.12" aria-hidden="true" />
       <div className="lp-wrap">
         <Reveal className="lp-section__head">
@@ -172,18 +152,18 @@ export default function TrySplit() {
         <Reveal className="lp-presets">
           <span className="lp-presets__label">{TRY.presetsLabel}</span>
           <div className="lp-presets__row" role="radiogroup" aria-label={TRY.presetsLabel}>
-            {PRESETS.map((p, i) => (
+            {PRESETS.map((choice, i) => (
               <button
-                key={p.id}
+                key={choice.id}
                 type="button"
                 role="radio"
                 aria-checked={i === preset}
                 className={`lp-preset ${i === preset ? "is-on" : ""}`}
                 onClick={() => load(i)}
               >
-                <span className="lp-preset__name">{copy.presets[p.id]}</span>
+                <span className="lp-preset__name">{copy.presets[choice.id]}</span>
                 <span className="lp-preset__meta">
-                  {p.items.length} items · {p.place}
+                  {choice.items.length} items · {choice.place}
                 </span>
               </button>
             ))}
@@ -207,7 +187,7 @@ export default function TrySplit() {
                 const countable = qty > 1 && who.length > 1;
                 const isCounting = counting(item, line);
                 const counted = countedOf(line);
-                const uneven = isCounting && who.some((p) => line.units[p] !== 1);
+                const uneven = isCounting && who.some((personIndex) => line.units[personIndex] !== 1);
                 return (
                   <li key={`${bill.id}-${item.name}`} className={`lp-try__item ${who.length ? "" : "is-orphan"}`}>
                     <div className="lp-try__itemtop">
@@ -224,8 +204,8 @@ export default function TrySplit() {
                     </div>
 
                     <div className="lp-try__faces">
-                      {PEOPLE.map((person, p) => {
-                        const on = who.includes(p);
+                      {PEOPLE.map((person, personIndex) => {
+                        const on = who.includes(personIndex);
                         return (
                           <button
                             key={person.name}
@@ -237,7 +217,7 @@ export default function TrySplit() {
                             }}
                             aria-pressed={on}
                             aria-label={fill(on ? TRY.remove : TRY.add, { name: person.name, item: item.name })}
-                            onClick={() => toggle(i, p)}
+                            onClick={() => toggle(i, personIndex)}
                           >
                             <span>{person.name[0]}</span>
                             {on ? <Check size={11} className="lp-try__facecheck" /> : null}
@@ -256,8 +236,7 @@ export default function TrySplit() {
                       </span>
                     </div>
 
-                    {/* The app's Assign control, same classes and words: a
-                        line of several, shared by several, can be counted. */}
+                    {/* Mirrors the app's Assign control: same classes and words. */}
                     {countable ? (
                       <div className="units lp-try__units">
                         <div className="seg seg--full units__mode" role="group">
@@ -283,9 +262,9 @@ export default function TrySplit() {
                             <div className="muted units__hint">
                               {app("howMany", { counted, qty })}
                             </div>
-                            {who.map((p) => {
-                              const n = line.units[p];
-                              const name = PEOPLE[p].name;
+                            {who.map((personIndex) => {
+                              const unitCount = line.units[personIndex];
+                              const name = PEOPLE[personIndex].name;
                               return (
                                 <div className="row between units__row" key={name}>
                                   <span className="truncate units__name">{name}</span>
@@ -294,18 +273,18 @@ export default function TrySplit() {
                                       type="button"
                                       className="units__btn"
                                       aria-label={app("less", { name })}
-                                      disabled={n <= 1}
-                                      onClick={() => step(i, p, -1)}
+                                      disabled={unitCount <= 1}
+                                      onClick={() => step(i, personIndex, -1)}
                                     >
                                       <Minus size={15} />
                                     </button>
-                                    <span className="units__n tnum">{n}</span>
+                                    <span className="units__n tnum">{unitCount}</span>
                                     <button
                                       type="button"
                                       className="units__btn"
                                       aria-label={app("more", { name })}
                                       disabled={counted >= qty}
-                                      onClick={() => step(i, p, 1)}
+                                      onClick={() => step(i, personIndex, 1)}
                                     >
                                       <Plus size={15} />
                                     </button>
@@ -332,9 +311,6 @@ export default function TrySplit() {
             </div>
           </div>
 
-          {/* The order panel: sticky on wide screens so the totals stay next to
-              the dish you are tapping, the way the reference keeps the pie and
-              its price on screen together. */}
           <aside className="lp-try__panel card" aria-live="polite">
             <div className="lp-try__count">
               <span className="lp-try__countnum tnum">
@@ -347,8 +323,8 @@ export default function TrySplit() {
             </div>
 
             <div className="lp-try__people">
-              {PEOPLE.map((person, p) => {
-                const amount = totals[p];
+              {PEOPLE.map((person, personIndex) => {
+                const amount = totals[personIndex];
                 return (
                   <div key={person.name} className={`lp-try__person ${amount ? "" : "is-out"}`}>
                     <span

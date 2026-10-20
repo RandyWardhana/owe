@@ -9,7 +9,6 @@ import { useSettlement } from "@/lib/hooks/useSettlement";
 import { useRate } from "@/lib/hooks/useRate";
 import { legacyShareId } from "@/lib/shareId";
 import { proofUrl } from "@/lib/proofs";
-import type { SharedBill } from "@/lib/types";
 import { convertBill } from "@/lib/convert";
 
 import Screen from "@/components/Screen";
@@ -20,16 +19,13 @@ import AccountRow from "@/components/ui/AccountRow";
 import ProofLightbox from "@/components/ui/ProofLightbox";
 import ClaimList from "./ClaimList";
 import SharedPersonRow from "./SharedPersonRow";
+import type { SharedViewProps } from "@/entities/props/shared";
 
 export default function SharedView({
   bill,
   shareId,
   onMakeOwn,
-}: {
-  bill: SharedBill;
-  shareId?: string | null;
-  onMakeOwn: () => void;
-}) {
+}: SharedViewProps) {
   const t = useT();
   const {
     paid,
@@ -49,7 +45,6 @@ export default function SharedView({
   const lang = useStore((state) => state.lang);
   const [settingsOpen, setSettingsOpen] = useState(false);
 
-  // uploadProof reports why it failed; without this the file simply vanished.
   const handleRemove = async (index: number) => {
     const result = await dropProof(index);
     if (result.ok) return;
@@ -73,10 +68,8 @@ export default function SharedView({
   };
   const id = useMemo(() => shareId || legacyShareId(bill), [bill, shareId]);
 
-  /* Shown -- and copied -- in the viewer's currency if they picked one: a
-     friend paying from a Malaysian account sends ringgit, so the amount they
-     paste into their banking app has to be ringgit too. The bill's own amount
-     stays under each total for whoever pays in it. */
+  /* Shown and copied in the viewer's currency if they picked one, so the amount
+     pasted into their banking app matches the account they pay from. */
   const billCurrency = bill.currency || "USD";
   const rateState = useRate(billCurrency, viewCurrency);
   const rate = rateState.status === "ready" ? rateState.rate : 1;

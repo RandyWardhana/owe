@@ -3,11 +3,12 @@
 import { useEffect, useState } from "react";
 
 import { useStore } from "@/lib/store";
-import { accountsFor, contacts, isKnown, type Contact } from "@/lib/addressBook";
+import { accountsFor, contacts, isKnown } from "@/lib/addressBook";
+import type { Contact } from "@/entities/contact";
 import SavedPeopleSheet from "./SavedPeopleSheet";
 import { useT } from "@/lib/i18n";
 import { buzz, uid, initials, personColor, personInk } from "@/lib/util";
-import type { Person } from "@/lib/types";
+import type { Person } from "@/entities/bill";
 
 import Screen from "@/components/Screen";
 import Sheet from "@/components/Sheet";
@@ -28,10 +29,10 @@ export default function People() {
   // localStorage read, so after mount: the server render must not disagree.
   useEffect(() => setHasSaved(contacts().length > 0), [pickOpen]);
   const people = draft.people;
-  const editing = people.find((p) => p.id === payFor) || null;
+  const editing = people.find((person) => person.id === payFor) || null;
 
   const closePayments = () => {
-    if (editing?.accounts.some((a) => !a.value.trim())) {
+    if (editing?.accounts.some((account) => !account.value.trim())) {
       buzz(12);
       showToast("payment.emptyError");
       return;
@@ -41,54 +42,51 @@ export default function People() {
 
   const addPerson = () => {
     buzz(8);
-    updateDraft((d) => ({
-      ...d,
-      people: [...d.people, { id: uid(), name: "", accounts: [] }],
+    updateDraft((draft) => ({
+      ...draft,
+      people: [...draft.people, { id: uid(), name: "", accounts: [] }],
     }));
   };
 
   const setPerson = (id: string, patch: Partial<Person>) =>
-    updateDraft((d) => ({
-      ...d,
-      people: d.people.map((p) => (p.id === id ? { ...p, ...patch } : p)),
+    updateDraft((draft) => ({
+      ...draft,
+      people: draft.people.map((person) => (person.id === id ? { ...person, ...patch } : person)),
     }));
 
-  // Picking a remembered person brings their accounts with them. Typing a name
-  // only fills when this person has none yet, so it can never overwrite what
-  // was just entered by hand.
+  // Typing a remembered name fills accounts only when this person has none yet,
+  // so it never overwrites what was entered by hand.
   const nameChanged = (person: Person, name: string) => {
-    // Typing a remembered name still fills, for anyone who knows it by heart --
-    // but only into a person who has no accounts yet.
     const saved = person.accounts.length ? [] : accountsFor(name);
     setPerson(person.id, saved.length ? { name, accounts: saved } : { name });
   };
 
   const addSaved = (contact: Contact) => {
     buzz(8);
-    updateDraft((d) => {
-      const blank = d.people.find((person) => !person.name.trim() && !person.accounts.length);
+    updateDraft((draft) => {
+      const blank = draft.people.find((person) => !person.name.trim() && !person.accounts.length);
       const filled = {
         id: blank ? blank.id : uid(),
         name: contact.name,
         accounts: accountsFor(contact.name),
       };
       return {
-        ...d,
+        ...draft,
         people: blank
-          ? d.people.map((person) => (person.id === blank.id ? filled : person))
-          : [...d.people, filled],
+          ? draft.people.map((person) => (person.id === blank.id ? filled : person))
+          : [...draft.people, filled],
       };
     });
   };
 
   const delPerson = (id: string) => {
     buzz(6);
-    updateDraft((d) => ({
-      ...d,
-      people: d.people.filter((p) => p.id !== id),
-      items: d.items.map((it) => ({
-        ...it,
-        assignedTo: it.assignedTo.filter((a) => a !== id),
+    updateDraft((draft) => ({
+      ...draft,
+      people: draft.people.filter((person) => person.id !== id),
+      items: draft.items.map((item) => ({
+        ...item,
+        assignedTo: item.assignedTo.filter((assigneeId) => assigneeId !== id),
       })),
     }));
   };
@@ -108,7 +106,7 @@ export default function People() {
       footer={
         <button
           className="btn"
-          disabled={people.filter((p) => p.name.trim()).length < 2}
+          disabled={people.filter((person) => person.name.trim()).length < 2}
           onClick={() => {
             buzz(8);
             go("assign");
@@ -147,28 +145,28 @@ export default function People() {
           </div>
         ) : (
           <div className="col-gap stagger">
-            {people.map((p, i) => (
-              <div className="card person" key={p.id} style={{ ["--i" as string]: i }}>
+            {people.map((person, i) => (
+              <div className="card person" key={person.id} style={{ ["--i" as string]: i }}>
                 <span
                   className="avatar person__av"
                   style={{ background: personColor(i), color: personInk(i) }}
                 >
-                  {initials(p.name)}
+                  {initials(person.name)}
                 </span>
                 <div className="grow">
                   <input
                     className="person__name"
-                    value={p.name}
+                    value={person.name}
                     placeholder={t("people.addName")}
-                    autoFocus={i === people.length - 1 && !p.name}
-                    onChange={(e) => nameChanged(p, e.target.value)}
+                    autoFocus={i === people.length - 1 && !person.name}
+                    onChange={(e) => nameChanged(person, e.target.value)}
                   />
-                  <button className="person__pay" onClick={() => setPayFor(p.id)}>
+                  <button className="person__pay" onClick={() => setPayFor(person.id)}>
                     <Wallet size={14} />
                     <span>
-                      {p.accounts.length === 0 && isKnown(p.name)
+                      {person.accounts.length === 0 && isKnown(person.name)
                         ? t("people.savedDetails")
-                        : payLabel(p.accounts.length)}
+                        : payLabel(person.accounts.length)}
                     </span>
                     <Chevron size={14} />
                   </button>
@@ -176,7 +174,7 @@ export default function People() {
                 <button
                   className="iconbtn ghost"
                   aria-label="remove"
-                  onClick={() => delPerson(p.id)}
+                  onClick={() => delPerson(person.id)}
                 >
                   <Trash size={18} />
                 </button>

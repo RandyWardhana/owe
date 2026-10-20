@@ -2,17 +2,14 @@
 
 import { methodMeta } from "@/lib/payments";
 import { useCopyAnim } from "@/lib/hooks";
-import type { PayMethodKey } from "@/lib/types";
 
 import CopyTick from "./CopyTick";
+import type { AccountRowProps } from "@/entities/props/ui";
 
 export default function AccountRow({
   methodKey,
   value,
-}: {
-  methodKey: PayMethodKey;
-  value: string;
-}) {
+}: AccountRowProps) {
   const { phase, copy } = useCopyAnim();
   const meta = methodMeta(methodKey);
 

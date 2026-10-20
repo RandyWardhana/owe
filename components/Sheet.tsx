@@ -1,12 +1,13 @@
 "use client";
 
-import type { PointerEvent, ReactNode, TransitionEvent } from "react";
+import type { PointerEvent, TransitionEvent } from "react";
 import { useEffect, useRef, useState } from "react";
 
 import { useStore } from "@/lib/store";
 import { useEscapeKey } from "@/lib/hooks";
 
 import { X } from "./icons";
+import type { SheetProps } from "@/entities/props/ui";
 
 const DRAG_CLOSE_PX = 110;
 
@@ -15,12 +16,7 @@ export default function Sheet({
   onClose,
   title,
   children,
-}: {
-  open: boolean;
-  onClose: () => void;
-  title?: ReactNode;
-  children: ReactNode;
-}) {
+}: SheetProps) {
   const anim = useStore((s) => s.anim);
 
   const [render, setRender] = useState(open);
@@ -89,13 +85,13 @@ export default function Sheet({
 
   const onPointerMove = (e: PointerEvent) => {
     if (!draggingRef.current) return;
-    const dy = Math.max(0, e.clientY - startY.current);
-    dragY.current = dy;
+    const dragDistance = Math.max(0, e.clientY - startY.current);
+    dragY.current = dragDistance;
 
-    sheetRef.current?.style.setProperty("--drag", `${dy}px`);
+    sheetRef.current?.style.setProperty("--drag", `${dragDistance}px`);
     backdropRef.current?.style.setProperty(
       "--bd",
-      String(Math.max(0, 1 - dy / 320)),
+      String(Math.max(0, 1 - dragDistance / 320)),
     );
   };
 

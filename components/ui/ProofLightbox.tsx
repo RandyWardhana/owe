@@ -6,26 +6,13 @@ import { createPortal } from "react-dom";
 import { useT } from "@/lib/i18n";
 
 import { X } from "@/components/icons";
+import type { ProofLightboxProps } from "@/entities/props/ui";
 
-/* The receipt, full screen.
-   Portalled to <body> on purpose: this used to render inside the screen's
-   transition wrapper, and a transformed ancestor makes position:fixed resolve
-   against that element rather than the viewport, so the "full screen" overlay
-   covered only the middle of the page.
+/* Portalled to <body>: a transformed ancestor makes position:fixed resolve
+   against it instead of the viewport. A fitted phone screenshot is too small to
+   read the amount, so tapping the image toggles fill-width; tapping elsewhere closes. */
 
-   Two sizes, because one is never enough. A phone screenshot is around
-   1170x2532; fitted to a 390pt screen that is 29% scale, which is honest about
-   the whole image and useless for reading the amount, so the zoom lives here
-   rather than relying on pinch-zoom. Tap the image to switch between fitting the
-   screen and filling the width; tap anywhere else to close. */
-
-interface Props {
-  src: string;
-  label: string;
-  onClose: () => void;
-}
-
-export default function ProofLightbox({ src, label, onClose }: Props) {
+export default function ProofLightbox({ src, label, onClose }: ProofLightboxProps) {
   const t = useT();
   const [mounted, setMounted] = useState(false);
   const [zoomed, setZoomed] = useState(false);
@@ -63,10 +50,9 @@ export default function ProofLightbox({ src, label, onClose }: Props) {
         <X size={20} />
       </button>
 
-      {/* The scroller is its own element because the overlay carries a
-          backdrop-filter, and a filtered ancestor becomes the containing block
-          for position:fixed children -- the close button scrolled away with the
-          image instead of staying put. */}
+      {/* A separate scroller: the overlay's backdrop-filter makes it the
+          containing block for position:fixed children, so the close button
+          would scroll away with the image. */}
       <div className="proof-overlay__scroll">
         <img
           className="proof-overlay__img"
@@ -75,7 +61,7 @@ export default function ProofLightbox({ src, label, onClose }: Props) {
           // The image swallows the tap so zooming does not also dismiss.
           onClick={(e) => {
             e.stopPropagation();
-            setZoomed((z) => !z);
+            setZoomed((wasZoomed) => !wasZoomed);
           }}
         />
       </div>

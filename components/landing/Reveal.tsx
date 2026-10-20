@@ -1,30 +1,22 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import type { RevealProps } from "@/entities/props/landing";
 
-/**
- * Scroll-triggered reveal wrapper. Fades/rises children in when they enter the
- * viewport. Respects prefers-reduced-motion and owe's global `data-anim="off"`
- * setting. `as` exists so a reveal can sit inside a list without putting a div
- * where only an <li> is valid.
- */
+/* `as` lets a reveal sit inside a list without putting a div where only an <li>
+   is valid. */
 export default function Reveal({
   children,
   className = "",
   delay = 0,
   as: Tag = "div",
-}: {
-  children: React.ReactNode;
-  className?: string;
-  delay?: number;
-  as?: "div" | "li";
-}) {
+}: RevealProps) {
   const ref = useRef<HTMLElement>(null);
   const [shown, setShown] = useState(false);
 
   useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
+    const element = ref.current;
+    if (!element) return;
 
     const reduced =
       window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ||
@@ -34,20 +26,20 @@ export default function Reveal({
       return;
     }
 
-    const io = new IntersectionObserver(
+    const observer = new IntersectionObserver(
       (entries) => {
         for (const entry of entries) {
           if (entry.isIntersecting) {
             setShown(true);
-            io.disconnect();
+            observer.disconnect();
             break;
           }
         }
       },
       { threshold: 0.12, rootMargin: "0px 0px -8% 0px" },
     );
-    io.observe(el);
-    return () => io.disconnect();
+    observer.observe(element);
+    return () => observer.disconnect();
   }, []);
 
   return (

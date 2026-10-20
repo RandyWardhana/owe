@@ -1,35 +1,9 @@
-// Marketing copy for the /landing page, in both of the app's languages. Kept
-// self-contained (like the yousoro Landing/data.ts reference) so it stays out
-// of the app's i18n dictionaries; words the app already owns -- "Shared
-// equally", "Count each", the Settings sheet -- come from lib/i18n instead, so
-// the two can never name the same control differently.
-//
-// Every number here is a fact about the app, not a flourish: the stats are
-// counted from lib/currency.ts and lib/i18n, and the presets are just receipts.
+// Kept out of the app's i18n dictionaries; words the app already owns come from
+// lib/i18n so the two never name a control differently. Every stat is counted
+// from lib/currency.ts and lib/i18n.
 
-import type { Lang } from "@/lib/types";
-
-export interface PresetItem {
-  name: string;
-  /** The whole line, as printed on the receipt. */
-  price: number;
-  /** How many of it the line holds. Above 1 with several people on it, the
-      line can switch to Count each, exactly as in the app's Assign step. */
-  qty?: number;
-  /** Indexes into PEOPLE, assigned when the preset loads. */
-  start: number[];
-  /** Start counted, with how many each starting person had (same order as
-      `start`). Absent = Shared equally. */
-  counts?: number[];
-}
-
-export interface Preset {
-  id: "ramen" | "lunch" | "drinks";
-  place: string;
-  tax: number;
-  service: number;
-  items: PresetItem[];
-}
+import type { LandingCopy, Preset } from "@/entities/props/landing";
+import type { Lang } from "@/entities/settings";
 
 export const PEOPLE = [
   { name: "Aya", swatch: 3 },
@@ -38,10 +12,8 @@ export const PEOPLE = [
   { name: "Dee", swatch: 5 },
 ];
 
-/* One-tap starting points, the way the reference loads a house pie into its
-   builder: each fills the board with a real-looking bill so there is something
-   to tap before anyone has a receipt of their own. Dish names stay as printed
-   on the receipt in both languages; the preset's own name is in COPY. */
+/* Dish names stay as printed on the receipt in both languages; the preset's own
+   name is in COPY. */
 export const PRESETS: Preset[] = [
   {
     id: "ramen",
@@ -82,67 +54,6 @@ export const PRESETS: Preset[] = [
     ],
   },
 ];
-
-export interface LandingCopy {
-  nav: { how: string; try: string; faq: string; open: string };
-  hero: {
-    /** Facts above the headline, where the reference shows its ratings. owe
-        has no ratings to quote, and inventing them is not on. */
-    badges: string[];
-    title: string[];
-    lead: string;
-    primary: string;
-    secondary: string;
-    /** The stack under the buttons: what a split looks like while it happens. */
-    activity: { title: string; meta: string }[];
-    /** Floating question chips, ticked, like the reference's "How is the fit?". */
-    chips: string[];
-    stat: { eyebrow: string; value: string; sub: string };
-    rail: string;
-  };
-  how: {
-    eyebrow: string;
-    title: string;
-    step: string;
-    steps: { num: string; title: string; desc: string; line: string }[];
-  };
-  presets: Record<Preset["id"], string>;
-  try: {
-    eyebrow: string;
-    title: string;
-    lead: string;
-    presetsLabel: string;
-    cta: string;
-    tapFace: string;
-    allTheirs: string;
-    nobodyYet: string;
-    shareAll: string;
-    clear: string;
-    of: string;
-    assigned: string;
-    subtotal: string;
-    total: string;
-    tax: string;
-    service: string;
-    covered: string;
-    orphansOne: string;
-    orphansMany: string;
-    add: string;
-    remove: string;
-  };
-  perks: {
-    eyebrow: string;
-    title: string;
-    lead: string;
-    stats: { value: string; label: string }[];
-    items: { title: string; desc: string }[];
-  };
-  banner: { title: string; lead: string; button: string; phoneTitle: string; copy: string };
-  faqHead: { eyebrow: string; title: string };
-  faqs: { q: string; a: string }[];
-  final: { title: string[]; lead: string; button: string; install: string };
-  footer: { tag: string; fine: string };
-}
 
 export const COPY: Record<Lang, LandingCopy> = {
   en: {

@@ -1,16 +1,10 @@
 "use client";
 
-import type { ReactNode } from "react";
-
 import { useStore } from "@/lib/store";
 import { buzz } from "@/lib/util";
 
 import { Back } from "./icons";
-
-export interface StepsInfo {
-  current: number;
-  total: number;
-}
+import type { ScreenProps } from "@/entities/props/ui";
 
 export default function Screen({
   title,
@@ -21,16 +15,7 @@ export default function Screen({
   footer,
   overlay,
   children,
-}: {
-  title?: ReactNode;
-  sub?: ReactNode;
-  onBack?: () => void;
-  right?: ReactNode;
-  steps?: StepsInfo;
-  footer?: ReactNode;
-  overlay?: ReactNode;
-  children: ReactNode;
-}) {
+}: ScreenProps) {
   const dir = useStore((s) => s.dir);
   const back = useStore((s) => s.back);
   const stack = useStore((s) => s.stack);

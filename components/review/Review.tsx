@@ -7,7 +7,7 @@ import { useT } from "@/lib/i18n";
 import { fmtMoney, CURRENCIES } from "@/lib/currency";
 import { computeSplit, lineTotal } from "@/lib/calc";
 import { buzz, uid, clampNum } from "@/lib/util";
-import type { ChargeMode, Item } from "@/lib/types";
+import type { ChargeMode, Item } from "@/entities/bill";
 
 import Screen from "@/components/Screen";
 import { Plus, Trash, ArrowRight, Grip } from "@/components/icons";
@@ -28,24 +28,24 @@ export default function Review() {
   const split = computeSplit(draft, { rounding });
 
   const setItem = (id: string, patch: Partial<Item>) =>
-    updateDraft((d) => ({
-      ...d,
-      items: d.items.map((it) => (it.id === id ? { ...it, ...patch } : it)),
+    updateDraft((draft) => ({
+      ...draft,
+      items: draft.items.map((item) => (item.id === id ? { ...item, ...patch } : item)),
     }));
 
   const delItem = (id: string) => {
     buzz(6);
-    updateDraft((d) => ({ ...d, items: d.items.filter((it) => it.id !== id) }));
+    updateDraft((draft) => ({ ...draft, items: draft.items.filter((item) => item.id !== id) }));
   };
 
   const moveItem = useCallback(
     (from: number, to: number) => {
       buzz(8);
-      updateDraft((d) => {
-        const items = [...d.items];
+      updateDraft((draft) => {
+        const items = [...draft.items];
         const [moved] = items.splice(from, 1);
         items.splice(to, 0, moved);
-        return { ...d, items };
+        return { ...draft, items };
       });
     },
     [updateDraft],
@@ -54,10 +54,10 @@ export default function Review() {
 
   const addItem = () => {
     buzz(8);
-    updateDraft((d) => ({
-      ...d,
+    updateDraft((draft) => ({
+      ...draft,
       items: [
-        ...d.items,
+        ...draft.items,
         { id: uid(), name: "", qty: 1, price: 0, assignedTo: [], _new: true },
       ],
     }));
@@ -65,8 +65,8 @@ export default function Review() {
 
   const setCharge = (
     key: "taxPct" | "servicePct" | "discount" | "taxMode" | "serviceMode",
-    v: number | ChargeMode,
-  ) => updateDraft((d) => ({ ...d, charges: { ...d.charges, [key]: v } }));
+    value: number | ChargeMode,
+  ) => updateDraft((draft) => ({ ...draft, charges: { ...draft.charges, [key]: value } }));
 
   const banner =
     draft.source === "demo"
@@ -104,12 +104,12 @@ export default function Review() {
         {banner ? <div className="banner">{banner}</div> : null}
 
         <div className="col-gap stagger" style={{ marginTop: 14 }}>
-          {draft.items.map((it, i) => (
+          {draft.items.map((item, i) => (
             /* The slot carries the entry animation, the card the drag offset:
                an animation's held transform would otherwise override it. */
             <div
-              className={it._new ? "pop" : undefined}
-              key={it.id}
+              className={item._new ? "pop" : undefined}
+              key={item.id}
               style={{ ["--i" as string]: i }}
             >
               <div
@@ -119,21 +119,21 @@ export default function Review() {
               >
                 <button
                   className="item__grip"
-                  aria-label={t("review.reorder", { name: it.name || t("common.item") })}
+                  aria-label={t("review.reorder", { name: item.name || t("common.item") })}
                   {...reorder.handleProps(i)}
                 >
                   <Grip size={18} />
                 </button>
                 <input
                   className="item__name"
-                  value={it.name}
+                  value={item.name}
                   placeholder={t("review.itemName")}
-                  onChange={(e) => setItem(it.id, { name: e.target.value })}
+                  onChange={(e) => setItem(item.id, { name: e.target.value })}
                 />
                 <button
                   className="iconbtn ghost item__del"
                   aria-label="delete"
-                  onClick={() => delItem(it.id)}
+                  onClick={() => delItem(item.id)}
                 >
                   <Trash size={18} />
                 </button>
@@ -141,8 +141,8 @@ export default function Review() {
                   <label className="qtybox">
                     <span className="qtybox__x">×</span>
                     <QtyInput
-                      value={it.qty}
-                      onChange={(n) => setItem(it.id, { qty: n })}
+                      value={item.qty}
+                      onChange={(nextQty) => setItem(item.id, { qty: nextQty })}
                     />
                   </label>
                   <label className="pricebox">
@@ -150,13 +150,13 @@ export default function Review() {
                     <input
                       className="pricebox__in tnum"
                       inputMode="decimal"
-                      value={it.price || ""}
+                      value={item.price || ""}
                       placeholder="0"
                       onFocus={(e) => e.target.select()}
-                      onChange={(e) => setItem(it.id, { price: clampNum(e.target.value) })}
+                      onChange={(e) => setItem(item.id, { price: clampNum(e.target.value) })}
                     />
                   </label>
-                  <div className="item__line disp tnum">{fmtMoney(lineTotal(it), currency)}</div>
+                  <div className="item__line disp tnum">{fmtMoney(lineTotal(item), currency)}</div>
                 </div>
               </div>
             </div>
@@ -175,25 +175,25 @@ export default function Review() {
             label={t("review.tax")}
             sym={sym}
             mode={draft.charges.taxMode || "pct"}
-            onModeChange={(m) => setCharge("taxMode", m)}
+            onModeChange={(mode) => setCharge("taxMode", mode)}
             value={draft.charges.taxPct}
-            onChange={(v) => setCharge("taxPct", v)}
+            onChange={(value) => setCharge("taxPct", value)}
           />
           <hr className="hr" />
           <ChargeRow
             label={t("review.service")}
             sym={sym}
             mode={draft.charges.serviceMode || "pct"}
-            onModeChange={(m) => setCharge("serviceMode", m)}
+            onModeChange={(mode) => setCharge("serviceMode", mode)}
             value={draft.charges.servicePct}
-            onChange={(v) => setCharge("servicePct", v)}
+            onChange={(value) => setCharge("servicePct", value)}
           />
           <hr className="hr" />
           <ChargeRow
             label={t("review.discount")}
             prefix={sym}
             value={draft.charges.discount}
-            onChange={(v) => setCharge("discount", v)}
+            onChange={(value) => setCharge("discount", value)}
           />
         </div>
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { clampNum } from "@/lib/util";
-import type { ChargeMode } from "@/lib/types";
+import type { ChargeRowProps } from "@/entities/props/review";
 
 export default function ChargeRow({
   label,
@@ -12,17 +12,7 @@ export default function ChargeRow({
   mode,
   onModeChange,
   sym,
-}: {
-  label: string;
-  value: number;
-  onChange: (v: number) => void;
-  prefix?: string;
-  suffix?: string;
-
-  mode?: ChargeMode;
-  onModeChange?: (m: ChargeMode) => void;
-  sym?: string;
-}) {
+}: ChargeRowProps) {
   const isPct = mode === "pct";
   const showToggle = mode !== undefined && !!onModeChange;
 

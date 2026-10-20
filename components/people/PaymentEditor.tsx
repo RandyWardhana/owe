@@ -3,17 +3,15 @@
 import { useT } from "@/lib/i18n";
 import { PAY_METHODS, methodMeta } from "@/lib/payments";
 import { buzz, uid } from "@/lib/util";
-import type { Account, PayMethodKey, Person } from "@/lib/types";
+import type { PayMethodKey } from "@/entities/payment";
 
 import { Trash } from "@/components/icons";
+import type { PaymentEditorProps } from "@/entities/props/people";
 
 export default function PaymentEditor({
   person,
   onChange,
-}: {
-  person: Person;
-  onChange: (accounts: Account[]) => void;
-}) {
+}: PaymentEditorProps) {
   const t = useT();
   const accounts = person.accounts;
 
@@ -22,10 +20,10 @@ export default function PaymentEditor({
     onChange([...accounts, { id: uid(), key, value: "" }]);
   };
   const set = (id: string, value: string) =>
-    onChange(accounts.map((a) => (a.id === id ? { ...a, value } : a)));
+    onChange(accounts.map((account) => (account.id === id ? { ...account, value } : account)));
   const del = (id: string) => {
     buzz(6);
-    onChange(accounts.filter((a) => a.id !== id));
+    onChange(accounts.filter((account) => account.id !== id));
   };
 
   return (

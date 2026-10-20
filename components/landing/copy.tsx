@@ -2,17 +2,14 @@
 
 import { createContext, useContext } from "react";
 
-import type { Lang } from "@/lib/types";
+import type { Lang } from "@/entities/settings";
 
-import { COPY, type LandingCopy } from "./data";
+import { COPY } from "./data";
+import type { LandingCopy } from "@/entities/props/landing";
 
-/* The landing's language, decided once in Landing and read everywhere else.
-
-   It is "en" until the page has mounted, then the language saved in the app's
-   store. The store rehydrates from localStorage on the client's first render,
-   so reading it directly would make that render disagree with the server's
-   HTML; the app avoids this by rendering nothing until mounted, which a
-   marketing page cannot do without losing its server-rendered text. */
+/* "en" until mounted, then the store's saved language: the store rehydrates from
+   localStorage on the first client render, which would disagree with the server
+   HTML, and a marketing page cannot render nothing until mounted as the app does. */
 const LangContext = createContext<Lang>("en");
 
 export const LandingLangProvider = LangContext.Provider;
@@ -25,7 +22,6 @@ export function useCopy(): LandingCopy {
   return COPY[useContext(LangContext)];
 }
 
-/** "{n} items" -> "3 items". Same placeholder style as lib/i18n. */
 export function fill(text: string, vars: Record<string, string | number>): string {
   return text.replace(/\{(\w+)\}/g, (_, key) => (key in vars ? String(vars[key]) : `{${key}}`));
 }

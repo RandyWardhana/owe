@@ -3,14 +3,12 @@
 import { useCopyAnim } from "@/lib/hooks";
 
 import CopyTick from "./CopyTick";
+import type { CopyButtonProps } from "@/entities/props/ui";
 
 export default function CopyButton({
   text,
   label,
-}: {
-  text: string;
-  label: string;
-}) {
+}: CopyButtonProps) {
   const { phase, copy } = useCopyAnim();
 
   const onClick = (e: React.MouseEvent) => {

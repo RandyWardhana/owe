@@ -4,34 +4,13 @@ import { useRef, useState } from "react";
 
 import { useT } from "@/lib/i18n";
 import { initials, personColor, personInk } from "@/lib/util";
-import type { SharedBillPerson } from "@/lib/types";
 
 import { Check, Chevron, Trash } from "@/components/icons";
 import { PROOF_TYPES } from "@/lib/proofs";
 import AnimatedMoney from "@/components/ui/AnimatedMoney";
 import CopyButton from "@/components/ui/CopyButton";
 import PersonItems from "@/components/ui/PersonItems";
-
-interface Props {
-  person: SharedBillPerson;
-  index: number;
-  currency: string;
-  /* The total in the bill's own currency, when it is shown converted. */
-  original?: string;
-  isPayer: boolean;
-  isPaid: boolean;
-  payerName: string;
-  onToggle: () => void;
-  copyText: string;
-  /* Settlement. A guest attaches a receipt; only the creator turns a row green. */
-  isOwner?: boolean;
-  hasProof?: boolean;
-  uploading?: boolean;
-  onProof?: (file: File) => void;
-  onViewProof?: () => void;
-  onRemoveProof?: () => void;
-  proofSrc?: string;
-}
+import type { SharedPersonRowProps } from "@/entities/props/shared";
 
 export default function SharedPersonRow({
   person,
@@ -50,7 +29,7 @@ export default function SharedPersonRow({
   onViewProof,
   onRemoveProof,
   proofSrc,
-}: Props) {
+}: SharedPersonRowProps) {
   const t = useT();
   const [open, setOpen] = useState(false);
 
@@ -211,17 +190,6 @@ export default function SharedPersonRow({
                     ? t("shared.proofWaiting")
                     : t("shared.proofPrompt")}
               </span>
-              {/* {hasProof ? (
-                <button
-                  className="settle__icon"
-                  onClick={onRemoveProof}
-                  disabled={uploading}
-                  aria-label={t("shared.proofRemove")}
-                  title={t("shared.proofRemove")}
-                >
-                  <Trash size={16} />
-                </button>
-              ) : null} */}
               <button
                 className={`settle__btn ${hasProof ? "settle__btn--ghost" : "settle__btn--go"}`}
                 onClick={() => fileInput.current?.click()}
