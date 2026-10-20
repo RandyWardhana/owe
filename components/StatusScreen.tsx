@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 import { useT } from "@/lib/i18n";
 import { buzz } from "@/lib/util";
 
@@ -11,9 +13,9 @@ export default function StatusScreen({ icon, tone = "neutral", title, body, acti
   return (
     <div className="status">
       <div className="status__card">
-        <a className="status__brand disp" href="/">
+        <Link className="status__brand disp" href="/">
           {t("app.name")}
-        </a>
+        </Link>
         <div className={`status__mark status__mark--${tone}`} aria-hidden="true">
           {icon}
         </div>

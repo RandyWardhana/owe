@@ -77,7 +77,7 @@ export function Receipts({
   }, [slips, query]);
 
   const openSlip = open ? (slips.find((slip) => slip.id === open.slip) ?? null) : null;
-  const reel = openSlip ? openSlip.slots.filter((slot) => slot.file) : [];
+  const reel = useMemo(() => (openSlip ? openSlip.slots.filter((slot) => slot.file) : []), [openSlip]);
   const at = reel.findIndex((slot) => slot.file?.key === open?.key);
   const current = at >= 0 ? reel[at] : null;
 
