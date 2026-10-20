@@ -235,6 +235,12 @@ const en = {
     roundWhole: "Whole",
     roundUp5: "+5",
     sync: "Sync across devices",
+    syncName: "Your name",
+    syncNameHint:
+      "Optional. Labels your backup so owe support can find your bills if you ask for help. It's the only part of your backup we can read.",
+    syncNamePlaceholder: "e.g. Randy",
+    syncNameSaved: "Name saved",
+    syncNameCleared: "Name removed",
     syncCode: "Your sync code",
     syncCodeHint:
       "Copy this and paste it on another device or browser to see the same bills.",

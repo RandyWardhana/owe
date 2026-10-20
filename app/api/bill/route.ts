@@ -28,6 +28,7 @@ export async function POST(req: Request) {
       paid?: number[];
       owner_hash?: string;
       owner_token?: string;
+      sync_key?: string;
     };
     if (!body.id) return NextResponse.json({ ok: false }, { status: 400 });
 
@@ -37,6 +38,7 @@ export async function POST(req: Request) {
         ...(typeof body.data === "string" ? { data: body.data } : {}),
         ...(Array.isArray(body.paid) ? { paid: body.paid } : {}),
         ...(typeof body.owner_hash === "string" ? { owner_hash: body.owner_hash } : {}),
+        ...(typeof body.sync_key === "string" ? { sync_key: body.sync_key } : {}),
       },
       body.owner_token,
     );

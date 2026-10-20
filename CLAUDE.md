@@ -78,8 +78,9 @@ deliberately inline-styled English with no dependency on anything that might be 
   localStorage; only `sha256(token)` reaches the server as `owner_hash`. Only the holder may
   change `paid` or delete the bill. Claimed once, on the write that creates the row, and never
   re-claimable. Bills predating the column have `owner_hash IS NULL` and stay open — that is what
-  keeps old links working. Losing the device loses the bill permanently; `/admin` release exists
-  to reopen it.
+  keeps old links working. Losing the device loses ownership; `/admin` → "Give to someone" puts
+  the bill into a sync code with a fresh owner token and points `owner_hash` at it
+  (`/admin/owner` on the Worker).
 - **Claims** (`/claim`, `worker/src/index.ts`) are deliberately *not* owner-gated: the people who
   ordered a loose item say so from the link, and they are not the creating device. One person per
   request, not a whole set, so two phones claiming the same plate cannot clobber each other.

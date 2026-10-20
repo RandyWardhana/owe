@@ -13,11 +13,30 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
-    const { key, data } = (await req.json()) as { key?: string; data?: string };
+    const { key, data, bills, owned, name } = (await req.json()) as {
+      key?: string;
+      data?: string;
+      bills?: unknown;
+      owned?: unknown;
+      name?: unknown;
+    };
     if (!key || !data) {
       return NextResponse.json({ ok: false }, { status: 400 });
     }
-    return NextResponse.json(await writeUserBills(key, data));
+    const ids = Array.isArray(bills)
+      ? bills.filter((id): id is string => typeof id === "string").slice(0, 1000)
+      : undefined;
+    const tokens =
+      owned && typeof owned === "object" && !Array.isArray(owned)
+        ? Object.fromEntries(
+            Object.entries(owned as Record<string, unknown>).filter(
+              (pair): pair is [string, string] => typeof pair[1] === "string",
+            ),
+          )
+        : undefined;
+    return NextResponse.json(
+      await writeUserBills(key, data, ids, tokens, typeof name === "string" ? name : undefined),
+    );
   } catch {
     return NextResponse.json({ ok: false }, { status: 500 });
   }

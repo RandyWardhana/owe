@@ -31,6 +31,15 @@ npx wrangler secret put OWE_API_SECRET
 npx wrangler deploy
 ```
 
+An existing database needs each new file in `migrations/` run once, before deploying the Worker
+that uses it:
+
+```sh
+npx wrangler d1 execute owe --remote --file=./migrations/0003_backup_bill_ids.sql
+npx wrangler d1 execute owe --remote --file=./migrations/0004_bill_sync_key.sql
+npx wrangler d1 execute owe --remote --file=./migrations/0005_backup_name.sql
+```
+
 Then set `OWE_DB_URL`, `OWE_DB_SECRET` and `NEXT_PUBLIC_OWE_CLOUD=1` in the
 app's environment (locally in `.env.local`, and in the Vercel project settings).
 
@@ -55,8 +64,13 @@ token whose sha256 is stored as the bill's `owner_hash`.
 | GET    | `/admin/bills`          | —                                         | `{ bills[] }`              |
 | GET    | `/admin/backups`        | —                                         | `{ backups[] }`            |
 | GET    | `/admin/backup?key=…`   | —                                         | `{ backup }`               |
-| GET    | `/admin/objects?prefix=…`| —                                        | `{ objects[] }`            |
-| POST   | `/admin/release?id=…`   | —                                         | `{ ok, changed }`          |
+| GET    | `/admin/bill?id=…`      | —                                         | `{ bill, proofs[] }`       |
+| GET    | `/admin/objects?prefix=…`| —                                        | `{ objects[] }` with bill  |
+| GET    | `/admin/object?key=…`   | —                                         | the file                   |
+| POST   | `/admin/owner?id=…`     | `{ owner_hash, sync_key? }`               | `{ ok, changed }`          |
+| POST   | `/admin/backup-bills?key=…` | `{ bills[] }`                         | `{ ok, changed }`          |
+| DELETE | `/admin/bill?id=…`      | —                                         | `{ ok, proofs, files }`    |
+| DELETE | `/admin/backup?key=…`   | —                                         | `{ ok, changed }`          |
 | DELETE | `/admin/object?key=…`   | —                                         | `{ ok }`                   |
 
 `POST /bill` merges rather than replaces: sending only `paid` keeps `data`, and

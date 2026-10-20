@@ -58,7 +58,7 @@ export const writeClaim = (
   });
 
 export const writeBill = (
-  body: { id: string; data?: string; paid?: number[]; owner_hash?: string },
+  body: { id: string; data?: string; paid?: number[]; owner_hash?: string; sync_key?: string },
   ownerToken?: string,
 ): Promise<{ ok: boolean }> =>
   call("/bill", {
@@ -77,10 +77,19 @@ export const readUserBills = (key: string): Promise<{ data: string | null }> =>
 export const writeUserBills = (
   key: string,
   data: string,
+  bills?: string[],
+  owned?: Record<string, string>,
+  name?: string,
 ): Promise<{ ok: boolean }> =>
   call("/sync", {
     method: "POST",
-    body: JSON.stringify({ key, data }),
+    body: JSON.stringify({
+      key,
+      data,
+      ...(bills ? { bills } : {}),
+      ...(owned ? { owned } : {}),
+      ...(name !== undefined ? { name } : {}),
+    }),
     fallback: { ok: false },
   });
 
