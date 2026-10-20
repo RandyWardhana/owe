@@ -9,8 +9,8 @@ export const dynamic = "force-dynamic";
 export async function GET(req: Request) {
   if (!(await isAdmin())) return NextResponse.json({ error: "unauthorised" }, { status: 401 });
   const prefix = new URL(req.url).searchParams.get("prefix") ?? "";
-  const out = await listObjects(prefix);
-  return NextResponse.json({ objects: out?.objects ?? [] });
+  const objects = await listObjects(prefix);
+  return NextResponse.json({ objects: objects ?? [] });
 }
 
 export async function DELETE(req: Request) {

@@ -1,6 +1,7 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes, randomUUID } from "node:crypto";
 
 import { readBillPayload, type BillRow } from "./adminDb";
+import type { BackupSummary } from "./adminTypes";
 
 /* Rebuilding a lost history from the bills the server still holds.
    A shared bill is not a draft: it records each person's SHARE of each item,
@@ -21,6 +22,7 @@ export interface RestoreResult {
   key: string;
   data: string;
   titles: string[];
+  billIds: string[];
 }
 
 function toDraft(
@@ -100,6 +102,7 @@ interface UserPayload {
   owners: Record<string, string>;
   tombstones: Record<string, number>;
   contacts?: unknown[];
+  name?: string;
 }
 
 /* The admin can only read a device backup when the sync code is typed in --
@@ -127,6 +130,7 @@ export function buildRestore(
   rows: BillRow[],
   code: string,
   existing?: UserPayload | null,
+  owners: Record<string, string> = {},
 ): RestoreResult | null {
   const rebuilt: ReturnType<typeof toDraft>[] = [];
   const titles: string[] = [];
@@ -165,9 +169,10 @@ export function buildRestore(
 
   const payload: UserPayload = {
     history: merged,
-    owners: existing?.owners ?? {},
+    owners: { ...(existing?.owners ?? {}), ...owners },
     tombstones: existing?.tombstones ?? {},
     ...(existing?.contacts ? { contacts: existing.contacts } : {}),
+    ...(existing?.name ? { name: existing.name } : {}),
   };
 
   const iv = randomBytes(12);
@@ -181,7 +186,36 @@ export function buildRestore(
     key: backupKey(code),
     data: Buffer.concat([iv, body, c.getAuthTag()]).toString("base64"),
     titles,
+    billIds: [...new Set(merged.map((d) => d.shareId).filter((id): id is string => Boolean(id)))],
   };
 }
 
 export const newSyncCode = (): string => randomUUID();
+
+export const newOwnerToken = (): string => randomUUID();
+
+export const ownerHashOf = (token: string): string =>
+  createHash("sha256").update(token).digest("hex");
+
+export function summarizeUserPayload(payload: UserPayload): BackupSummary {
+  const owners = payload.owners ?? {};
+  return {
+    name: typeof payload.name === "string" && payload.name.trim() ? payload.name.trim() : null,
+    bills: payload.history.map((draft) => {
+      const d = draft as Partial<ReturnType<typeof toDraft>> & { id: string };
+      const shareId = d.shareId || null;
+      return {
+        id: d.id,
+        shareId,
+        title: d.title || "(untitled)",
+        currency: d.currency || "",
+        total: d.summary?.grandTotal ?? 0,
+        people: Array.isArray(d.people) ? d.people.length : 0,
+        updatedAt: d.updatedAt || d.createdAt || 0,
+        owner: Boolean(shareId && owners[shareId]),
+      };
+    }),
+    contacts: Array.isArray(payload.contacts) ? payload.contacts.length : 0,
+    deleted: Object.keys(payload.tombstones ?? {}).length,
+  };
+}
