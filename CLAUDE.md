@@ -47,6 +47,11 @@ screen from `store.view` (`home → scan → review → people → assign → br
 `SharedView` instead of the wizard, or `SharedMissing` when the link resolved to nothing.
 `/landing` and `/admin` are the only real separate pages.
 
+`/~offline` renders `App` too and is the offline shell: `next.config.mjs` precaches it and
+`app/sw.ts` serves it for any document that fails to load, so a cold start works offline. Pages
+stay network-first online; precaching `/` itself would serve it cache-first, so a launch after a
+deploy would run the old build against chunks the new worker has already dropped.
+
 From 1080px wide, `App` lays the same screens out as a desktop workspace (`app/styles/desk.css`):
 `components/desk/Sidebar` on the left, the current screen in `.ws-main`, and
 `components/desk/LiveReceipt` on the right, which prints the draft through `lib/receipt.ts`.
