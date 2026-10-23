@@ -19,6 +19,15 @@ const serwist = new Serwist({
     },
     ...defaultCache,
   ],
+  // App reads the URL itself, so the precached shell can stand in for /, /s and /s/<id>.
+  fallbacks: {
+    entries: [
+      {
+        url: "/~offline",
+        matcher: ({ request }) => request.destination === "document",
+      },
+    ],
+  },
 });
 
 serwist.addEventListeners();
